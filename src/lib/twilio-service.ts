@@ -3,6 +3,7 @@
 import type { Agent, Chat, Customer, Message } from '@/types';
 import { twilioClient } from './twilio-config';
 import { PlaceHolderImages } from './placeholder-images';
+import { availableAgents } from './mock-data';
 
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
@@ -24,7 +25,7 @@ async function getUserDetails(identity: string, isAgent: boolean): Promise<Agent
 }
 
 
-export async function getTwilioConversations(agentIdentity: string): Promise<Chat[]> {
+export async function getTwilioConversations(loggedInAgentId: string): Promise<Chat[]> {
   try {
     const conversations = await twilioClient.conversations.v1.conversations.list({ limit: 50 });
     const chats: Chat[] = [];
@@ -32,23 +33,42 @@ export async function getTwilioConversations(agentIdentity: string): Promise<Cha
     for (const convo of conversations) {
       const participants = await twilioClient.conversations.v1.conversations(convo.sid).participants.list();
       
-      const agentParticipant = participants.find(p => p.identity === agentIdentity);
-      // Find the first participant who is not the logged-in agent
-      const customerParticipant = participants.find(p => p.identity !== agentIdentity);
+      const agentParticipant = participants.find(p => p.identity?.startsWith('agent-'));
+      const customerParticipant = participants.find(p => !p.identity?.startsWith('agent-'));
 
-      if (!agentParticipant || !customerParticipant) {
-        // Skip conversations that don't have both an agent and a customer
+      if (!customerParticipant) {
         continue;
       }
       
-      const agent = await getUserDetails(agentParticipant.identity!, true) as Agent;
       const customer = await getUserDetails(customerParticipant.identity!, false) as Customer;
+      
+      let agent: Agent;
+      if (agentParticipant) {
+        agent = await getUserDetails(agentParticipant.identity!, true) as Agent;
+      } else {
+        // If no agent is assigned, assign it to the logged-in agent for now.
+        // In a real app, you'd have a pool of available agents to choose from.
+        const defaultAgent = availableAgents.find(a => a.id === loggedInAgentId) || availableAgents[0];
+        try {
+          await twilioClient.conversations.v1.conversations(convo.sid).participants.create({ identity: defaultAgent.id });
+          agent = defaultAgent;
+        } catch (e: any) {
+            // It's possible the agent is already being added, so we can ignore the error
+            if (e.code === 50433) { // Participant already exists
+                agent = defaultAgent;
+            } else {
+                console.error(`Failed to add agent to conversation ${convo.sid}:`, e);
+                // Fallback to a default agent for UI purposes if adding fails
+                agent = defaultAgent; 
+            }
+        }
+      }
 
       const twilioMessages = await twilioClient.conversations.v1.conversations(convo.sid).messages.list({ limit: 100 });
       const messages: Message[] = await Promise.all(
         twilioMessages.map(async (msg) => {
           const senderIdentity = msg.author;
-          const senderType = senderIdentity === agent.id ? 'agent' : 'customer';
+          const senderType = senderIdentity.startsWith('agent-') ? 'agent' : 'customer';
           return {
             id: msg.sid,
             text: msg.body ?? '',
@@ -71,7 +91,11 @@ export async function getTwilioConversations(agentIdentity: string): Promise<Cha
       });
     }
 
-    return chats;
+    return chats.sort((a,b) => {
+      const aDate = new Date(a.messages[a.messages.length - 1]?.timestamp || 0);
+      const bDate = new Date(b.messages[b.messages.length - 1]?.timestamp || 0);
+      return bDate.getTime() - aDate.getTime();
+    });
   } catch (error) {
     console.error("Error fetching Twilio conversations:", error);
     return [];
