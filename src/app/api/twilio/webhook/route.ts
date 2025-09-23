@@ -1,7 +1,8 @@
 // src/app/api/twilio/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { twilioClient } from '@/lib/twilio-config';
 import { validateRequest } from 'twilio';
+import { getTwilioClient } from '@/lib/twilio-service';
+
 
 // This is your new webhook endpoint
 export async function POST(req: NextRequest) {

@@ -5,7 +5,7 @@ import type { Agent, Chat, Message } from '@/types';
 import { ChatList } from './chat-list';
 import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
-import { sendTwilioMessage } from '@/lib/twilio-service';
+import { sendTwilioMessage, reassignTwilioConversation } from '@/lib/twilio-service';
 
 interface ChatLayoutProps {
   chats: Chat[];
@@ -54,30 +54,38 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
     }
   };
 
-  const handleReassignAgent = (chatId: string, newAgentId: string) => {
+  const handleReassignAgent = async (chatId: string, newAgentId: string) => {
     const newAgent = agents.find((agent) => agent.id === newAgentId);
     if (!newAgent) return;
 
-    // In a real app, you would call a backend service to reassign the agent in Twilio.
-    // For now, we just update the UI.
-    const updatedChats = chats.map((chat) => {
-      if (chat.id === chatId) {
-        toast({
-          title: "Chat Reassigned",
-          description: `Conversation with ${chat.customer.name} has been reassigned to ${newAgent.name}.`,
-        });
-        return {
-          ...chat,
-          agent: newAgent,
-        };
+    try {
+      await reassignTwilioConversation(chatId, newAgentId);
+      
+      const updatedChats = chats.map((chat) => {
+        if (chat.id === chatId) {
+          toast({
+            title: "Chat Reassigned",
+            description: `Conversation with ${chat.customer.name} has been reassigned to ${newAgent.name}.`,
+          });
+          return {
+            ...chat,
+            agent: newAgent,
+          };
+        }
+        return chat;
+      });
+  
+      setChats(updatedChats);
+      const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
+       if(updatedSelectedChat) {
+          setSelectedChat(updatedSelectedChat);
       }
-      return chat;
-    });
-
-    setChats(updatedChats);
-    const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
-     if(updatedSelectedChat) {
-        setSelectedChat(updatedSelectedChat);
+    } catch (error) {
+      toast({
+        title: "Error Reassigning Agent",
+        description: "Failed to reassign agent in Twilio. Please check your connection and try again.",
+        variant: "destructive",
+      });
     }
   };
 

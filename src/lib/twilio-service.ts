@@ -1,12 +1,27 @@
 'use server';
 
 import type { Agent, Chat, Customer, Message } from '@/types';
-import { twilioClient } from './twilio-config';
+import twilio from 'twilio';
 import { PlaceHolderImages } from './placeholder-images';
 import { availableAgents } from './mock-data';
 
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
+
+export function getTwilioClient() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (!accountSid || !authToken) {
+    throw new Error('Twilio credentials are not configured in environment variables. Please check your .env file.');
+  }
+  if (!accountSid.startsWith('AC')) {
+    throw new Error('Invalid TWILIO_ACCOUNT_SID. It must start with "AC". Please check your .env file.');
+  }
+
+  return twilio(accountSid, authToken);
+}
+
 
 async function getUserDetails(identity: string, isAgent: boolean): Promise<Agent | Customer> {
   if (userCache.has(identity)) {
@@ -27,6 +42,7 @@ async function getUserDetails(identity: string, isAgent: boolean): Promise<Agent
 
 export async function getTwilioConversations(loggedInAgentId: string): Promise<Chat[]> {
   try {
+    const twilioClient = getTwilioClient();
     const conversations = await twilioClient.conversations.v1.conversations.list({ limit: 50 });
     const chats: Chat[] = [];
 
@@ -82,13 +98,15 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
       // Sort messages by timestamp ascending
       messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      chats.push({
-        id: convo.sid,
-        customer,
-        agent,
-        messages,
-        unreadCount: 0, // Twilio unread count is per-user, simplifying for now
-      });
+      if (messages.length > 0) {
+        chats.push({
+          id: convo.sid,
+          customer,
+          agent,
+          messages,
+          unreadCount: 0, // Twilio unread count is per-user, simplifying for now
+        });
+      }
     }
 
     return chats.sort((a,b) => {
@@ -98,12 +116,17 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
     });
   } catch (error) {
     console.error("Error fetching Twilio conversations:", error);
-    return [];
+    // Re-throwing the error to make it visible in the UI during development
+    if (error instanceof Error) {
+        throw new Error(`Twilio Service Error: ${error.message}`);
+    }
+    throw new Error("An unknown error occurred while fetching Twilio conversations.");
   }
 }
 
 export async function sendTwilioMessage(conversationSid: string, author: string, text: string) {
     try {
+        const twilioClient = getTwilioClient();
         const message = await twilioClient.conversations.v1.conversations(conversationSid).messages.create({
             author,
             body: text,
@@ -113,4 +136,24 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         console.error("Error sending Twilio message:", error);
         throw new Error("Failed to send message.");
     }
+}
+
+export async function reassignTwilioConversation(conversationSid: string, newAgentId: string) {
+  try {
+    const twilioClient = getTwilioClient();
+    const participants = await twilioClient.conversations.v1.conversations(conversationSid).participants.list();
+    
+    // Find and remove the current agent
+    const currentAgent = participants.find(p => p.identity?.startsWith('agent-'));
+    if (currentAgent) {
+      await twilioClient.conversations.v1.conversations(conversationSid).participants(currentAgent.sid).remove();
+    }
+    
+    // Add the new agent
+    await twilioClient.conversations.v1.conversations(conversationSid).participants.create({ identity: newAgentId });
+
+  } catch (error) {
+    console.error(`Error reassigning conversation ${conversationSid} to ${newAgentId}:`, error);
+    throw new Error("Failed to reassign agent in Twilio.");
+  }
 }
