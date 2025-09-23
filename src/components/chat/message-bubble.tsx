@@ -1,3 +1,5 @@
+'use client';
+import { useState, useEffect } from 'react';
 import type { Message } from '@/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -11,6 +13,12 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleProps) {
   const isAgent = message.sender === 'agent';
+  const [formattedTimestamp, setFormattedTimestamp] = useState('');
+
+  useEffect(() => {
+    // Format timestamp on the client to avoid hydration mismatch
+    setFormattedTimestamp(format(new Date(message.timestamp), 'p'));
+  }, [message.timestamp]);
 
   return (
     <div className={cn("flex items-end gap-2", isAgent ? "justify-end" : "justify-start")}>
@@ -31,7 +39,7 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
       >
         <p className="text-sm break-words">{message.text}</p>
         <span className="text-xs text-right block mt-1 opacity-60">
-          {format(new Date(message.timestamp), 'p')}
+          {formattedTimestamp}
         </span>
       </div>
       {isAgent && !showAvatar && (
