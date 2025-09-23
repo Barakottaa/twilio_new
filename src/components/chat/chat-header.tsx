@@ -20,17 +20,18 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
   const [isReassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const customerName = chat.customer?.name || "Anonymous";
 
   return (
     <>
       <div className="flex items-center justify-between p-3 border-b bg-card">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={chat.customer.avatar} alt={chat.customer.name} data-ai-hint="person face"/>
-            <AvatarFallback>{chat.customer.name.substring(0, 2)}</AvatarFallback>
+            <AvatarImage src={chat.customer?.avatar} alt={customerName} data-ai-hint="person face"/>
+            <AvatarFallback>{customerName.substring(0, 2)}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold">{chat.customer.name}</p>
+            <p className="font-semibold">{customerName}</p>
             <p className="text-xs text-muted-foreground">Assigned to: {chat.agent.name}</p>
           </div>
         </div>

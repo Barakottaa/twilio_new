@@ -12,6 +12,7 @@ interface ChatListItemProps {
 
 export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
   const lastMessage = chat.messages[chat.messages.length - 1];
+  const customerName = chat.customer?.name || "Anonymous";
 
   return (
     <button
@@ -22,11 +23,11 @@ export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
       )}
     >
       <Avatar className="h-10 w-10">
-        <AvatarImage src={chat.customer.avatar} alt={chat.customer.name} data-ai-hint="person portrait" />
-        <AvatarFallback>{chat.customer.name.substring(0, 2)}</AvatarFallback>
+        <AvatarImage src={chat.customer?.avatar} alt={customerName} data-ai-hint="person portrait" />
+        <AvatarFallback>{customerName.substring(0, 2)}</AvatarFallback>
       </Avatar>
       <div className="flex-1 truncate">
-        <p className="font-semibold">{chat.customer.name}</p>
+        <p className="font-semibold">{customerName}</p>
         <p className="text-muted-foreground truncate text-sm">
           {lastMessage.text}
         </p>
