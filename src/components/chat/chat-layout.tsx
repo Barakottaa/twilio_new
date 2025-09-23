@@ -5,6 +5,7 @@ import type { Agent, Chat, Message } from '@/types';
 import { ChatList } from './chat-list';
 import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
+import { sendTwilioMessage } from '@/lib/twilio-service';
 
 interface ChatLayoutProps {
   chats: Chat[];
@@ -17,29 +18,39 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   const [selectedChat, setSelectedChat] = useState<Chat | null>(chats.length > 0 ? chats[0] : null);
   const { toast } = useToast();
 
-  const handleSendMessage = (chatId: string, text: string) => {
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      text,
-      timestamp: new Date().toISOString(),
-      sender: 'agent',
-      senderId: loggedInAgent.id,
-    };
-
-    const updatedChats = chats.map((chat) => {
-      if (chat.id === chatId) {
-        return {
-          ...chat,
-          messages: [...chat.messages, newMessage],
-        };
+  const handleSendMessage = async (chatId: string, text: string) => {
+    try {
+      await sendTwilioMessage(chatId, loggedInAgent.id, text);
+      
+      const newMessage: Message = {
+        id: `msg-${Date.now()}`,
+        text,
+        timestamp: new Date().toISOString(),
+        sender: 'agent',
+        senderId: loggedInAgent.id,
+      };
+  
+      const updatedChats = chats.map((chat) => {
+        if (chat.id === chatId) {
+          return {
+            ...chat,
+            messages: [...chat.messages, newMessage],
+          };
+        }
+        return chat;
+      });
+  
+      setChats(updatedChats);
+      const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
+      if(updatedSelectedChat) {
+          setSelectedChat(updatedSelectedChat);
       }
-      return chat;
-    });
-
-    setChats(updatedChats);
-    const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
-    if(updatedSelectedChat) {
-        setSelectedChat(updatedSelectedChat);
+    } catch (error) {
+       toast({
+        title: "Error Sending Message",
+        description: "Failed to send message via Twilio. Please check your credentials and network.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -47,6 +58,8 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
     const newAgent = agents.find((agent) => agent.id === newAgentId);
     if (!newAgent) return;
 
+    // In a real app, you would call a backend service to reassign the agent in Twilio.
+    // For now, we just update the UI.
     const updatedChats = chats.map((chat) => {
       if (chat.id === chatId) {
         toast({

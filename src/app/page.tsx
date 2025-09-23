@@ -1,13 +1,18 @@
 import { ChatLayout } from "@/components/chat/chat-layout";
-import { chats as mockChats, availableAgents as mockAgents } from "@/lib/mock-data";
+import { availableAgents as mockAgents } from "@/lib/mock-data";
+import { getTwilioConversations } from "@/lib/twilio-service";
+import type { Agent } from "@/types";
 
-export default function Home() {
-  const loggedInAgent = mockAgents[0];
+export default async function Home() {
+  // We'll keep mockAgents for the agent list, but fetch conversations from Twilio.
+  const loggedInAgent: Agent = mockAgents[0];
+
+  const chats = await getTwilioConversations(loggedInAgent.id);
 
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center p-4">
       <ChatLayout
-        chats={mockChats}
+        chats={chats}
         agents={mockAgents}
         loggedInAgent={loggedInAgent}
       />

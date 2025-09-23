@@ -54,6 +54,9 @@ export function ReassignAgentDialog({ open, onOpenChange, chat, agents, onReassi
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
+    defaultValues: {
+      agentId: chat.agent.id,
+    }
   });
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export function ReassignAgentDialog({ open, onOpenChange, chat, agents, onReassi
       setIsLoading(true);
       setError(null);
       setSuggestion(null);
-      form.reset();
+      form.reset({ agentId: chat.agent.id });
 
       const chatHistory = chat.messages
         .map(msg => `${msg.sender === 'agent' ? chat.agent.name : chat.customer.name}: ${msg.text}`)
@@ -93,16 +96,15 @@ export function ReassignAgentDialog({ open, onOpenChange, chat, agents, onReassi
         <DialogHeader>
           <DialogTitle>Reassign Agent</DialogTitle>
           <DialogDescription>
-            Assign this conversation to a different agent.
+            Assign this conversation to a different agent. Current agent: {chat.agent.name}
           </DialogDescription>
         </DialogHeader>
         
         {isLoading && (
           <div className="space-y-4 my-4">
-            <Skeleton className="h-4 w-1/3" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-4 w-1/4" />
+            <p className="text-sm text-muted-foreground">Getting AI suggestion...</p>
             <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-8 w-full" />
           </div>
         )}
 
@@ -111,15 +113,14 @@ export function ReassignAgentDialog({ open, onOpenChange, chat, agents, onReassi
                 <Lightbulb className="h-4 w-4" />
                 <AlertTitle>AI Suggestion</AlertTitle>
                 <AlertDescription>
-                    <p><strong>Agent:</strong> {suggestion.suggestedAgent}</p>
-                    <p><strong>Reason:</strong> {suggestion.reason}</p>
+                    <p>Reassign to <strong>{suggestion.suggestedAgent}</strong>. {suggestion.reason}</p>
                 </AlertDescription>
             </Alert>
         )}
 
         {!isLoading && error && (
             <Alert variant="destructive" className="my-4">
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Suggestion Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
             </Alert>
         )}
@@ -132,7 +133,7 @@ export function ReassignAgentDialog({ open, onOpenChange, chat, agents, onReassi
                 name="agentId"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Agent</FormLabel>
+                    <FormLabel>Available Agents</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                         <FormControl>
                         <SelectTrigger>
