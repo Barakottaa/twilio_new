@@ -8,7 +8,7 @@ import { availableAgents } from './mock-data';
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
 
-export function getTwilioClient() {
+function getTwilioClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
 
@@ -21,7 +21,6 @@ export function getTwilioClient() {
 
   return twilio(accountSid, authToken);
 }
-
 
 async function getUserDetails(identity: string, isAgent: boolean): Promise<Agent | Customer> {
   if (userCache.has(identity)) {

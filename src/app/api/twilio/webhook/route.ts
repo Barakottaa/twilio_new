@@ -1,7 +1,17 @@
 // src/app/api/twilio/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { validateRequest } from 'twilio';
-import { getTwilioClient } from '@/lib/twilio-service';
+import twilio from 'twilio';
+
+function getTwilioClient() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (!accountSid || !authToken) {
+    throw new Error('Twilio credentials are not configured in environment variables.');
+  }
+  return twilio(accountSid, authToken);
+}
 
 
 // This is your new webhook endpoint
