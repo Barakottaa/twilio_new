@@ -1,18 +1,6 @@
 // src/app/api/twilio/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { validateRequest } from 'twilio';
-import twilio from 'twilio';
-
-function getTwilioClient() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-  if (!accountSid || !authToken) {
-    throw new Error('Twilio credentials are not configured in environment variables.');
-  }
-  return twilio(accountSid, authToken);
-}
-
 
 // This is your new webhook endpoint
 export async function POST(req: NextRequest) {
@@ -25,7 +13,11 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const signature = req.headers.get('X-Twilio-Signature') || '';
-    const url = req.url;
+    
+    // Twilio validation requires the URL without query parameters.
+    const url = new URL(req.url);
+    url.search = '';
+    const webhookUrl = url.href;
     
     // Convert FormData to a plain object for validation
     const params: { [key: string]: string } = {};
@@ -38,7 +30,7 @@ export async function POST(req: NextRequest) {
     const isValid = validateRequest(
       process.env.TWILIO_AUTH_TOKEN!,
       signature,
-      url,
+      webhookUrl,
       params
     );
 
@@ -58,7 +50,6 @@ export async function POST(req: NextRequest) {
        console.log('New conversation started:', params.ConversationSid);
     }
     
-
     return NextResponse.json({ message: 'Webhook received' }, { status: 200 });
   } catch (error) {
     console.error('Error handling Twilio webhook:', error);
