@@ -139,7 +139,15 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         });
         
         console.log("Message sent successfully:", message.sid);
-        return message;
+        
+        // Return only plain object properties
+        return {
+            sid: message.sid,
+            author: message.author,
+            body: message.body,
+            dateCreated: message.dateCreated ? new Date(message.dateCreated).toISOString() : null,
+            index: message.index,
+        };
     } catch (error: any) {
         console.error("Detailed error sending Twilio message:", {
             error: error.message,
