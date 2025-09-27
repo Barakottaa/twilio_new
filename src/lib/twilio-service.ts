@@ -4,7 +4,7 @@ import type { Agent, Chat, Customer, Message } from '@/types';
 import twilio from 'twilio';
 import { PlaceHolderImages } from './placeholder-images';
 import { availableAgents } from './mock-data';
-import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen } from './contact-mapping';
+import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllContacts } from './contact-mapping';
 
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
@@ -79,6 +79,7 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
         
         // Try to get contact info from our mapping
         console.log('🔍 Looking up contact for phone:', phoneNumber);
+        console.log('📋 All available contacts:', getAllContacts());
         const contactInfo = getContact(phoneNumber);
         console.log('📞 Contact info found:', contactInfo);
         

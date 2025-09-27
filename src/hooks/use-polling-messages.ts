@@ -31,24 +31,40 @@ export function usePollingMessages({
       try {
         const freshChats = await getTwilioConversations(loggedInAgentId);
         
-        // Check if there are new messages
-        const totalMessages = freshChats.reduce((sum, chat) => sum + chat.messages.length, 0);
+        // Check if there are new messages by comparing message IDs
+        let hasNewMessages = false;
+        for (const freshChat of freshChats) {
+          const currentChat = chats.find(chat => chat.id === freshChat.id);
+          if (currentChat) {
+            const currentMessageIds = new Set(currentChat.messages.map(msg => msg.id));
+            const freshMessageIds = new Set(freshChat.messages.map(msg => msg.id));
+            
+            // Check if there are new message IDs
+            for (const messageId of freshMessageIds) {
+              if (!currentMessageIds.has(messageId)) {
+                hasNewMessages = true;
+                console.log('📨 New message detected:', messageId);
+                break;
+              }
+            }
+          } else {
+            // New chat
+            hasNewMessages = true;
+            console.log('💬 New chat detected:', freshChat.id);
+          }
+        }
         
-        if (totalMessages > lastMessageCountRef.current) {
+        if (hasNewMessages) {
           console.log('📨 New messages detected via polling!');
           setChats(freshChats);
           
           // Update selected chat if it exists
-          const currentSelectedChat = chats.find(chat => chat.id === setSelectedChat);
-          if (currentSelectedChat) {
-            const updatedSelectedChat = freshChats.find(chat => chat.id === currentSelectedChat.id);
-            if (updatedSelectedChat) {
-              setSelectedChat(updatedSelectedChat);
-            }
+          const updatedSelectedChat = freshChats.find(chat => chat.id === selectedChat?.id);
+          if (updatedSelectedChat) {
+            console.log('🔄 Updating selected chat with new messages');
+            setSelectedChat(updatedSelectedChat);
           }
         }
-        
-        lastMessageCountRef.current = totalMessages;
       } catch (error) {
         console.error('❌ Error polling for messages:', error);
       }
