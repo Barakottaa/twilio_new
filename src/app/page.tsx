@@ -1,21 +1,17 @@
 import { ChatLayout } from "@/components/chat/chat-layout";
 import { availableAgents as mockAgents } from "@/lib/mock-data";
 import { getTwilioConversations } from "@/lib/twilio-service";
+import { assertSerializable } from "@/lib/assertSerializable";
+import { toPlain } from "@/lib/toPlain";
 import type { Agent } from "@/types";
-
-// Simple debug helper
-function typeInfo(x: any) {
-  if (x == null) return String(x);
-  return { type: typeof x, ctor: x?.constructor?.name };
-}
 
 export default async function Home() {
   // Ensure agents are serializable
-  const serializedAgents = JSON.parse(JSON.stringify(mockAgents.map(agent => ({
+  const serializedAgents = toPlain(mockAgents.map(agent => ({
     id: String(agent.id),
     name: String(agent.name),
     avatar: String(agent.avatar),
-  }))));
+  })));
   
   const loggedInAgent: Agent = serializedAgents[0];
   let chats = [];
@@ -25,8 +21,8 @@ export default async function Home() {
     console.log("Attempting to fetch Twilio conversations...");
     chats = await getTwilioConversations(loggedInAgent.id);
     console.log("Successfully fetched chats:", chats.length);
-    // Double-check serialization
-    chats = JSON.parse(JSON.stringify(chats));
+    // Ensure all data is plain objects
+    chats = toPlain(chats);
   } catch (e: any) {
     console.error("Twilio fetch failed:", e);
     // Fallback to empty chats array instead of showing error
@@ -34,12 +30,23 @@ export default async function Home() {
     console.log("Using empty chats array as fallback");
   }
 
-  // Simple debug: Check what we're passing to the client component
-  console.log('Props being passed to ChatLayout:', {
-    chats: typeInfo(chats),
-    agents: typeInfo(serializedAgents),
-    loggedInAgent: typeInfo(loggedInAgent)
-  });
+  // Prepare props for client component
+  const props = {
+    chats,
+    agents: serializedAgents,
+    loggedInAgent
+  };
+
+  // Development-only serialization guard
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      assertSerializable(props, 'ChatLayout.props');
+      console.log('✅ All props are serializable');
+    } catch (error) {
+      console.error('❌ Serialization error:', error);
+      throw error;
+    }
+  }
 
   return (
     <main className="flex h-screen w-full flex-col items-center justify-center p-4">

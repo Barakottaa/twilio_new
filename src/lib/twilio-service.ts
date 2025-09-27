@@ -111,30 +111,8 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
       }
     }
 
-    // Ensure all data is serializable before returning
-    const serializedChats = chats.map(chat => ({
-      id: String(chat.id),
-      customer: {
-        id: chat.customer.id ? String(chat.customer.id) : null,
-        name: String(chat.customer.name || 'Anonymous'),
-        avatar: String(chat.customer.avatar || ''),
-      },
-      agent: {
-        id: String(chat.agent.id),
-        name: String(chat.agent.name),
-        avatar: String(chat.agent.avatar),
-      },
-      messages: chat.messages.map(message => ({
-        id: String(message.id),
-        text: String(message.text),
-        timestamp: String(message.timestamp),
-        sender: String(message.sender),
-        senderId: String(message.senderId),
-      })),
-      unreadCount: Number(chat.unreadCount),
-    }));
-
-    return serializedChats.sort((a,b) => {
+    // Return only plain objects - no complex serialization needed
+    return chats.sort((a,b) => {
       const aTimestamp = a.messages[a.messages.length - 1]?.timestamp || '0';
       const bTimestamp = b.messages[b.messages.length - 1]?.timestamp || '0';
       return bTimestamp.localeCompare(aTimestamp);
