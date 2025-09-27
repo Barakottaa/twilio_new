@@ -45,14 +45,19 @@ export function formatPhoneNumber(phoneNumber: string): string {
   // Remove whatsapp: prefix if present
   const cleanNumber = phoneNumber.replace(/^whatsapp:/, '');
   
-  // Format: +20 10 1666 6348
+  // Format: +20 10 1666 6348 (12 digits)
   if (cleanNumber.match(/^\+\d{12}$/)) {
     return cleanNumber.replace(/(\+\d{2})(\d{2})(\d{4})(\d{4})/, '$1 $2 $3 $4');
   }
   
-  // Format: +20 10 1666 6348
+  // Format: +1 234 567 8901 (11 digits)
   if (cleanNumber.match(/^\+\d{11}$/)) {
-    return cleanNumber.replace(/(\+\d{2})(\d{2})(\d{4})(\d{4})/, '$1 $2 $3 $4');
+    return cleanNumber.replace(/(\+\d{1})(\d{3})(\d{3})(\d{4})/, '$1 $2 $3 $4');
+  }
+  
+  // Format: +123 456 7890 (10 digits)
+  if (cleanNumber.match(/^\+\d{10}$/)) {
+    return cleanNumber.replace(/(\+\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
   }
   
   return cleanNumber;

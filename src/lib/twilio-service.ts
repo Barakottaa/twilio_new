@@ -77,14 +77,20 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
         customer.phoneNumber = phoneNumber;
         
         // Try to get contact info from our mapping
+        console.log('🔍 Looking up contact for phone:', phoneNumber);
         const contactInfo = getContact(phoneNumber);
+        console.log('📞 Contact info found:', contactInfo);
+        
         if (contactInfo) {
           customer.name = contactInfo.name;
           customer.avatar = contactInfo.avatar || customer.avatar;
           customer.lastSeen = contactInfo.lastSeen;
+          console.log('✅ Using mapped contact name:', contactInfo.name);
         } else {
           // Fallback to formatted phone number
-          customer.name = formatPhoneNumber(phoneNumber);
+          const formattedPhone = formatPhoneNumber(phoneNumber);
+          customer.name = formattedPhone;
+          console.log('📱 Using formatted phone as name:', formattedPhone);
         }
         
         // Update last seen
