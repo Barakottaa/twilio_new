@@ -8,6 +8,7 @@ interface UsePollingMessagesProps {
   chats: Chat[];
   setChats: (chats: Chat[]) => void;
   setSelectedChat: (chat: Chat | null) => void;
+  selectedChat: Chat | null;
   loggedInAgentId: string;
   enabled?: boolean;
 }
@@ -16,6 +17,7 @@ export function usePollingMessages({
   chats, 
   setChats, 
   setSelectedChat, 
+  selectedChat,
   loggedInAgentId,
   enabled = false 
 }: UsePollingMessagesProps) {
@@ -80,7 +82,7 @@ export function usePollingMessages({
         clearInterval(intervalRef.current);
       }
     };
-  }, [enabled, loggedInAgentId, chats, setChats, setSelectedChat]);
+  }, [enabled, loggedInAgentId, chats, selectedChat, setChats, setSelectedChat]);
 
   return {
     startPolling: () => {

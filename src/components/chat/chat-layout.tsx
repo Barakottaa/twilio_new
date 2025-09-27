@@ -57,6 +57,7 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
     chats, 
     setChats, 
     setSelectedChat, 
+    selectedChat,
     loggedInAgentId: loggedInAgent.id,
     enabled: true // Enabled since SSE is having tunnel issues
   });
