@@ -4,7 +4,9 @@ import type { Agent, Chat } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Users, Phone, Mail, Clock } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { ReassignAgentDialog } from './reassign-agent-dialog';
+import { ContactDialog } from './contact-dialog';
 import { ConnectionStatus } from '@/components/connection-status';
 import {
   DropdownMenu,
@@ -21,7 +23,22 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
   const [isReassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [isContactDialogOpen, setContactDialogOpen] = useState(false);
   const customerName = chat.customer?.name || "Anonymous";
+
+  const handleViewContact = () => {
+    setContactDialogOpen(true);
+  };
+
+  const handleClearChat = () => {
+    // TODO: Implement clear chat functionality
+    console.log('Clear chat for:', chat.id);
+  };
+
+  const handleBlockContact = () => {
+    // TODO: Implement block contact functionality
+    console.log('Block contact:', chat.customer.id);
+  };
 
   return (
     <>
@@ -54,7 +71,7 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
               {chat.customer.lastSeen && (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  <span className="text-xs">Last seen: {new Date(chat.customer.lastSeen).toLocaleDateString()}</span>
+                  <span className="text-xs">Last seen: {formatDistanceToNow(new Date(chat.customer.lastSeen), { addSuffix: true })}</span>
                 </div>
               )}
             </div>
@@ -73,9 +90,9 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>View contact</DropdownMenuItem>
-              <DropdownMenuItem>Clear chat</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive focus:text-destructive">Block contact</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleViewContact}>View contact</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleClearChat}>Clear chat</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBlockContact} className="text-destructive focus:text-destructive">Block contact</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -86,6 +103,11 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
         chat={chat}
         agents={agents}
         onReassign={onReassignAgent}
+      />
+      <ContactDialog
+        open={isContactDialogOpen}
+        onOpenChange={setContactDialogOpen}
+        chat={chat}
       />
     </>
   );

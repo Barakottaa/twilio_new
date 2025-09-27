@@ -27,6 +27,8 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
     return userCache.get(identity)!;
   }
 
+  console.log('Creating user details for:', { identity, isAgent, participant });
+
   // In a real app, you'd fetch user details from your database
   // For now, we'll create placeholder users and cache them.
   const user: Agent | Customer = {
@@ -34,6 +36,15 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
     name: identity,
     avatar: isAgent ? PlaceHolderImages[Math.floor(Math.random() * 4)].imageUrl : PlaceHolderImages[4 + Math.floor(Math.random() * 6)].imageUrl,
   };
+
+  // Generate better names for demo purposes
+  if (isAgent) {
+    const agentNames = ['Alice Johnson', 'Bob Smith', 'Charlie Brown', 'Diana Wilson'];
+    user.name = agentNames[Math.floor(Math.random() * agentNames.length)];
+  } else {
+    const customerNames = ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Wilson', 'David Brown', 'Lisa Davis'];
+    user.name = customerNames[Math.floor(Math.random() * customerNames.length)];
+  }
 
   // If it's a customer and we have participant data, try to extract contact info
   if (!isAgent && participant) {
@@ -52,13 +63,13 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
     }
     
     // If identity looks like a phone number, use it
-    if (!customer.phoneNumber && identity.match(/^\+?[1-9]\d{1,14}$/)) {
+    if (!customer.phoneNumber && identity && identity.match(/^\+?[1-9]\d{1,14}$/)) {
       customer.phoneNumber = identity;
       customer.name = `Customer ${identity.slice(-4)}`; // Show last 4 digits
     }
     
     // If identity looks like an email, use it
-    if (!customer.email && identity.includes('@')) {
+    if (!customer.email && identity && identity.includes('@')) {
       customer.email = identity;
       customer.name = identity.split('@')[0]; // Use email prefix as name
     }
