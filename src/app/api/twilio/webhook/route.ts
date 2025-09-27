@@ -1,7 +1,7 @@
 
 // src/app/api/twilio/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { broadcastMessage } from '../../events/route.js';
+import { broadcastMessage } from '../../events/route';
 import { addContact } from '@/lib/contact-mapping';
 import twilio from 'twilio';
 
@@ -42,9 +42,10 @@ export async function POST(req: NextRequest) {
     const eventType = params.EventType;
     
     console.log('✅ Verified Twilio webhook received:', { eventType, params });
+    console.log('📋 All webhook parameters:', Object.keys(params).map(key => `${key}: ${params[key]}`).join(', '));
     
     // Handle WhatsApp messages with ProfileName and WaId
-    if (eventType === 'onMessageAdded') {
+    if (eventType === 'onMessageAdded' || eventType === 'onMessageReceived') {
       console.log('📨 New message received via webhook:', {
         body: params.Body,
         author: params.Author,
