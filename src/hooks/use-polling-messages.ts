@@ -74,8 +74,8 @@ export function usePollingMessages({
       }
     };
 
-    // Poll every 5 seconds
-    intervalRef.current = setInterval(pollForMessages, 5000);
+    // Poll every 2 seconds for faster updates
+    intervalRef.current = setInterval(pollForMessages, 2000);
 
     return () => {
       if (intervalRef.current) {

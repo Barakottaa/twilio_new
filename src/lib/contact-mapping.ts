@@ -79,16 +79,10 @@ export function getDisplayName(phoneNumber: string): string {
   return formatPhoneNumber(phoneNumber);
 }
 
-// Initialize with empty contacts - we'll get real data from Meta
+// Initialize with empty contacts - we'll get real data from Twilio webhook
 export function initializeSampleContacts() {
   console.log('🔄 Contact mapping initialized - no mock data');
-  
-  // Add some sample contacts for testing
-  addContact('+201016666348', 'Ahmed Hassan', 'https://ui-avatars.com/api/?name=Ahmed+Hassan&background=random');
-  addContact('+201557000970', 'Sarah Johnson', 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=random');
-  addContact('+201234567890', 'Mohamed Ali', 'https://ui-avatars.com/api/?name=Mohamed+Ali&background=random');
-  
-  console.log('📋 Added sample contacts for testing');
+  // No mock data - we'll get real contact info from Twilio webhook
 }
 
 // Initialize contact mapping on module load

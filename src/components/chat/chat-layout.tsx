@@ -5,7 +5,7 @@ import type { Agent, Chat, Message } from '@/types';
 import { ChatList } from './chat-list';
 import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
-import { sendTwilioMessage, reassignTwilioConversation } from '@/lib/twilio-service';
+import { sendTwilioMessage, reassignTwilioConversation, getTwilioConversations } from '@/lib/twilio-service';
 import { useRealtimeMessages } from '@/hooks/use-realtime-messages';
 import { usePollingMessages } from '@/hooks/use-polling-messages';
 
@@ -155,7 +155,36 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
       c.id === chat.id ? ensurePlainChat({ ...c, unreadCount: 0 }) : ensurePlainChat(c)
     );
     setChats(updatedChats);
-  }
+  };
+
+  const handleRefreshChats = async () => {
+    try {
+      console.log('🔄 Manually refreshing chats...');
+      const freshChats = await getTwilioConversations(loggedInAgent.id);
+      const updatedChats = freshChats.map(ensurePlainChat);
+      setChats(updatedChats);
+      
+      // Update selected chat if it exists
+      if (selectedChat) {
+        const updatedSelectedChat = updatedChats.find(chat => chat.id === selectedChat.id);
+        if (updatedSelectedChat) {
+          setSelectedChat(updatedSelectedChat);
+        }
+      }
+      
+      toast({
+        title: "Chats Refreshed",
+        description: "Chat list updated successfully!",
+      });
+    } catch (error: any) {
+      console.error('❌ Error refreshing chats:', error);
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh chats. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="z-10 h-full w-full max-w-7xl flex text-sm xl:rounded-lg border bg-card shadow-lg">
@@ -163,6 +192,7 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
         chats={chats}
         selectedChat={selectedChat}
         onSelectChat={handleSelectChat}
+        onRefresh={handleRefreshChats}
         loggedInAgent={loggedInAgent}
       />
       <ChatView

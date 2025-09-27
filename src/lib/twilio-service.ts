@@ -24,10 +24,16 @@ function getTwilioClient() {
 }
 
 async function getUserDetails(identity: string, isAgent: boolean, participant?: any): Promise<Agent | Customer> {
-      if (userCache.has(identity)) {
-        console.log('📋 Using cached user for:', identity);
-        return userCache.get(identity)!;
-      }
+  // Clear cache for customers to ensure we get fresh participant data
+  if (!isAgent && userCache.has(identity)) {
+    console.log('🔄 Clearing cache for customer:', identity);
+    userCache.delete(identity);
+  }
+  
+  if (userCache.has(identity)) {
+    console.log('📋 Using cached user for:', identity);
+    return userCache.get(identity)!;
+  }
 
       console.log('🔄 Creating user details for:', { identity, isAgent, participant });
   
@@ -41,7 +47,9 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
   const user: Agent | Customer = {
     id: identity,
     name: identity,
-    avatar: isAgent ? PlaceHolderImages[Math.floor(Math.random() * 4)].imageUrl : PlaceHolderImages[4 + Math.floor(Math.random() * 6)].imageUrl,
+    avatar: isAgent 
+      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(identity)}&background=3b82f6&color=ffffff&size=150`
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(identity)}&background=10b981&color=ffffff&size=150`,
   };
 
   // For agents, use the identity as name
@@ -52,77 +60,93 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
     user.name = 'Unknown Customer';
   }
 
-  // If it's a customer and we have participant data, try to extract contact info
-  if (!isAgent && participant) {
-    const customer = user as Customer;
-    
-    // Try to extract phone number from participant attributes or identity
-    if (participant.attributes) {
-      try {
-        const attrs = JSON.parse(participant.attributes);
-        customer.phoneNumber = attrs.phoneNumber || attrs.phone || attrs.contact;
-        customer.email = attrs.email;
-        customer.name = attrs.friendlyName || attrs.name || customer.name;
-      } catch (e) {
-        // If attributes parsing fails, continue with defaults
-      }
-    }
-    
-    // Extract phone number from WhatsApp messaging binding
-    if (participant.messagingBinding?.address) {
-      const address = participant.messagingBinding.address;
-      // Extract phone number from "whatsapp:+1234567890" format
-      const phoneMatch = address.match(/whatsapp:(\+?\d+)/);
-      if (phoneMatch) {
-        const phoneNumber = phoneMatch[1];
-        customer.phoneNumber = phoneNumber;
+      // If it's a customer and we have participant data, try to extract contact info
+      if (!isAgent && participant) {
+        const customer = user as Customer;
         
-        // Try to get contact info from our mapping first
-        console.log('🔍 Looking up contact for phone:', phoneNumber);
-        let contactInfo = getContact(phoneNumber);
-        
-        if (!contactInfo) {
-          // If not in mapping, contact will be added via Twilio webhook when they send a message
-          console.log('📞 Contact not in mapping - will be added via Twilio webhook when they message');
-        }
-        
-        if (contactInfo) {
-          customer.name = contactInfo.name;
-          customer.avatar = contactInfo.avatar || customer.avatar;
-          customer.lastSeen = contactInfo.lastSeen;
-          console.log('✅ Using contact name:', contactInfo.name);
+        // PRIORITY 1: Check participant.attributes.display_name (set by our webhook)
+        console.log('🔍 Checking participant attributes:', participant.attributes);
+        if (participant.attributes) {
+          try {
+            const attrs = JSON.parse(participant.attributes);
+            console.log('📋 Parsed attributes:', attrs);
+            if (attrs.display_name) {
+              customer.name = attrs.display_name;
+              console.log('✅ Using participant display_name:', attrs.display_name);
+            } else {
+              console.log('⚠️ No display_name found in attributes');
+            }
+            // Also extract other attributes
+            customer.phoneNumber = attrs.phoneNumber || attrs.phone || attrs.contact;
+            customer.email = attrs.email;
+          } catch (e) {
+            console.log('⚠️ Failed to parse participant attributes:', e);
+          }
         } else {
-          // Final fallback to formatted phone number
-          const formattedPhone = formatPhoneNumber(phoneNumber);
-          customer.name = formattedPhone;
-          console.log('📱 Using formatted phone as name:', formattedPhone);
+          console.log('⚠️ No participant attributes found');
         }
         
-        // Update last seen
-        updateLastSeen(phoneNumber);
+        // PRIORITY 2: Extract phone number from WhatsApp messaging binding
+        if (participant.messagingBinding?.address) {
+          const address = participant.messagingBinding.address;
+          // Extract phone number from "whatsapp:+1234567890" format
+          const phoneMatch = address.match(/whatsapp:(\+?\d+)/);
+          if (phoneMatch) {
+            const phoneNumber = phoneMatch[1];
+            customer.phoneNumber = phoneNumber;
+            
+            // Only use contact mapping if we don't already have a display_name
+            if (!customer.name || customer.name === 'Unknown Customer') {
+              console.log('🔍 Looking up contact for phone:', phoneNumber);
+              let contactInfo = getContact(phoneNumber);
+              
+              if (contactInfo) {
+                customer.name = contactInfo.name;
+                customer.avatar = contactInfo.avatar || customer.avatar;
+                customer.lastSeen = contactInfo.lastSeen;
+                console.log('✅ Using contact mapping name:', contactInfo.name);
+              } else {
+                // Final fallback to formatted phone number
+                const formattedPhone = formatPhoneNumber(phoneNumber);
+                customer.name = formattedPhone;
+                console.log('📱 Using formatted phone as name:', formattedPhone);
+              }
+              
+              // Update last seen
+              updateLastSeen(phoneNumber);
+            }
+          }
+        }
+        
+        // PRIORITY 3: If we have a messaging binding name, use it (rarely available)
+        if (!customer.name || customer.name === 'Unknown Customer') {
+          if (participant.messagingBinding?.name) {
+            customer.name = participant.messagingBinding.name;
+            console.log('✅ Using messaging binding name:', participant.messagingBinding.name);
+          }
+        }
+        
+        // PRIORITY 4: If identity looks like a phone number, use it
+        if (!customer.phoneNumber && identity && identity.match(/^\+?[1-9]\d{1,14}$/)) {
+          customer.phoneNumber = identity;
+          if (!customer.name || customer.name === 'Unknown Customer') {
+            customer.name = `Customer ${identity.slice(-4)}`; // Show last 4 digits
+          }
+        }
+        
+        // PRIORITY 5: If identity looks like an email, use it
+        if (!customer.email && identity && identity.includes('@')) {
+          customer.email = identity;
+          if (!customer.name || customer.name === 'Unknown Customer') {
+            customer.name = identity.split('@')[0]; // Use email prefix as name
+          }
+        }
+        
+        // Set last seen to now for demo purposes if not already set
+        if (!customer.lastSeen) {
+          customer.lastSeen = new Date().toISOString();
+        }
       }
-    }
-    
-    // If we have a messaging binding name, use it (rarely available)
-    if (participant.messagingBinding?.name) {
-      customer.name = participant.messagingBinding.name;
-    }
-    
-    // If identity looks like a phone number, use it
-    if (!customer.phoneNumber && identity && identity.match(/^\+?[1-9]\d{1,14}$/)) {
-      customer.phoneNumber = identity;
-      customer.name = `Customer ${identity.slice(-4)}`; // Show last 4 digits
-    }
-    
-    // If identity looks like an email, use it
-    if (!customer.email && identity && identity.includes('@')) {
-      customer.email = identity;
-      customer.name = identity.split('@')[0]; // Use email prefix as name
-    }
-    
-    // Set last seen to now for demo purposes
-    customer.lastSeen = new Date().toISOString();
-  }
 
   userCache.set(identity, user);
   return user;
@@ -248,20 +272,45 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         const twilioClient = getTwilioClient();
         console.log("Twilio client created successfully");
         
-        const message = await twilioClient.conversations.v1.conversations(conversationSid).messages.create({
+        // First, get the conversation to find the customer's WhatsApp number
+        const conversation = await twilioClient.conversations.v1.conversations(conversationSid).fetch();
+        const participants = await twilioClient.conversations.v1.conversations(conversationSid).participants.list();
+        
+        // Find the customer participant (not the agent)
+        const customerParticipant = participants.find(p => !p.identity?.startsWith('agent-'));
+        
+        if (!customerParticipant || !customerParticipant.messagingBinding?.address) {
+            throw new Error("Could not find customer WhatsApp number in conversation");
+        }
+        
+        const customerWhatsAppNumber = customerParticipant.messagingBinding.address; // e.g., "whatsapp:+201016666348"
+        console.log("Customer WhatsApp number:", customerWhatsAppNumber);
+        
+        // Use Twilio Programmable Messaging API for WhatsApp delivery
+        const message = await twilioClient.messages.create({
+            body: text,
+            from: 'whatsapp:+13464864372', // Your main Twilio WhatsApp number
+            to: customerWhatsAppNumber, // Customer's WhatsApp number
+        });
+        
+        console.log("WhatsApp message sent successfully:", message.sid);
+        console.log("Message status:", message.status);
+        
+        // Also add the message to the conversation for UI consistency
+        const conversationMessage = await twilioClient.conversations.v1.conversations(conversationSid).messages.create({
             author,
             body: text,
         });
         
-        console.log("Message sent successfully:", message.sid);
+        console.log("Conversation message added:", conversationMessage.sid);
         
         // Return only plain object properties
         return {
-            sid: message.sid,
-            author: message.author,
-            body: message.body,
-            dateCreated: message.dateCreated ? new Date(message.dateCreated).toISOString() : null,
-            index: message.index,
+            sid: conversationMessage.sid,
+            author: conversationMessage.author,
+            body: conversationMessage.body,
+            dateCreated: conversationMessage.dateCreated ? new Date(conversationMessage.dateCreated).toISOString() : null,
+            index: conversationMessage.index,
         };
     } catch (error: any) {
         console.error("Detailed error sending Twilio message:", {

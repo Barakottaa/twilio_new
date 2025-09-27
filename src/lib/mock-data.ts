@@ -1,19 +1,18 @@
 import type { Agent, Chat, Customer, Message } from '@/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { subMinutes, subHours, subDays } from 'date-fns';
 
 const agents: Agent[] = [
-  { id: 'agent-1', name: 'Alice', avatar: PlaceHolderImages[0].imageUrl },
-  { id: 'agent-2', name: 'Bob', avatar: PlaceHolderImages[1].imageUrl },
-  { id: 'agent-3', name: 'Charlie', avatar: PlaceHolderImages[2].imageUrl },
-  { id: 'agent-4', name: 'Diana', avatar: PlaceHolderImages[3].imageUrl },
+  { id: 'agent-1', name: 'Alice', avatar: 'https://ui-avatars.com/api/?name=Alice&background=3b82f6&color=ffffff&size=150' },
+  { id: 'agent-2', name: 'Bob', avatar: 'https://ui-avatars.com/api/?name=Bob&background=3b82f6&color=ffffff&size=150' },
+  { id: 'agent-3', name: 'Charlie', avatar: 'https://ui-avatars.com/api/?name=Charlie&background=3b82f6&color=ffffff&size=150' },
+  { id: 'agent-4', name: 'Diana', avatar: 'https://ui-avatars.com/api/?name=Diana&background=3b82f6&color=ffffff&size=150' },
 ];
 
 const customers: Customer[] = [
   { 
     id: 'customer-1', 
     name: 'John Doe', 
-    avatar: PlaceHolderImages[4].imageUrl,
+    avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=10b981&color=ffffff&size=150',
     phoneNumber: '+1 (555) 123-4567',
     email: 'john.doe@email.com',
     lastSeen: new Date().toISOString()
@@ -21,7 +20,7 @@ const customers: Customer[] = [
   { 
     id: 'customer-2', 
     name: 'Jane Smith', 
-    avatar: PlaceHolderImages[5].imageUrl,
+    avatar: 'https://ui-avatars.com/api/?name=Jane+Smith&background=10b981&color=ffffff&size=150',
     phoneNumber: '+1 (555) 987-6543',
     email: 'jane.smith@email.com',
     lastSeen: subHours(new Date(), 2).toISOString()
@@ -29,21 +28,21 @@ const customers: Customer[] = [
   { 
     id: 'customer-3', 
     name: 'Peter Jones', 
-    avatar: PlaceHolderImages[6].imageUrl,
+    avatar: 'https://ui-avatars.com/api/?name=Peter+Jones&background=10b981&color=ffffff&size=150',
     phoneNumber: '+1 (555) 456-7890',
     lastSeen: subHours(new Date(), 5).toISOString()
   },
   { 
     id: 'customer-4', 
     name: 'Mary Johnson', 
-    avatar: PlaceHolderImages[7].imageUrl,
+    avatar: 'https://ui-avatars.com/api/?name=Mary+Johnson&background=10b981&color=ffffff&size=150',
     email: 'mary.johnson@email.com',
     lastSeen: subDays(new Date(), 1).toISOString()
   },
   { 
     id: 'customer-5', 
     name: 'David Williams', 
-    avatar: PlaceHolderImages[8].imageUrl,
+    avatar: 'https://ui-avatars.com/api/?name=David+Williams&background=10b981&color=ffffff&size=150',
     phoneNumber: '+1 (555) 321-0987',
     email: 'david.williams@email.com',
     lastSeen: subDays(new Date(), 2).toISOString()

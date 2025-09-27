@@ -8,6 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Phone, Mail, Clock, MessageSquare, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
+// Helper function to get initials from any name format
+function getInitials(name: string): string {
+  if (!name || name === "Anonymous") return "AN";
+  
+  // If it's a phone number format like "+20 15 5700 0970", extract numbers
+  if (name.match(/^\+\d/)) {
+    const numbers = name.replace(/\D/g, ''); // Remove all non-digits
+    return numbers.slice(-2); // Take last 2 digits
+  }
+  
+  // For regular names, take first 2 characters
+  return name.substring(0, 2).toUpperCase();
+}
+
 interface ContactDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,7 +44,7 @@ export function ContactDialog({ open, onOpenChange, chat }: ContactDialogProps) 
           <div className="flex flex-col items-center space-y-2">
             <Avatar className="h-20 w-20">
               <AvatarImage src={customer?.avatar} alt={customerName} />
-              <AvatarFallback className="text-lg">{customerName.substring(0, 2)}</AvatarFallback>
+              <AvatarFallback className="text-lg">{getInitials(customerName)}</AvatarFallback>
             </Avatar>
             <div className="text-center">
               <h3 className="text-lg font-semibold">{customerName}</h3>

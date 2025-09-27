@@ -5,6 +5,29 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '../ui/badge';
 import { Phone, Mail } from 'lucide-react';
 
+// Helper function to get initials from any name format
+function getInitials(name: string): string {
+  console.log('🔤 ChatListItem - Getting initials for name:', name);
+  
+  if (!name || name === "Anonymous") {
+    console.log('🔤 ChatListItem - Returning AN for anonymous/empty name');
+    return "AN";
+  }
+  
+  // If it's a phone number format like "+20 15 5700 0970", extract numbers
+  if (name.match(/^\+\d/)) {
+    const numbers = name.replace(/\D/g, ''); // Remove all non-digits
+    const result = numbers.slice(-2); // Take last 2 digits
+    console.log('🔤 ChatListItem - Phone number detected, returning:', result);
+    return result;
+  }
+  
+  // For regular names, take first 2 characters
+  const result = name.substring(0, 2).toUpperCase();
+  console.log('🔤 ChatListItem - Regular name detected, returning:', result);
+  return result;
+}
+
 interface ChatListItemProps {
   chat: Chat;
   isSelected: boolean;
@@ -14,6 +37,9 @@ interface ChatListItemProps {
 export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
   const lastMessage = chat.messages[chat.messages.length - 1];
   const customerName = chat.customer?.name || "Anonymous";
+  
+  console.log('👤 ChatListItem - customerName:', customerName);
+  console.log('👤 ChatListItem - chat.customer:', chat.customer);
 
   return (
     <button
@@ -23,10 +49,11 @@ export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
         isSelected ? "bg-accent" : "hover:bg-accent/50"
       )}
     >
-      <Avatar className="h-10 w-10">
-        <AvatarImage src={chat.customer?.avatar} alt={customerName} data-ai-hint="person portrait" />
-        <AvatarFallback>{customerName.substring(0, 2)}</AvatarFallback>
-      </Avatar>
+        <Avatar className="h-10 w-10">
+          {/* Temporarily disabled avatar image to force fallback */}
+          {/* <AvatarImage src={chat.customer?.avatar} alt={customerName} data-ai-hint="person portrait" /> */}
+          <AvatarFallback>{getInitials(customerName)}</AvatarFallback>
+        </Avatar>
       <div className="flex-1 truncate">
         <p className="font-semibold">{customerName}</p>
         {/* Contact info */}
