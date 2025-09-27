@@ -1,7 +1,7 @@
 
 // src/app/api/twilio/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { broadcastMessage } from '../../events/route';
+import { broadcastMessage } from '../../events/route.js';
 import { addContact } from '@/lib/contact-mapping';
 import twilio from 'twilio';
 
