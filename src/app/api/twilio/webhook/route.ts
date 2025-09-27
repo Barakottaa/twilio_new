@@ -40,10 +40,15 @@ export async function POST(req: NextRequest) {
 
     const eventType = params.EventType;
     
-    console.log('Verified Twilio webhook received:', { eventType, params });
+    console.log('✅ Verified Twilio webhook received:', { eventType, params });
     
     if (eventType === 'onMessageAdded') {
-      console.log('New message received via webhook:', params.Body);
+      console.log('📨 New message received via webhook:', {
+        body: params.Body,
+        author: params.Author,
+        conversationSid: params.ConversationSid,
+        messageSid: params.MessageSid
+      });
       
       // Broadcast the new message to all connected clients
       broadcastMessage('newMessage', {
@@ -56,7 +61,7 @@ export async function POST(req: NextRequest) {
       });
       
     } else if (eventType === 'onConversationAdded') {
-      console.log('New conversation started via webhook:', params.ConversationSid);
+      console.log('💬 New conversation started via webhook:', params.ConversationSid);
       
       // Broadcast the new conversation to all connected clients
       broadcastMessage('newConversation', {
@@ -64,6 +69,8 @@ export async function POST(req: NextRequest) {
         friendlyName: params.FriendlyName,
         dateCreated: params.DateCreated
       });
+    } else {
+      console.log('ℹ️ Other webhook event:', eventType);
     }
     
     return NextResponse.json({ message: 'Webhook received and verified' }, { status: 200 });

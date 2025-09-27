@@ -4,6 +4,7 @@ import type { Agent, Chat, Customer, Message } from '@/types';
 import twilio from 'twilio';
 import { PlaceHolderImages } from './placeholder-images';
 import { availableAgents } from './mock-data';
+import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen } from './contact-mapping';
 
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
@@ -72,17 +73,26 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
       // Extract phone number from "whatsapp:+1234567890" format
       const phoneMatch = address.match(/whatsapp:(\+?\d+)/);
       if (phoneMatch) {
-        customer.phoneNumber = phoneMatch[1];
-        
-        // Use a more user-friendly name format
         const phoneNumber = phoneMatch[1];
-        // Format phone number nicely: +20 10 1666 6348
-        const formattedPhone = phoneNumber.replace(/(\+\d{2})(\d{2})(\d{4})(\d{4})/, '$1 $2 $3 $4');
-        customer.name = `WhatsApp ${formattedPhone}`;
+        customer.phoneNumber = phoneNumber;
+        
+        // Try to get contact info from our mapping
+        const contactInfo = getContact(phoneNumber);
+        if (contactInfo) {
+          customer.name = contactInfo.name;
+          customer.avatar = contactInfo.avatar || customer.avatar;
+          customer.lastSeen = contactInfo.lastSeen;
+        } else {
+          // Fallback to formatted phone number
+          customer.name = formatPhoneNumber(phoneNumber);
+        }
+        
+        // Update last seen
+        updateLastSeen(phoneNumber);
       }
     }
     
-    // If we have a messaging binding name, use it (but it's null in this case)
+    // If we have a messaging binding name, use it (rarely available)
     if (participant.messagingBinding?.name) {
       customer.name = participant.messagingBinding.name;
     }
