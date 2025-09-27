@@ -52,13 +52,13 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   // Enable real-time messaging with SSE
   useRealtimeMessages({ chats, setChats, setSelectedChat });
   
-  // Enable polling as fallback (disabled by default, can be enabled if SSE fails)
+  // Enable polling as fallback (enabled since SSE has tunnel issues)
   usePollingMessages({ 
     chats, 
     setChats, 
     setSelectedChat, 
     loggedInAgentId: loggedInAgent.id,
-    enabled: false // Set to true if SSE is not working
+    enabled: true // Enabled since SSE is having tunnel issues
   });
 
   const handleSendMessage = async (chatId: string, text: string) => {

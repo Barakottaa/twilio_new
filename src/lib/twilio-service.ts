@@ -24,11 +24,12 @@ function getTwilioClient() {
 }
 
 async function getUserDetails(identity: string, isAgent: boolean, participant?: any): Promise<Agent | Customer> {
-  if (userCache.has(identity)) {
-    return userCache.get(identity)!;
-  }
+      if (userCache.has(identity)) {
+        console.log('📋 Using cached user for:', identity);
+        return userCache.get(identity)!;
+      }
 
-  console.log('Creating user details for:', { identity, isAgent, participant });
+      console.log('🔄 Creating user details for:', { identity, isAgent, participant });
   
   // Log the full participant data to see what's available
   if (participant) {
