@@ -5,7 +5,6 @@ import twilio from 'twilio';
 import { PlaceHolderImages } from './placeholder-images';
 import { availableAgents } from './mock-data';
 import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllContacts, addContact } from './contact-mapping';
-import { getWhatsAppContactInfo } from './meta-api';
 
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
@@ -83,16 +82,8 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
         let contactInfo = getContact(phoneNumber);
         
         if (!contactInfo) {
-          // If not in mapping, try to get from Meta/WhatsApp API
-          console.log('📞 Contact not in mapping, fetching from Meta API...');
-          const metaInfo = await getWhatsAppContactInfo(phoneNumber);
-          
-          if (metaInfo) {
-            // Add to our mapping for future use
-            addContact(phoneNumber, metaInfo.name || formatPhoneNumber(phoneNumber), metaInfo.profile_picture_url);
-            contactInfo = getContact(phoneNumber);
-            console.log('✅ Added contact from Meta API:', metaInfo.name);
-          }
+          // If not in mapping, contact will be added via Twilio webhook when they send a message
+          console.log('📞 Contact not in mapping - will be added via Twilio webhook when they message');
         }
         
         if (contactInfo) {

@@ -2,6 +2,7 @@
 // src/app/api/twilio/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { broadcastMessage } from '../events/route';
+import { addContact } from '@/lib/contact-mapping';
 import twilio from 'twilio';
 
 // This is your new webhook endpoint
@@ -42,13 +43,37 @@ export async function POST(req: NextRequest) {
     
     console.log('✅ Verified Twilio webhook received:', { eventType, params });
     
+    // Handle WhatsApp messages with ProfileName and WaId
     if (eventType === 'onMessageAdded') {
       console.log('📨 New message received via webhook:', {
         body: params.Body,
         author: params.Author,
         conversationSid: params.ConversationSid,
-        messageSid: params.MessageSid
+        messageSid: params.MessageSid,
+        profileName: params.ProfileName,
+        waId: params.WaId,
+        from: params.From
       });
+      
+      // Extract WhatsApp contact information if available
+      if (params.ProfileName && params.WaId) {
+        const profileName = params.ProfileName;
+        const waId = params.WaId;
+        const from = params.From; // e.g., "whatsapp:+201234567890"
+        
+        console.log('👤 WhatsApp contact info:', { profileName, waId, from });
+        
+        // Format phone number (remove whatsapp: prefix if present)
+        const phoneNumber = from.replace('whatsapp:', '');
+        
+        // Generate avatar using UI Avatars service
+        const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(profileName)}&background=random`;
+        
+        // Store contact in our mapping system
+        addContact(phoneNumber, profileName, avatar);
+        
+        console.log('✅ WhatsApp contact stored:', { phoneNumber, profileName, avatar });
+      }
       
       // Broadcast the new message to all connected clients
       broadcastMessage('newMessage', {

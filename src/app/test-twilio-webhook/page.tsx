@@ -7,59 +7,24 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function TestMetaWebhookPage() {
-  const [webhookUrl, setWebhookUrl] = useState('https://affiliation-note-eliminate-fought.trycloudflare.com/api/meta/webhook');
-  const [testPayload, setTestPayload] = useState(`{
-  "object": "whatsapp_business_account",
-  "entry": [
-    {
-      "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
-      "changes": [
-        {
-          "value": {
-            "messaging_product": "whatsapp",
-            "metadata": {
-              "display_phone_number": "1415XXXXXXX",
-              "phone_number_id": "PHONE_NUMBER_ID"
-            },
-            "contacts": [
-              {
-                "profile": {
-                  "name": "Ahmed Ali"
-                },
-                "wa_id": "201234567890"
-              }
-            ],
-            "messages": [
-              {
-                "from": "201234567890",
-                "id": "wamid.HBgM...",
-                "timestamp": "1699999999",
-                "text": {
-                  "body": "Hello!"
-                },
-                "type": "text"
-              }
-            ]
-          },
-          "field": "messages"
-        }
-      ]
-    }
-  ]
-}`);
+export default function TestTwilioWebhookPage() {
+  const [webhookUrl, setWebhookUrl] = useState('https://affiliation-note-eliminate-fought.trycloudflare.com/api/twilio/webhook');
+  const [testPayload, setTestPayload] = useState(`EventType=onMessageAdded&Body=Hello from WhatsApp!&Author=whatsapp:+201234567890&ConversationSid=CH1234567890abcdef&MessageSid=IM1234567890abcdef&DateCreated=2023-10-01T12:00:00Z&Index=1&ProfileName=Ahmed Ali&WaId=201234567890&From=whatsapp:+201234567890`);
   const [result, setResult] = useState<string>('');
 
   const testWebhook = async () => {
     try {
       setResult('Testing webhook...');
       
+      // Convert form data to URLSearchParams
+      const formData = new URLSearchParams(testPayload);
+      
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: testPayload,
+        body: formData,
       });
       
       const responseText = await response.text();
@@ -76,14 +41,14 @@ export default function TestMetaWebhookPage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Meta Webhook Test</h1>
+      <h1 className="text-2xl font-bold mb-6">Twilio WhatsApp Webhook Test</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Webhook Configuration</CardTitle>
             <CardDescription>
-              Test the Meta webhook endpoint with sample payload
+              Test the Twilio webhook endpoint with WhatsApp message data
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -93,18 +58,19 @@ export default function TestMetaWebhookPage() {
                 id="webhook-url"
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
-                placeholder="https://your-domain.com/api/meta/webhook"
+                placeholder="https://your-domain.com/api/twilio/webhook"
               />
             </div>
             
             <div>
-              <Label htmlFor="test-payload">Test Payload (JSON)</Label>
+              <Label htmlFor="test-payload">Test Payload (Form Data)</Label>
               <Textarea
                 id="test-payload"
                 value={testPayload}
                 onChange={(e) => setTestPayload(e.target.value)}
-                rows={20}
+                rows={10}
                 className="font-mono text-sm"
+                placeholder="EventType=onMessageAdded&Body=Hello&ProfileName=Ahmed Ali&WaId=201234567890&From=whatsapp:+201234567890"
               />
             </div>
             
@@ -150,6 +116,17 @@ export default function TestMetaWebhookPage() {
           <li>• Phone number "+201234567890" should be formatted and stored</li>
           <li>• Avatar should be generated using UI Avatars service</li>
           <li>• Check console logs for detailed processing information</li>
+        </ul>
+      </div>
+
+      <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <h3 className="font-semibold text-green-800 mb-2">Key Parameters</h3>
+        <ul className="text-green-700 space-y-1">
+          <li>• <strong>ProfileName</strong>: "Ahmed Ali" - WhatsApp display name</li>
+          <li>• <strong>WaId</strong>: "201234567890" - WhatsApp ID (phone number)</li>
+          <li>• <strong>From</strong>: "whatsapp:+201234567890" - Full WhatsApp address</li>
+          <li>• <strong>Body</strong>: "Hello from WhatsApp!" - Message content</li>
+          <li>• <strong>EventType</strong>: "onMessageAdded" - Twilio event type</li>
         </ul>
       </div>
     </div>
