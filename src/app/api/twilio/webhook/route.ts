@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
     
     // Validate the webhook signature
-    const isValid = twilio.validateRequest(authToken, signature, fullUrl, body);
+    const isValid = twilio.validateRequest(authToken, signature, fullUrl, body as string);
     
     if (!isValid) {
       console.error('Invalid webhook signature');
