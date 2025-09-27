@@ -14,12 +14,17 @@ const contactMapping = new Map<string, ContactInfo>();
 
 // Add a contact to the mapping
 export function addContact(phoneNumber: string, name: string, avatar?: string) {
+  const existingContact = contactMapping.get(phoneNumber);
+  const lastSeen = existingContact?.lastSeen || new Date().toISOString();
+  
   contactMapping.set(phoneNumber, {
     phoneNumber,
     name,
     avatar,
-    lastSeen: new Date().toISOString()
+    lastSeen
   });
+  
+  console.log('📝 Contact added/updated:', { phoneNumber, name, avatar, lastSeen });
 }
 
 // Get contact info by phone number
