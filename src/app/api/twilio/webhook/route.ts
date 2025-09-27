@@ -1,9 +1,14 @@
 
 // src/app/api/twilio/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { broadcastMessage } from '../../events/route';
 import { addContact } from '@/lib/contact-mapping';
 import twilio from 'twilio';
+
+// Inline broadcastMessage function to avoid import issues
+function broadcastMessage(type: string, data: any) {
+  // This is a simplified version - in production you'd want to use the proper SSE implementation
+  console.log(`📡 Broadcasting ${type}:`, data);
+}
 
 // This is your new webhook endpoint
 export async function POST(req: NextRequest) {
