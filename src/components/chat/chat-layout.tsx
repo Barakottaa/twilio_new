@@ -6,6 +6,7 @@ import { ChatList } from './chat-list';
 import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
 import { sendTwilioMessage, reassignTwilioConversation } from '@/lib/twilio-service';
+import { useRealtimeMessages } from '@/hooks/use-realtime-messages';
 
 // Helper function to ensure all chat objects are plain objects
 function ensurePlainChat(chat: Chat): Chat {
@@ -46,6 +47,9 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   const [chats, setChats] = useState<Chat[]>(initialChats.map(ensurePlainChat));
   const [selectedChat, setSelectedChat] = useState<Chat | null>(chats.length > 0 ? chats[0] : null);
   const { toast } = useToast();
+
+  // Enable real-time messaging
+  useRealtimeMessages({ chats, setChats, setSelectedChat });
 
   const handleSendMessage = async (chatId: string, text: string) => {
     try {

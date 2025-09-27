@@ -28,6 +28,11 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
   }
 
   console.log('Creating user details for:', { identity, isAgent, participant });
+  
+  // Log the full participant data to see what's available
+  if (participant) {
+    console.log('Full participant data:', JSON.stringify(participant, null, 2));
+  }
 
   // In a real app, you'd fetch user details from your database
   // For now, we'll create placeholder users and cache them.
@@ -37,13 +42,12 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
     avatar: isAgent ? PlaceHolderImages[Math.floor(Math.random() * 4)].imageUrl : PlaceHolderImages[4 + Math.floor(Math.random() * 6)].imageUrl,
   };
 
-  // Generate better names for demo purposes
+  // For agents, use the identity as name
   if (isAgent) {
-    const agentNames = ['Alice Johnson', 'Bob Smith', 'Charlie Brown', 'Diana Wilson'];
-    user.name = agentNames[Math.floor(Math.random() * agentNames.length)];
+    user.name = identity || 'Unknown Agent';
   } else {
-    const customerNames = ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Wilson', 'David Brown', 'Lisa Davis'];
-    user.name = customerNames[Math.floor(Math.random() * customerNames.length)];
+    // For customers, we'll extract the real name from participant data below
+    user.name = 'Unknown Customer';
   }
 
   // If it's a customer and we have participant data, try to extract contact info
@@ -60,6 +64,27 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
       } catch (e) {
         // If attributes parsing fails, continue with defaults
       }
+    }
+    
+    // Extract phone number from WhatsApp messaging binding
+    if (participant.messagingBinding?.address) {
+      const address = participant.messagingBinding.address;
+      // Extract phone number from "whatsapp:+1234567890" format
+      const phoneMatch = address.match(/whatsapp:(\+?\d+)/);
+      if (phoneMatch) {
+        customer.phoneNumber = phoneMatch[1];
+        
+        // Use a more user-friendly name format
+        const phoneNumber = phoneMatch[1];
+        // Format phone number nicely: +20 10 1666 6348
+        const formattedPhone = phoneNumber.replace(/(\+\d{2})(\d{2})(\d{4})(\d{4})/, '$1 $2 $3 $4');
+        customer.name = `WhatsApp ${formattedPhone}`;
+      }
+    }
+    
+    // If we have a messaging binding name, use it (but it's null in this case)
+    if (participant.messagingBinding?.name) {
+      customer.name = participant.messagingBinding.name;
     }
     
     // If identity looks like a phone number, use it
