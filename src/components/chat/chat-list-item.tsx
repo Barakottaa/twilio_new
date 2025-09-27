@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '../ui/badge';
+import { Phone, Mail } from 'lucide-react';
 
 interface ChatListItemProps {
   chat: Chat;
@@ -28,6 +29,21 @@ export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
       </Avatar>
       <div className="flex-1 truncate">
         <p className="font-semibold">{customerName}</p>
+        {/* Contact info */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+          {chat.customer.phoneNumber && (
+            <div className="flex items-center gap-1">
+              <Phone className="h-3 w-3" />
+              <span>{chat.customer.phoneNumber}</span>
+            </div>
+          )}
+          {chat.customer.email && (
+            <div className="flex items-center gap-1">
+              <Mail className="h-3 w-3" />
+              <span className="truncate">{chat.customer.email}</span>
+            </div>
+          )}
+        </div>
         <p className="text-muted-foreground truncate text-sm">
           {lastMessage.text}
         </p>

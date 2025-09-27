@@ -10,11 +10,44 @@ const agents: Agent[] = [
 ];
 
 const customers: Customer[] = [
-  { id: 'customer-1', name: 'John Doe', avatar: PlaceHolderImages[4].imageUrl },
-  { id: 'customer-2', name: 'Jane Smith', avatar: PlaceHolderImages[5].imageUrl },
-  { id: 'customer-3', name: 'Peter Jones', avatar: PlaceHolderImages[6].imageUrl },
-  { id: 'customer-4', name: 'Mary Johnson', avatar: PlaceHolderImages[7].imageUrl },
-  { id: 'customer-5', name: 'David Williams', avatar: PlaceHolderImages[8].imageUrl },
+  { 
+    id: 'customer-1', 
+    name: 'John Doe', 
+    avatar: PlaceHolderImages[4].imageUrl,
+    phoneNumber: '+1 (555) 123-4567',
+    email: 'john.doe@email.com',
+    lastSeen: new Date().toISOString()
+  },
+  { 
+    id: 'customer-2', 
+    name: 'Jane Smith', 
+    avatar: PlaceHolderImages[5].imageUrl,
+    phoneNumber: '+1 (555) 987-6543',
+    email: 'jane.smith@email.com',
+    lastSeen: subHours(new Date(), 2).toISOString()
+  },
+  { 
+    id: 'customer-3', 
+    name: 'Peter Jones', 
+    avatar: PlaceHolderImages[6].imageUrl,
+    phoneNumber: '+1 (555) 456-7890',
+    lastSeen: subHours(new Date(), 5).toISOString()
+  },
+  { 
+    id: 'customer-4', 
+    name: 'Mary Johnson', 
+    avatar: PlaceHolderImages[7].imageUrl,
+    email: 'mary.johnson@email.com',
+    lastSeen: subDays(new Date(), 1).toISOString()
+  },
+  { 
+    id: 'customer-5', 
+    name: 'David Williams', 
+    avatar: PlaceHolderImages[8].imageUrl,
+    phoneNumber: '+1 (555) 321-0987',
+    email: 'david.williams@email.com',
+    lastSeen: subDays(new Date(), 2).toISOString()
+  },
 ];
 
 const generateMessages = (count: number, customer: Customer, agent: Agent, baseDate: Date): Message[] => {

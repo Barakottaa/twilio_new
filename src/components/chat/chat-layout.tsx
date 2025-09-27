@@ -15,6 +15,9 @@ function ensurePlainChat(chat: Chat): Chat {
       id: chat.customer.id ? String(chat.customer.id) : null,
       name: String(chat.customer.name),
       avatar: String(chat.customer.avatar),
+      phoneNumber: chat.customer.phoneNumber ? String(chat.customer.phoneNumber) : undefined,
+      email: chat.customer.email ? String(chat.customer.email) : undefined,
+      lastSeen: chat.customer.lastSeen ? String(chat.customer.lastSeen) : undefined,
     },
     agent: {
       id: String(chat.agent.id),

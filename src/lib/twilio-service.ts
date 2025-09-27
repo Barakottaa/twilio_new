@@ -22,7 +22,7 @@ function getTwilioClient() {
   return twilio(accountSid, authToken);
 }
 
-async function getUserDetails(identity: string, isAgent: boolean): Promise<Agent | Customer> {
+async function getUserDetails(identity: string, isAgent: boolean, participant?: any): Promise<Agent | Customer> {
   if (userCache.has(identity)) {
     return userCache.get(identity)!;
   }
@@ -34,6 +34,39 @@ async function getUserDetails(identity: string, isAgent: boolean): Promise<Agent
     name: identity,
     avatar: isAgent ? PlaceHolderImages[Math.floor(Math.random() * 4)].imageUrl : PlaceHolderImages[4 + Math.floor(Math.random() * 6)].imageUrl,
   };
+
+  // If it's a customer and we have participant data, try to extract contact info
+  if (!isAgent && participant) {
+    const customer = user as Customer;
+    
+    // Try to extract phone number from participant attributes or identity
+    if (participant.attributes) {
+      try {
+        const attrs = JSON.parse(participant.attributes);
+        customer.phoneNumber = attrs.phoneNumber || attrs.phone || attrs.contact;
+        customer.email = attrs.email;
+        customer.name = attrs.friendlyName || attrs.name || customer.name;
+      } catch (e) {
+        // If attributes parsing fails, continue with defaults
+      }
+    }
+    
+    // If identity looks like a phone number, use it
+    if (!customer.phoneNumber && identity.match(/^\+?[1-9]\d{1,14}$/)) {
+      customer.phoneNumber = identity;
+      customer.name = `Customer ${identity.slice(-4)}`; // Show last 4 digits
+    }
+    
+    // If identity looks like an email, use it
+    if (!customer.email && identity.includes('@')) {
+      customer.email = identity;
+      customer.name = identity.split('@')[0]; // Use email prefix as name
+    }
+    
+    // Set last seen to now for demo purposes
+    customer.lastSeen = new Date().toISOString();
+  }
+
   userCache.set(identity, user);
   return user;
 }
@@ -58,11 +91,11 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
         continue;
       }
       
-      const customer = await getUserDetails(customerParticipant.identity!, false) as Customer;
+      const customer = await getUserDetails(customerParticipant.identity!, false, customerParticipant) as Customer;
       
       let agent: Agent;
       if (agentParticipant) {
-        agent = await getUserDetails(agentParticipant.identity!, true) as Agent;
+        agent = await getUserDetails(agentParticipant.identity!, true, agentParticipant) as Agent;
       } else {
         // If no agent is assigned, assign it to the logged-in agent for now.
         // In a real app, you'd have a pool of available agents to choose from.
@@ -111,8 +144,33 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
       }
     }
 
-    // Return only plain objects - no complex serialization needed
-    return chats.sort((a,b) => {
+    // Ensure all data is serializable before returning
+    const serializedChats = chats.map(chat => ({
+      id: String(chat.id),
+      customer: {
+        id: chat.customer.id ? String(chat.customer.id) : null,
+        name: String(chat.customer.name || 'Anonymous'),
+        avatar: String(chat.customer.avatar || ''),
+        phoneNumber: chat.customer.phoneNumber ? String(chat.customer.phoneNumber) : undefined,
+        email: chat.customer.email ? String(chat.customer.email) : undefined,
+        lastSeen: chat.customer.lastSeen ? String(chat.customer.lastSeen) : undefined,
+      },
+      agent: {
+        id: String(chat.agent.id),
+        name: String(chat.agent.name),
+        avatar: String(chat.agent.avatar),
+      },
+      messages: chat.messages.map(message => ({
+        id: String(message.id),
+        text: String(message.text),
+        timestamp: String(message.timestamp),
+        sender: String(message.sender),
+        senderId: String(message.senderId),
+      })),
+      unreadCount: Number(chat.unreadCount),
+    }));
+
+    return serializedChats.sort((a,b) => {
       const aTimestamp = a.messages[a.messages.length - 1]?.timestamp || '0';
       const bTimestamp = b.messages[b.messages.length - 1]?.timestamp || '0';
       return bTimestamp.localeCompare(aTimestamp);

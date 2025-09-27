@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { Agent, Chat } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Users } from 'lucide-react';
+import { MoreVertical, Users, Phone, Mail, Clock } from 'lucide-react';
 import { ReassignAgentDialog } from './reassign-agent-dialog';
 import { ConnectionStatus } from '@/components/connection-status';
 import {
@@ -31,11 +31,32 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
             <AvatarImage src={chat.customer?.avatar} alt={customerName} data-ai-hint="person face"/>
             <AvatarFallback>{customerName.substring(0, 2)}</AvatarFallback>
           </Avatar>
-          <div>
+          <div className="flex-1">
             <p className="font-semibold">{customerName}</p>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground">Assigned to: {chat.agent.name}</p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Assigned to: {chat.agent.name}</span>
               <ConnectionStatus />
+            </div>
+            {/* Contact Information */}
+            <div className="flex items-center gap-3 mt-1">
+              {chat.customer.phoneNumber && (
+                <div className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  <span className="text-xs">{chat.customer.phoneNumber}</span>
+                </div>
+              )}
+              {chat.customer.email && (
+                <div className="flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  <span className="text-xs">{chat.customer.email}</span>
+                </div>
+              )}
+              {chat.customer.lastSeen && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  <span className="text-xs">Last seen: {new Date(chat.customer.lastSeen).toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

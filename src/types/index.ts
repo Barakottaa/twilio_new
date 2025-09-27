@@ -8,6 +8,9 @@ export type Customer = {
   id: string;
   name: string;
   avatar: string;
+  phoneNumber?: string;
+  email?: string;
+  lastSeen?: string;
 };
 
 export type Message = {
