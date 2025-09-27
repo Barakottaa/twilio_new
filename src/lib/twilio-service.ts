@@ -41,8 +41,11 @@ async function getUserDetails(identity: string, isAgent: boolean): Promise<Agent
 
 export async function getTwilioConversations(loggedInAgentId: string): Promise<Chat[]> {
   try {
+    console.log("Creating Twilio client...");
     const twilioClient = getTwilioClient();
+    console.log("Fetching conversations...");
     const conversations = await twilioClient.conversations.v1.conversations.list({ limit: 50 });
+    console.log("Found conversations:", conversations.length);
     const chats: Chat[] = [];
 
     for (const convo of conversations) {
@@ -87,15 +90,15 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
           return {
             id: msg.sid,
             text: msg.body ?? '',
-            timestamp: msg.dateCreated.toISOString(),
+            timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
             sender: senderType,
             senderId: senderIdentity,
           };
         })
       );
 
-      // Sort messages by timestamp ascending
-      messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      // Sort messages by timestamp ascending (using string comparison to avoid Date objects)
+      messages.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
       if (messages.length > 0) {
         chats.push({
@@ -108,10 +111,33 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
       }
     }
 
-    return chats.sort((a,b) => {
-      const aDate = new Date(a.messages[a.messages.length - 1]?.timestamp || 0);
-      const bDate = new Date(b.messages[b.messages.length - 1]?.timestamp || 0);
-      return bDate.getTime() - aDate.getTime();
+    // Ensure all data is serializable before returning
+    const serializedChats = chats.map(chat => ({
+      id: String(chat.id),
+      customer: {
+        id: chat.customer.id ? String(chat.customer.id) : null,
+        name: String(chat.customer.name || 'Anonymous'),
+        avatar: String(chat.customer.avatar || ''),
+      },
+      agent: {
+        id: String(chat.agent.id),
+        name: String(chat.agent.name),
+        avatar: String(chat.agent.avatar),
+      },
+      messages: chat.messages.map(message => ({
+        id: String(message.id),
+        text: String(message.text),
+        timestamp: String(message.timestamp),
+        sender: String(message.sender),
+        senderId: String(message.senderId),
+      })),
+      unreadCount: Number(chat.unreadCount),
+    }));
+
+    return serializedChats.sort((a,b) => {
+      const aTimestamp = a.messages[a.messages.length - 1]?.timestamp || '0';
+      const bTimestamp = b.messages[b.messages.length - 1]?.timestamp || '0';
+      return bTimestamp.localeCompare(aTimestamp);
     });
   } catch (error) {
     console.error("Error fetching Twilio conversations:", error);
@@ -125,15 +151,28 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
 
 export async function sendTwilioMessage(conversationSid: string, author: string, text: string) {
     try {
+        console.log("Attempting to send message:", { conversationSid, author, text });
         const twilioClient = getTwilioClient();
+        console.log("Twilio client created successfully");
+        
         const message = await twilioClient.conversations.v1.conversations(conversationSid).messages.create({
             author,
             body: text,
         });
+        
+        console.log("Message sent successfully:", message.sid);
         return message;
-    } catch (error) {
-        console.error("Error sending Twilio message:", error);
-        throw new Error("Failed to send message.");
+    } catch (error: any) {
+        console.error("Detailed error sending Twilio message:", {
+            error: error.message,
+            code: error.code,
+            status: error.status,
+            moreInfo: error.moreInfo,
+            conversationSid,
+            author,
+            text
+        });
+        throw new Error(`Failed to send message: ${error.message || 'Unknown error'}`);
     }
 }
 

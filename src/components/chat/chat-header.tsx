@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, Users } from 'lucide-react';
 import { ReassignAgentDialog } from './reassign-agent-dialog';
+import { ConnectionStatus } from '@/components/connection-status';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +33,10 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
           </Avatar>
           <div>
             <p className="font-semibold">{customerName}</p>
-            <p className="text-xs text-muted-foreground">Assigned to: {chat.agent.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">Assigned to: {chat.agent.name}</p>
+              <ConnectionStatus />
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">

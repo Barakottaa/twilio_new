@@ -20,7 +20,9 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
 
   const handleSendMessage = async (chatId: string, text: string) => {
     try {
+      console.log("Sending message:", { chatId, text, agentId: loggedInAgent.id });
       await sendTwilioMessage(chatId, loggedInAgent.id, text);
+      console.log("Message sent successfully via Twilio");
       
       const newMessage: Message = {
         id: `msg-${Date.now()}`,
@@ -45,10 +47,18 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
       if(updatedSelectedChat) {
           setSelectedChat(updatedSelectedChat);
       }
-    } catch (error) {
+      
+      // Show success message
+      toast({
+        title: "Message Sent",
+        description: "Message sent successfully!",
+      });
+      
+    } catch (error: any) {
+       console.error("Error in handleSendMessage:", error);
        toast({
         title: "Error Sending Message",
-        description: "Failed to send message via Twilio. Please check your credentials and network.",
+        description: error.message || "Failed to send message via Twilio. Please check your credentials and network.",
         variant: "destructive",
       });
     }

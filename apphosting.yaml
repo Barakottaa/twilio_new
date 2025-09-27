@@ -10,5 +10,3 @@ secretEnvironmentVariables:
     secret: TWILIO_ACCOUNT_SID
   - key: TWILIO_AUTH_TOKEN
     secret: TWILIO_AUTH_TOKEN
-  - key: WEBHOOK_SECRET
-    secret: WEBHOOK_SECRET
