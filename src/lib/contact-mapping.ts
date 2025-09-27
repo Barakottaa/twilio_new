@@ -74,17 +74,11 @@ export function getDisplayName(phoneNumber: string): string {
   return formatPhoneNumber(phoneNumber);
 }
 
-// Initialize with some sample contacts (remove in production)
+// Initialize with empty contacts - we'll get real data from Meta
 export function initializeSampleContacts() {
-  console.log('🔄 Initializing sample contacts...');
-  addContact('+201016666348', 'Ahmed Hassan', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face');
-  addContact('+1234567890', 'John Smith', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face');
-  addContact('+9876543210', 'Sarah Johnson', 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face');
-  
-  // Log all contacts after initialization
-  const allContacts = getAllContacts();
-  console.log('📋 All contacts after initialization:', allContacts);
+  console.log('🔄 Contact mapping initialized - no mock data');
+  // No mock data - we'll get real contact info from Meta API
 }
 
-// Initialize sample contacts on module load
+// Initialize contact mapping on module load
 initializeSampleContacts();

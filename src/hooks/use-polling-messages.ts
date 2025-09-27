@@ -59,10 +59,12 @@ export function usePollingMessages({
           setChats(freshChats);
           
           // Update selected chat if it exists
-          const updatedSelectedChat = freshChats.find(chat => chat.id === selectedChat?.id);
-          if (updatedSelectedChat) {
-            console.log('🔄 Updating selected chat with new messages');
-            setSelectedChat(updatedSelectedChat);
+          if (selectedChat) {
+            const updatedSelectedChat = freshChats.find(chat => chat.id === selectedChat.id);
+            if (updatedSelectedChat) {
+              console.log('🔄 Updating selected chat with new messages');
+              setSelectedChat(updatedSelectedChat);
+            }
           }
         }
       } catch (error) {

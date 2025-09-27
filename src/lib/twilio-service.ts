@@ -4,7 +4,8 @@ import type { Agent, Chat, Customer, Message } from '@/types';
 import twilio from 'twilio';
 import { PlaceHolderImages } from './placeholder-images';
 import { availableAgents } from './mock-data';
-import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllContacts } from './contact-mapping';
+import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllContacts, addContact } from './contact-mapping';
+import { getWhatsAppContactInfo } from './meta-api';
 
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
@@ -77,19 +78,30 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
         const phoneNumber = phoneMatch[1];
         customer.phoneNumber = phoneNumber;
         
-        // Try to get contact info from our mapping
+        // Try to get contact info from our mapping first
         console.log('🔍 Looking up contact for phone:', phoneNumber);
-        console.log('📋 All available contacts:', getAllContacts());
-        const contactInfo = getContact(phoneNumber);
-        console.log('📞 Contact info found:', contactInfo);
+        let contactInfo = getContact(phoneNumber);
+        
+        if (!contactInfo) {
+          // If not in mapping, try to get from Meta/WhatsApp API
+          console.log('📞 Contact not in mapping, fetching from Meta API...');
+          const metaInfo = await getWhatsAppContactInfo(phoneNumber);
+          
+          if (metaInfo) {
+            // Add to our mapping for future use
+            addContact(phoneNumber, metaInfo.name || formatPhoneNumber(phoneNumber), metaInfo.profile_picture_url);
+            contactInfo = getContact(phoneNumber);
+            console.log('✅ Added contact from Meta API:', metaInfo.name);
+          }
+        }
         
         if (contactInfo) {
           customer.name = contactInfo.name;
           customer.avatar = contactInfo.avatar || customer.avatar;
           customer.lastSeen = contactInfo.lastSeen;
-          console.log('✅ Using mapped contact name:', contactInfo.name);
+          console.log('✅ Using contact name:', contactInfo.name);
         } else {
-          // Fallback to formatted phone number
+          // Final fallback to formatted phone number
           const formattedPhone = formatPhoneNumber(phoneNumber);
           customer.name = formattedPhone;
           console.log('📱 Using formatted phone as name:', formattedPhone);
