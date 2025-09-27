@@ -7,6 +7,31 @@ import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
 import { sendTwilioMessage, reassignTwilioConversation } from '@/lib/twilio-service';
 
+// Helper function to ensure all chat objects are plain objects
+function ensurePlainChat(chat: Chat): Chat {
+  return {
+    id: String(chat.id),
+    customer: {
+      id: chat.customer.id ? String(chat.customer.id) : null,
+      name: String(chat.customer.name),
+      avatar: String(chat.customer.avatar),
+    },
+    agent: {
+      id: String(chat.agent.id),
+      name: String(chat.agent.name),
+      avatar: String(chat.agent.avatar),
+    },
+    messages: chat.messages.map(msg => ({
+      id: String(msg.id),
+      text: String(msg.text),
+      timestamp: String(msg.timestamp),
+      sender: String(msg.sender),
+      senderId: String(msg.senderId),
+    })),
+    unreadCount: Number(chat.unreadCount),
+  };
+}
+
 interface ChatLayoutProps {
   chats: Chat[];
   agents: Agent[];
@@ -14,7 +39,8 @@ interface ChatLayoutProps {
 }
 
 export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatLayoutProps) {
-  const [chats, setChats] = useState<Chat[]>(initialChats);
+  // Ensure initial chats are plain objects
+  const [chats, setChats] = useState<Chat[]>(initialChats.map(ensurePlainChat));
   const [selectedChat, setSelectedChat] = useState<Chat | null>(chats.length > 0 ? chats[0] : null);
   const { toast } = useToast();
 
@@ -24,22 +50,25 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
       await sendTwilioMessage(chatId, loggedInAgent.id, text);
       console.log("Message sent successfully via Twilio");
       
+      // Create a plain object message
       const newMessage: Message = {
-        id: `msg-${Date.now()}`,
-        text,
-        timestamp: new Date().toISOString(),
-        sender: 'agent',
-        senderId: loggedInAgent.id,
+        id: String(`msg-${Date.now()}`),
+        text: String(text),
+        timestamp: String(new Date().toISOString()),
+        sender: 'agent' as const,
+        senderId: String(loggedInAgent.id),
       };
   
+      // Create updated chats with plain objects
       const updatedChats = chats.map((chat) => {
         if (chat.id === chatId) {
-          return {
+          const updatedChat = {
             ...chat,
             messages: [...chat.messages, newMessage],
           };
+          return ensurePlainChat(updatedChat);
         }
-        return chat;
+        return ensurePlainChat(chat);
       });
   
       setChats(updatedChats);
@@ -77,12 +106,13 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
             title: "Chat Reassigned",
             description: `Conversation with ${chat.customer.name} has been reassigned to ${newAgent.name}.`,
           });
-          return {
+          const updatedChat = {
             ...chat,
             agent: newAgent,
           };
+          return ensurePlainChat(updatedChat);
         }
-        return chat;
+        return ensurePlainChat(chat);
       });
   
       setChats(updatedChats);
@@ -104,7 +134,7 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
     setSelectedChat(chat);
     // Mark chat as read
     const updatedChats = chats.map(c => 
-      c.id === chat.id ? { ...c, unreadCount: 0 } : c
+      c.id === chat.id ? ensurePlainChat({ ...c, unreadCount: 0 }) : ensurePlainChat(c)
     );
     setChats(updatedChats);
   }
