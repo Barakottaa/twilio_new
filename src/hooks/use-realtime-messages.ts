@@ -25,37 +25,66 @@ interface UseRealtimeMessagesProps {
 
 export function useRealtimeMessages({ chats, setChats, setSelectedChat }: UseRealtimeMessagesProps) {
   const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    // Create SSE connection
+  const connectSSE = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    console.log('🔌 Connecting to SSE...');
     const eventSource = new EventSource('/api/events');
     eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log('✅ SSE connection opened');
+    };
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         
-        if (data.type === 'newMessage') {
+        if (data.type === 'connected') {
+          console.log('📡 SSE connected:', data.message);
+        } else if (data.type === 'heartbeat') {
+          console.log('💓 SSE heartbeat received');
+        } else if (data.type === 'newMessage') {
+          console.log('📨 New message via SSE:', data.data);
           handleNewMessage(data.data as RealtimeMessageData);
         } else if (data.type === 'newConversation') {
+          console.log('💬 New conversation via SSE:', data.data);
           handleNewConversation(data.data as RealtimeConversationData);
         }
       } catch (error) {
-        console.error('Error parsing SSE message:', error);
+        console.error('❌ Error parsing SSE message:', error);
       }
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      // Attempt to reconnect after 3 seconds
-      setTimeout(() => {
-        if (eventSourceRef.current?.readyState === EventSource.CLOSED) {
-          eventSourceRef.current = new EventSource('/api/events');
-        }
-      }, 3000);
+      console.error('❌ SSE connection error:', error);
+      
+      // Clear any existing reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Attempt to reconnect after 5 seconds
+      reconnectTimeoutRef.current = setTimeout(() => {
+        console.log('🔄 Attempting to reconnect SSE...');
+        connectSSE();
+      }, 5000);
     };
 
+    return eventSource;
+  };
+
+  useEffect(() => {
+    const eventSource = connectSSE();
+
     return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       eventSource.close();
     };
   }, []);

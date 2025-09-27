@@ -7,6 +7,7 @@ import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
 import { sendTwilioMessage, reassignTwilioConversation } from '@/lib/twilio-service';
 import { useRealtimeMessages } from '@/hooks/use-realtime-messages';
+import { usePollingMessages } from '@/hooks/use-polling-messages';
 
 // Helper function to ensure all chat objects are plain objects
 function ensurePlainChat(chat: Chat): Chat {
@@ -48,8 +49,17 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   const [selectedChat, setSelectedChat] = useState<Chat | null>(chats.length > 0 ? chats[0] : null);
   const { toast } = useToast();
 
-  // Enable real-time messaging
+  // Enable real-time messaging with SSE
   useRealtimeMessages({ chats, setChats, setSelectedChat });
+  
+  // Enable polling as fallback (disabled by default, can be enabled if SSE fails)
+  usePollingMessages({ 
+    chats, 
+    setChats, 
+    setSelectedChat, 
+    loggedInAgentId: loggedInAgent.id,
+    enabled: false // Set to true if SSE is not working
+  });
 
   const handleSendMessage = async (chatId: string, text: string) => {
     try {

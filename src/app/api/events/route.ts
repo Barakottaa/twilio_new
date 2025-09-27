@@ -16,8 +16,20 @@ export async function GET(req: NextRequest) {
       const data = JSON.stringify({ type: 'connected', message: 'Connected to real-time updates' });
       controller.enqueue(encoder.encode(`data: ${data}\n\n`));
       
+      // Send periodic heartbeat to keep connection alive
+      const heartbeat = setInterval(() => {
+        try {
+          const heartbeatData = JSON.stringify({ type: 'heartbeat', timestamp: Date.now() });
+          controller.enqueue(encoder.encode(`data: ${heartbeatData}\n\n`));
+        } catch (error) {
+          clearInterval(heartbeat);
+          connections.delete(controller);
+        }
+      }, 30000); // Send heartbeat every 30 seconds
+      
       // Handle client disconnect
       req.signal.addEventListener('abort', () => {
+        clearInterval(heartbeat);
         connections.delete(controller);
         controller.close();
       });
@@ -30,10 +42,11 @@ export async function GET(req: NextRequest) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Connection': 'keep-alive',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Cache-Control',
+      'X-Accel-Buffering': 'no', // Disable nginx buffering
     },
   });
 }
