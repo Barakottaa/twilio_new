@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { ConversationStatus, Chat } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,11 +23,14 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
 
-  // Get all unique tags from conversations
-  const allTags = Array.from(new Set(conversations.flatMap(conv => conv.tags || [])));
+  // Get all unique tags from conversations (memoized)
+  const allTags = useMemo(() => 
+    Array.from(new Set(conversations.flatMap(conv => conv.tags || []))), 
+    [conversations]
+  );
 
-  // Apply filters
-  const applyFilters = () => {
+  // Apply filters (memoized)
+  const applyFilters = useCallback(() => {
     let filtered = [...conversations];
 
     // Search filter
@@ -65,22 +68,22 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
     }
 
     onFilteredConversations(filtered);
-  };
+  }, [searchQuery, statusFilter, priorityFilter, agentFilter, tagFilter, conversations, onFilteredConversations]);
 
-  // Clear all filters
-  const clearFilters = () => {
+  // Clear all filters (memoized)
+  const clearFilters = useCallback(() => {
     setSearchQuery('');
     setStatusFilter('all');
     setPriorityFilter('all');
     setAgentFilter('all');
     setTagFilter('all');
     onFilteredConversations(conversations);
-  };
+  }, [conversations, onFilteredConversations]);
 
   // Apply filters when any filter changes
   React.useEffect(() => {
     applyFilters();
-  }, [searchQuery, statusFilter, priorityFilter, agentFilter, tagFilter, conversations]);
+  }, [applyFilters]);
 
   const activeFiltersCount = [
     searchQuery.trim() ? 1 : 0,

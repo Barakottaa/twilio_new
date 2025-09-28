@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Agent, Chat } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { VirtualScroll } from '@/components/ui/virtual-scroll';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ChatListItem } from './chat-list-item';
@@ -21,6 +22,19 @@ interface ChatListProps {
 
 export function ChatList({ chats, selectedChat, onSelectChat, onRefresh, loggedInAgent, agents }: ChatListProps) {
   const [filteredChats, setFilteredChats] = useState<Chat[]>(chats);
+
+  // Use virtual scrolling for large lists (more than 50 items)
+  const shouldUseVirtualScroll = useMemo(() => filteredChats.length > 50, [filteredChats.length]);
+
+  const renderChatItem = (chat: Chat, index: number) => (
+    <div key={chat.id} className="p-1">
+      <ChatListItem
+        chat={chat}
+        isSelected={selectedChat?.id === chat.id}
+        onClick={() => onSelectChat(chat)}
+      />
+    </div>
+  );
 
   return (
     <div className="w-full max-w-xs border-r flex flex-col bg-card">
@@ -49,18 +63,28 @@ export function ChatList({ chats, selectedChat, onSelectChat, onRefresh, loggedI
         agents={agents}
       />
       
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col gap-1 p-2">
-          {filteredChats.map((chat) => (
-            <ChatListItem
-              key={chat.id}
-              chat={chat}
-              isSelected={selectedChat?.id === chat.id}
-              onClick={() => onSelectChat(chat)}
-            />
-          ))}
-        </div>
-      </ScrollArea>
+      {shouldUseVirtualScroll ? (
+        <VirtualScroll
+          items={filteredChats}
+          itemHeight={120} // Approximate height of each chat item
+          containerHeight={600} // Fixed height for the chat list
+          renderItem={renderChatItem}
+          className="flex-1"
+        />
+      ) : (
+        <ScrollArea className="flex-1">
+          <div className="flex flex-col gap-1 p-2">
+            {filteredChats.map((chat) => (
+              <ChatListItem
+                key={chat.id}
+                chat={chat}
+                isSelected={selectedChat?.id === chat.id}
+                onClick={() => onSelectChat(chat)}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 }

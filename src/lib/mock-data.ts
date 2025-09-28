@@ -118,12 +118,15 @@ const generateMessages = (count: number, customer: Customer, agent: Agent, baseD
     "It worked! Thank you so much.",
   ];
 
-  for (let i = 0; i < count; i++) {
+  // Limit message count to reduce memory usage
+  const limitedCount = Math.min(count, 10);
+  
+  for (let i = 0; i < limitedCount; i++) {
     const sender = i % 2 === 0 ? 'customer' : 'agent';
     messages.push({
       id: `msg-${customer.id}-${i}`,
       text: messageContent[i % messageContent.length],
-      timestamp: subMinutes(baseDate, (count - i) * 2).toISOString(),
+      timestamp: subMinutes(baseDate, (limitedCount - i) * 2).toISOString(),
       sender,
       senderId: sender === 'customer' ? customer.id : agent.id,
     });
@@ -136,7 +139,7 @@ export const chats: Chat[] = [
     id: 'chat-1',
     customer: customers[0],
     agent: agents[0],
-    messages: generateMessages(8, customers[0], agents[0], new Date()),
+    messages: generateMessages(5, customers[0], agents[0], new Date()),
     unreadCount: 2,
     status: 'open',
     priority: 'medium',
@@ -149,7 +152,7 @@ export const chats: Chat[] = [
     id: 'chat-2',
     customer: customers[1],
     agent: agents[0],
-    messages: generateMessages(5, customers[1], agents[0], subHours(new Date(), 1)),
+    messages: generateMessages(3, customers[1], agents[0], subHours(new Date(), 1)),
     unreadCount: 0,
     status: 'open',
     priority: 'low',
@@ -162,7 +165,7 @@ export const chats: Chat[] = [
     id: 'chat-3',
     customer: customers[2],
     agent: agents[1],
-    messages: generateMessages(3, customers[2], agents[1], subHours(new Date(), 3)),
+    messages: generateMessages(2, customers[2], agents[1], subHours(new Date(), 3)),
     unreadCount: 1,
     status: 'pending',
     priority: 'high',
@@ -170,35 +173,6 @@ export const chats: Chat[] = [
     createdAt: subHours(new Date(), 3).toISOString(),
     updatedAt: subHours(new Date(), 3).toISOString(),
     assignedAt: subHours(new Date(), 3).toISOString(),
-  },
-  {
-    id: 'chat-4',
-    customer: customers[3],
-    agent: agents[0],
-    messages: generateMessages(6, customers[3], agents[0], subDays(new Date(), 1)),
-    unreadCount: 0,
-    status: 'resolved',
-    priority: 'medium',
-    tags: ['technical-support', 'login'],
-    createdAt: subDays(new Date(), 1).toISOString(),
-    updatedAt: subDays(new Date(), 1).toISOString(),
-    assignedAt: subDays(new Date(), 1).toISOString(),
-    closedAt: subDays(new Date(), 1).toISOString(),
-    closedBy: agents[0].id,
-    notes: 'Issue resolved - password reset email was in spam folder',
-  },
-  {
-    id: 'chat-5',
-    customer: customers[4],
-    agent: agents[2],
-    messages: generateMessages(2, customers[4], agents[2], subDays(new Date(), 2)),
-    unreadCount: 0,
-    status: 'escalated',
-    priority: 'urgent',
-    tags: ['sales', 'upgrade', 'vip'],
-    createdAt: subDays(new Date(), 2).toISOString(),
-    updatedAt: subDays(new Date(), 2).toISOString(),
-    assignedAt: subDays(new Date(), 2).toISOString(),
   },
 ];
 

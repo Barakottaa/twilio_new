@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Chat } from '@/types';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,7 +38,7 @@ interface ChatListItemProps {
   onClick: () => void;
 }
 
-export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
+export const ChatListItem = memo(function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
   const lastMessage = chat.messages[chat.messages.length - 1];
   const customerName = chat.customer?.name || "Anonymous";
   
@@ -124,4 +125,4 @@ export function ChatListItem({ chat, isSelected, onClick }: ChatListItemProps) {
           </div>
         </button>
       );
-}
+    });

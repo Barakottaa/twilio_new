@@ -161,12 +161,15 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
 }
 
 
-export async function getTwilioConversations(loggedInAgentId: string): Promise<Chat[]> {
+export async function getTwilioConversations(loggedInAgentId: string, limit: number = 20): Promise<Chat[]> {
   try {
     console.log("Creating Twilio client...");
     const twilioClient = getTwilioClient();
     console.log("Fetching conversations...");
-    const conversations = await twilioClient.conversations.v1.conversations.list({ limit: 50 });
+    // Limit conversations to reduce memory usage
+    const conversations = await twilioClient.conversations.v1.conversations.list({ 
+      limit: Math.min(limit, 50) // Cap at 50 to prevent excessive memory usage
+    });
     console.log("Found conversations:", conversations.length);
     const chats: Chat[] = [];
 
@@ -204,7 +207,10 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
         }
       }
 
-      const twilioMessages = await twilioClient.conversations.v1.conversations(convo.sid).messages.list({ limit: 100 });
+          // Limit messages to reduce memory usage
+          const twilioMessages = await twilioClient.conversations.v1.conversations(convo.sid).messages.list({ 
+            limit: 50 // Reduced from 100 to 50
+          });
       const messages: Message[] = await Promise.all(
         twilioMessages.map(async (msg) => {
           const senderIdentity = msg.author;

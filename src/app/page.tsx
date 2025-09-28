@@ -1,4 +1,5 @@
 import { ChatLayout } from "@/components/chat/chat-layout";
+import { PerformanceMonitor } from "@/components/performance-monitor";
 import { availableAgents as mockAgents, chats as mockChats } from "@/lib/mock-data";
 import { getTwilioConversations } from "@/lib/twilio-service";
 import { initializeConversations } from "@/lib/conversation-service";
@@ -65,6 +66,7 @@ export default async function Home() {
         agents={serializedAgents}
         loggedInAgent={loggedInAgent}
       />
+      <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />
     </main>
   );
 }
