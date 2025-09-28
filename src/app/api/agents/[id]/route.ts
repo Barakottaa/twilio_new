@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAgentById, updateAgent, deleteAgent, updateAgentStatus } from '@/lib/agent-service';
+import { getAgentById, updateAgent, deleteAgent } from '@/lib/agents-service';
 
 export async function GET(
   req: NextRequest,

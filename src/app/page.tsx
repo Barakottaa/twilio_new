@@ -1,17 +1,27 @@
 import { ChatLayout } from "@/components/chat/chat-layout";
+import { MainLayout } from "@/components/layout/main-layout";
 import { PerformanceMonitor } from "@/components/performance-monitor";
 import { availableAgents as mockAgents, chats as mockChats } from "@/lib/mock-data";
 import { getTwilioConversations } from "@/lib/twilio-service";
 import { initializeConversations } from "@/lib/conversation-service";
 import { assertSerializable } from "@/lib/assertSerializable";
 import { toPlain } from "@/lib/toPlain";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import type { Agent } from "@/types";
 
 export default async function Home() {
+  // Check authentication
+  const session = await getSession();
+  if (!session || !session.isAuthenticated) {
+    redirect('/login');
+  }
+  const loggedInAgent = session.agent;
+  
   // Initialize conversation service with mock data
   await initializeConversations(mockChats);
   
-  // Ensure agents are serializable
+  // For now, use mock agents for the chat interface
   const serializedAgents = toPlain(mockAgents.map(agent => ({
     id: String(agent.id),
     name: String(agent.name),
@@ -24,8 +34,6 @@ export default async function Home() {
     department: agent.department ? String(agent.department) : undefined,
     lastActive: agent.lastActive ? String(agent.lastActive) : undefined,
   })));
-  
-  const loggedInAgent: Agent = serializedAgents[0] as Agent;
   let chats = [];
   
   try {
@@ -60,13 +68,15 @@ export default async function Home() {
   }
 
   return (
-    <main className="flex h-screen w-full flex-col items-center justify-center p-4">
-      <ChatLayout
-        chats={chats}
-        agents={serializedAgents as Agent[]}
-        loggedInAgent={loggedInAgent}
-      />
-      <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />
-    </main>
+    <MainLayout loggedInAgent={loggedInAgent}>
+      <div className="h-full">
+        <ChatLayout
+          chats={chats}
+          agents={serializedAgents as Agent[]}
+          loggedInAgent={loggedInAgent}
+        />
+        <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />
+      </div>
+    </MainLayout>
   );
 }

@@ -1,287 +1,361 @@
 'use client';
 
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect } from 'react';
 import type { Agent } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AgentStatus } from '@/components/ui/agent-status';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, Edit, Trash2, Users, Clock, Activity } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { 
+  Search, 
+  Users, 
+  Plus,
+  MoreVertical,
+  Shield,
+  User,
+  Trash2
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newAgent, setNewAgent] = useState({
-    name: '',
-    email: '',
-    department: '',
-    maxConcurrentChats: 5,
-    skills: [] as string[],
-  });
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newAgent, setNewAgent] = useState({
+    username: '',
+    password: '',
+    role: 'agent' as 'admin' | 'agent',
+    permissions: {
+      dashboard: true,
+      agents: false,
+      contacts: true,
+      analytics: false,
+      settings: false
+    }
+  });
 
+  // Fetch agents from API
   useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const response = await fetch('/api/agents');
+        if (response.ok) {
+          const data = await response.json();
+          setAgents(data);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to fetch agents",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch agents",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchAgents();
-  }, []);
+  }, [toast]);
 
-  const fetchAgents = async () => {
-    try {
-      const response = await fetch('/api/agents');
-      if (response.ok) {
-        const data = await response.json();
-        setAgents(data);
-      }
-    } catch (error) {
-      console.error('Error fetching agents:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const filteredAgents = agents.filter(agent => {
+    const matchesSearch = agent.username.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
 
-  const createAgent = async () => {
-    try {
-      const response = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAgent),
-      });
+  const handleAddAgent = async () => {
+    if (newAgent.username && newAgent.password) {
+      try {
+        const response = await fetch('/api/agents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(newAgent),
+        });
 
-      if (response.ok) {
-        const createdAgent = await response.json();
-        setAgents([...agents, createdAgent]);
-        setNewAgent({ name: '', email: '', department: '', maxConcurrentChats: 5, skills: [] });
-        setIsCreating(false);
+        if (response.ok) {
+          const agent = await response.json();
+          setAgents(prev => [...prev, agent]);
+          setNewAgent({
+            username: '',
+            password: '',
+            role: 'agent',
+            permissions: {
+              dashboard: true,
+              agents: false,
+              contacts: true,
+              analytics: false,
+              settings: false
+            }
+          });
+          setIsAddDialogOpen(false);
+          toast({
+            title: "Success",
+            description: "Agent added successfully",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to add agent",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
         toast({
-          title: "Agent Created",
-          description: `${createdAgent.name} has been added to the team.`,
+          title: "Error",
+          description: "Failed to add agent",
+          variant: "destructive",
         });
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create agent.",
-        variant: "destructive",
-      });
     }
   };
 
-  const updateAgentStatus = async (agentId: string, status: Agent['status']) => {
-    try {
-      const response = await fetch(`/api/agents/${agentId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-
-      if (response.ok) {
-        const updatedAgent = await response.json();
-        setAgents(agents.map(agent => agent.id === agentId ? updatedAgent : agent));
-        toast({
-          title: "Status Updated",
-          description: `${updatedAgent.name}'s status has been updated.`,
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update agent status.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deleteAgent = async (agentId: string) => {
-    if (!confirm('Are you sure you want to delete this agent?')) return;
-
+  const handleDeleteAgent = async (agentId: string) => {
     try {
       const response = await fetch(`/api/agents/${agentId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        setAgents(agents.filter(agent => agent.id !== agentId));
+        setAgents(prev => prev.filter(agent => agent.id !== agentId));
         toast({
-          title: "Agent Deleted",
-          description: "Agent has been removed from the team.",
+          title: "Success",
+          description: "Agent deleted successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete agent",
+          variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete agent.",
+        description: "Failed to delete agent",
         variant: "destructive",
       });
     }
   };
 
-  if (loading) {
-    return <div className="p-8">Loading agents...</div>;
-  }
+  const handlePermissionChange = (permission: string, checked: boolean) => {
+    setNewAgent(prev => ({
+      ...prev,
+      permissions: {
+        ...prev.permissions,
+        [permission]: checked
+      }
+    }));
+  };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Agent Management</h1>
-          <p className="text-muted-foreground">Manage your support team and agent assignments</p>
+          <h1 className="text-3xl font-bold">Agents</h1>
+          <p className="text-muted-foreground">Manage your support team</p>
         </div>
-        <Button onClick={() => setIsCreating(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Agent
-        </Button>
-      </div>
-
-      {/* Create Agent Form */}
-      {isCreating && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Create New Agent</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={newAgent.name}
-                  onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
-                  placeholder="Agent name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newAgent.email}
-                  onChange={(e) => setNewAgent({ ...newAgent, email: e.target.value })}
-                  placeholder="agent@company.com"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="department">Department</Label>
-                <Select value={newAgent.department} onValueChange={(value) => setNewAgent({ ...newAgent, department: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Customer Success">Customer Success</SelectItem>
-                    <SelectItem value="Technical Support">Technical Support</SelectItem>
-                    <SelectItem value="Sales">Sales</SelectItem>
-                    <SelectItem value="Billing">Billing</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="maxChats">Max Concurrent Chats</Label>
-                <Input
-                  id="maxChats"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={newAgent.maxConcurrentChats}
-                  onChange={(e) => setNewAgent({ ...newAgent, maxConcurrentChats: parseInt(e.target.value) })}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={createAgent}>Create Agent</Button>
-              <Button variant="outline" onClick={() => setIsCreating(false)}>Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Agents Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {agents.map((agent) => (
-          <Card key={agent.id}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={agent.avatar} alt={agent.name} />
-                    <AvatarFallback>{agent.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-lg">{agent.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{agent.department}</p>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-sm">
+            {filteredAgents.length} agents
+          </Badge>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Agent
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Agent</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    value={newAgent.username}
+                    onChange={(e) => setNewAgent(prev => ({ ...prev, username: e.target.value }))}
+                    placeholder="Enter username"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newAgent.password}
+                    onChange={(e) => setNewAgent(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Enter password"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Role</Label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        value="agent"
+                        checked={newAgent.role === 'agent'}
+                        onChange={(e) => setNewAgent(prev => ({ ...prev, role: e.target.value as 'admin' | 'agent' }))}
+                      />
+                      <span>Agent</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        value="admin"
+                        checked={newAgent.role === 'admin'}
+                        onChange={(e) => setNewAgent(prev => ({ ...prev, role: e.target.value as 'admin' | 'agent' }))}
+                      />
+                      <span>Admin</span>
+                    </label>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => updateAgentStatus(agent.id, agent.status === 'online' ? 'offline' : 'online')}
-                  >
-                    <AgentStatus status={agent.status} showLabel />
-                  </Button>
+                <div className="grid gap-2">
+                  <Label>Permissions</Label>
+                  <div className="space-y-2">
+                    {Object.entries(newAgent.permissions).map(([permission, enabled]) => (
+                      <div key={permission} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={permission}
+                          checked={enabled}
+                          onCheckedChange={(checked) => handlePermissionChange(permission, checked as boolean)}
+                        />
+                        <Label htmlFor={permission} className="capitalize">
+                          {permission}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
-                <span>{agent.currentChats}/{agent.maxConcurrentChats} chats</span>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddAgent}>
+                  Add Agent
+                </Button>
               </div>
-              
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>Last active: {new Date(agent.lastActive || '').toLocaleDateString()}</span>
-              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
 
-              {agent.skills && agent.skills.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {agent.skills.map((skill) => (
-                    <Badge key={skill} variant="secondary" className="text-xs">
-                      {skill}
-                    </Badge>
-                  ))}
+      {/* Search */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search agents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Agents List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredAgents.map((agent) => (
+          <Card key={agent.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback>{agent.username.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-lg">{agent.username}</h3>
+                    <div className="flex items-center gap-2">
+                      {agent.role === 'admin' ? (
+                        <Badge variant="default" className="bg-purple-500">
+                          <Shield className="w-3 h-3 mr-1" />
+                          Admin
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          <User className="w-3 h-3 mr-1" />
+                          Agent
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem 
+                      onClick={() => handleDeleteAgent(agent.id)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Agent
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
-              <div className="flex gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => updateAgentStatus(agent.id, 'busy')}
-                  disabled={agent.status === 'busy'}
-                >
-                  <Activity className="h-3 w-3 mr-1" />
-                  Set Busy
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteAgent(agent.id)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Permissions</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(agent.permissions).map(([permission, enabled]) => (
+                      enabled && (
+                        <Badge key={permission} variant="outline" className="text-xs">
+                          {permission}
+                        </Badge>
+                      )
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {agents.length === 0 && (
-        <div className="text-center py-12">
-          <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No agents found</h3>
-          <p className="text-muted-foreground mb-4">Get started by adding your first agent to the team.</p>
-          <Button onClick={() => setIsCreating(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add First Agent
-          </Button>
-        </div>
+      
+      {filteredAgents.length === 0 && !isLoading && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No agents found</h3>
+            <p className="text-muted-foreground">Try adjusting your search or add a new agent.</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

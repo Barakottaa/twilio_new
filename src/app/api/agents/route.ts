@@ -1,50 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllAgents, createAgent, getAgentStats } from '@/lib/agent-service';
+import { getAllAgents, createAgent } from '@/lib/agents-service';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url);
-    const stats = searchParams.get('stats') === 'true';
-    
-    if (stats) {
-      const agentStats = await getAgentStats();
-      return NextResponse.json(agentStats);
-    }
-    
     const agents = await getAllAgents();
     return NextResponse.json(agents);
   } catch (error) {
     console.error('Error fetching agents:', error);
-    return NextResponse.json({ error: 'Failed to fetch agents' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch agents' },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const agentData = await req.json();
-    
-    // Validate required fields
-    if (!agentData.name || !agentData.email || !agentData.department) {
+    const data = await req.json();
+    const agent = await createAgent(data);
+
+    if (!agent) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, email, department' },
-        { status: 400 }
+        { error: 'Failed to create agent' },
+        { status: 500 }
       );
     }
-    
-    const newAgent = await createAgent({
-      name: agentData.name,
-      email: agentData.email,
-      avatar: agentData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(agentData.name)}&background=3b82f6&color=ffffff&size=150`,
-      status: agentData.status || 'offline',
-      maxConcurrentChats: agentData.maxConcurrentChats || 5,
-      skills: agentData.skills || [],
-      department: agentData.department,
-      lastActive: new Date().toISOString(),
-    });
-    
-    return NextResponse.json(newAgent, { status: 201 });
+
+    return NextResponse.json(agent, { status: 201 });
   } catch (error) {
     console.error('Error creating agent:', error);
-    return NextResponse.json({ error: 'Failed to create agent' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create agent' },
+      { status: 500 }
+    );
   }
 }

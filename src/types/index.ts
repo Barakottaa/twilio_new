@@ -2,15 +2,15 @@ export type ConversationStatus = 'open' | 'closed' | 'pending' | 'resolved' | 'e
 
 export type Agent = {
   id: string;
-  name: string;
-  avatar: string;
-  email?: string;
-  status: 'online' | 'offline' | 'busy' | 'away';
-  maxConcurrentChats: number;
-  currentChats: number;
-  skills?: string[];
-  department?: string;
-  lastActive?: string;
+  username: string;
+  role: 'admin' | 'agent';
+  permissions: {
+    dashboard: boolean;
+    agents: boolean;
+    contacts: boolean;
+    analytics: boolean;
+    settings: boolean;
+  };
 };
 
 export type Customer = {
