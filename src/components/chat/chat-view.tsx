@@ -10,9 +10,10 @@ interface ChatViewProps {
   loggedInAgent: Agent;
   onSendMessage: (chatId: string, text: string) => void;
   onReassignAgent: (chatId: string, newAgentId: string) => void;
+  onUpdateChat: (updatedChat: Chat) => void;
 }
 
-export function ChatView({ chat, agents, loggedInAgent, onSendMessage, onReassignAgent }: ChatViewProps) {
+export function ChatView({ chat, agents, loggedInAgent, onSendMessage, onReassignAgent, onUpdateChat }: ChatViewProps) {
   if (!chat) {
     return <ChatPlaceholder />;
   }
@@ -26,7 +27,8 @@ export function ChatView({ chat, agents, loggedInAgent, onSendMessage, onReassig
       <ChatHeader 
         chat={chat} 
         agents={agents} 
-        onReassignAgent={(newAgentId) => onReassignAgent(chat.id, newAgentId)} 
+        onReassignAgent={(newAgentId) => onReassignAgent(chat.id, newAgentId)}
+        onUpdateChat={onUpdateChat}
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <MessageList messages={chat.messages} agentAvatar={chat.agent.avatar} customerAvatar={chat.customer.avatar} />

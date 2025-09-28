@@ -1,21 +1,31 @@
 import { ChatLayout } from "@/components/chat/chat-layout";
-import { availableAgents as mockAgents } from "@/lib/mock-data";
+import { availableAgents as mockAgents, chats as mockChats } from "@/lib/mock-data";
 import { getTwilioConversations } from "@/lib/twilio-service";
+import { initializeConversations } from "@/lib/conversation-service";
 import { assertSerializable } from "@/lib/assertSerializable";
 import { toPlain } from "@/lib/toPlain";
 import type { Agent } from "@/types";
 
 export default async function Home() {
+  // Initialize conversation service with mock data
+  await initializeConversations(mockChats);
+  
   // Ensure agents are serializable
   const serializedAgents = toPlain(mockAgents.map(agent => ({
     id: String(agent.id),
     name: String(agent.name),
     avatar: String(agent.avatar),
+    email: agent.email ? String(agent.email) : undefined,
+    status: String(agent.status),
+    maxConcurrentChats: Number(agent.maxConcurrentChats),
+    currentChats: Number(agent.currentChats),
+    skills: agent.skills ? agent.skills.map(String) : undefined,
+    department: agent.department ? String(agent.department) : undefined,
+    lastActive: agent.lastActive ? String(agent.lastActive) : undefined,
   })));
   
   const loggedInAgent: Agent = serializedAgents[0];
   let chats = [];
-  let error: string | null = null;
   
   try {
     console.log("Attempting to fetch Twilio conversations...");
@@ -25,9 +35,9 @@ export default async function Home() {
     chats = toPlain(chats);
   } catch (e: any) {
     console.error("Twilio fetch failed:", e);
-    // Fallback to empty chats array instead of showing error
-    chats = [];
-    console.log("Using empty chats array as fallback");
+    // Fallback to mock chats instead of empty array
+    chats = toPlain(mockChats);
+    console.log("Using mock chats as fallback");
   }
 
   // Prepare props for client component

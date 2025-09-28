@@ -3,11 +3,15 @@ import { useState } from 'react';
 import type { Agent, Chat } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Users, Phone, Mail, Clock } from 'lucide-react';
+import { MoreVertical, Users, Phone, Mail, Clock, Settings, Tag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ReassignAgentDialog } from './reassign-agent-dialog';
 import { ContactDialog } from './contact-dialog';
+import { ConversationManagementDialog } from './conversation-management-dialog';
 import { ConnectionStatus } from '@/components/connection-status';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { PriorityBadge } from '@/components/ui/priority-badge';
+import { AgentStatus } from '@/components/ui/agent-status';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +20,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 interface ChatHeaderProps {
-  chat: Chat;
-  agents: Agent[];
-  onReassignAgent: (newAgentId: string) => void;
-}
+      chat: Chat;
+      agents: Agent[];
+      onReassignAgent: (newAgentId: string) => void;
+      onUpdateChat: (updatedChat: Chat) => void;
+    }
 
 // Helper function to get initials from any name format
 function getInitials(name: string): string {
@@ -44,10 +49,11 @@ function getInitials(name: string): string {
   return result;
 }
 
-export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
-  const [isReassignDialogOpen, setReassignDialogOpen] = useState(false);
-  const [isContactDialogOpen, setContactDialogOpen] = useState(false);
-  const customerName = chat.customer?.name || "Anonymous";
+    export function ChatHeader({ chat, agents, onReassignAgent, onUpdateChat }: ChatHeaderProps) {
+      const [isReassignDialogOpen, setReassignDialogOpen] = useState(false);
+      const [isContactDialogOpen, setContactDialogOpen] = useState(false);
+      const [isManagementDialogOpen, setManagementDialogOpen] = useState(false);
+      const customerName = chat.customer?.name || "Anonymous";
   
   console.log('👤 ChatHeader - customerName:', customerName);
   console.log('👤 ChatHeader - chat.customer:', chat.customer);
@@ -61,10 +67,14 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
     console.log('Clear chat for:', chat.id);
   };
 
-  const handleBlockContact = () => {
-    // TODO: Implement block contact functionality
-    console.log('Block contact:', chat.customer.id);
-  };
+      const handleBlockContact = () => {
+        // TODO: Implement block contact functionality
+        console.log('Block contact:', chat.customer.id);
+      };
+
+      const handleManageConversation = () => {
+        setManagementDialogOpen(true);
+      };
 
   return (
     <>
@@ -75,12 +85,19 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
               {/* <AvatarImage src={chat.customer?.avatar} alt={customerName} data-ai-hint="person face"/> */}
               <AvatarFallback>{getInitials(customerName)}</AvatarFallback>
             </Avatar>
-          <div className="flex-1">
-            <p className="font-semibold">{customerName}</p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Assigned to: {chat.agent.name}</span>
-              <ConnectionStatus />
-            </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold">{customerName}</p>
+                  <div className="flex items-center gap-1">
+                    <StatusBadge status={chat.status} />
+                    <PriorityBadge priority={chat.priority} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Assigned to: {chat.agent.name}</span>
+                  <AgentStatus status={chat.agent.status} />
+                  <ConnectionStatus />
+                </div>
             {/* Contact Information */}
             <div className="flex items-center gap-3 mt-1">
               {chat.customer.phoneNumber && (
@@ -104,25 +121,33 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => setReassignDialogOpen(true)}>
-             <Users className="h-5 w-5" />
-             <span className="sr-only">Reassign Agent</span>
-           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                <MoreVertical className="h-5 w-5" />
-                <span className="sr-only">More options</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleViewContact}>View contact</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleClearChat}>Clear chat</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleBlockContact} className="text-destructive focus:text-destructive">Block contact</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            <div className="flex items-center gap-2">
+               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => setReassignDialogOpen(true)}>
+                 <Users className="h-5 w-5" />
+                 <span className="sr-only">Reassign Agent</span>
+               </Button>
+               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={handleManageConversation}>
+                 <Settings className="h-5 w-5" />
+                 <span className="sr-only">Manage Conversation</span>
+               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                    <MoreVertical className="h-5 w-5" />
+                    <span className="sr-only">More options</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleViewContact}>View contact</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleManageConversation}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Manage conversation
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleClearChat}>Clear chat</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleBlockContact} className="text-destructive focus:text-destructive">Block contact</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
       </div>
       <ReassignAgentDialog
         open={isReassignDialogOpen}
@@ -131,11 +156,18 @@ export function ChatHeader({ chat, agents, onReassignAgent }: ChatHeaderProps) {
         agents={agents}
         onReassign={onReassignAgent}
       />
-      <ContactDialog
-        open={isContactDialogOpen}
-        onOpenChange={setContactDialogOpen}
-        chat={chat}
-      />
-    </>
-  );
-}
+          <ContactDialog
+            open={isContactDialogOpen}
+            onOpenChange={setContactDialogOpen}
+            chat={chat}
+          />
+          <ConversationManagementDialog
+            open={isManagementDialogOpen}
+            onOpenChange={setManagementDialogOpen}
+            chat={chat}
+            agents={agents}
+            onUpdate={onUpdateChat}
+          />
+        </>
+      );
+    }

@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import type { Agent, Chat } from '@/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ChatListItem } from './chat-list-item';
+import { ConversationFilters } from './conversation-filters';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { RefreshCw } from 'lucide-react';
 
@@ -14,9 +16,12 @@ interface ChatListProps {
   onSelectChat: (chat: Chat) => void;
   onRefresh: () => void;
   loggedInAgent: Agent;
+  agents: Agent[];
 }
 
-export function ChatList({ chats, selectedChat, onSelectChat, onRefresh, loggedInAgent }: ChatListProps) {
+export function ChatList({ chats, selectedChat, onSelectChat, onRefresh, loggedInAgent, agents }: ChatListProps) {
+  const [filteredChats, setFilteredChats] = useState<Chat[]>(chats);
+
   return (
     <div className="w-full max-w-xs border-r flex flex-col bg-card">
       <div className="p-4 border-b flex justify-between items-center">
@@ -37,12 +42,16 @@ export function ChatList({ chats, selectedChat, onSelectChat, onRefresh, loggedI
           </Avatar>
         </div>
       </div>
-      <div className="p-2">
-        <Input placeholder="Search or start new chat" className="bg-background" />
-      </div>
+      
+      <ConversationFilters 
+        conversations={chats}
+        onFilteredConversations={setFilteredChats}
+        agents={agents}
+      />
+      
       <ScrollArea className="flex-1">
         <div className="flex flex-col gap-1 p-2">
-          {chats.map((chat) => (
+          {filteredChats.map((chat) => (
             <ChatListItem
               key={chat.id}
               chat={chat}

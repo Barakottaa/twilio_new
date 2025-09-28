@@ -1,7 +1,16 @@
+export type ConversationStatus = 'open' | 'closed' | 'pending' | 'resolved' | 'escalated';
+
 export type Agent = {
   id: string;
   name: string;
   avatar: string;
+  email?: string;
+  status: 'online' | 'offline' | 'busy' | 'away';
+  maxConcurrentChats: number;
+  currentChats: number;
+  skills?: string[];
+  department?: string;
+  lastActive?: string;
 };
 
 export type Customer = {
@@ -27,4 +36,13 @@ export type Chat = {
   agent: Agent;
   messages: Message[];
   unreadCount: number;
+  status: ConversationStatus;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+  assignedAt?: string;
+  closedAt?: string;
+  closedBy?: string;
+  notes?: string;
 };

@@ -52,10 +52,18 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(identity)}&background=10b981&color=ffffff&size=150`,
   };
 
-  // For agents, use the identity as name
-  if (isAgent) {
-    user.name = identity || 'Unknown Agent';
-  } else {
+      // For agents, use the identity as name and add enhanced properties
+      if (isAgent) {
+        user.name = identity || 'Unknown Agent';
+        // Add enhanced agent properties
+        (user as Agent).email = `${identity?.replace('agent-', '')}@company.com`;
+        (user as Agent).status = 'online';
+        (user as Agent).maxConcurrentChats = 5;
+        (user as Agent).currentChats = 0;
+        (user as Agent).skills = ['customer-support'];
+        (user as Agent).department = 'Customer Success';
+        (user as Agent).lastActive = new Date().toISOString();
+      } else {
     // For customers, we'll extract the real name from participant data below
     user.name = 'Unknown Customer';
   }
@@ -221,6 +229,12 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
           agent,
           messages,
           unreadCount: 0, // Twilio unread count is per-user, simplifying for now
+          status: 'open' as const,
+          priority: 'medium' as const,
+          tags: [],
+          createdAt: convo.dateCreated ? new Date(convo.dateCreated).toISOString() : new Date().toISOString(),
+          updatedAt: convo.dateUpdated ? new Date(convo.dateUpdated).toISOString() : new Date().toISOString(),
+          assignedAt: agentParticipant ? new Date(agentParticipant.dateCreated).toISOString() : new Date().toISOString(),
         });
       }
     }
@@ -240,6 +254,13 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
         id: String(chat.agent.id),
         name: String(chat.agent.name),
         avatar: String(chat.agent.avatar),
+        email: chat.agent.email ? String(chat.agent.email) : undefined,
+        status: String(chat.agent.status),
+        maxConcurrentChats: Number(chat.agent.maxConcurrentChats),
+        currentChats: Number(chat.agent.currentChats),
+        skills: chat.agent.skills ? chat.agent.skills.map(String) : undefined,
+        department: chat.agent.department ? String(chat.agent.department) : undefined,
+        lastActive: chat.agent.lastActive ? String(chat.agent.lastActive) : undefined,
       },
       messages: chat.messages.map(message => ({
         id: String(message.id),
@@ -249,6 +270,15 @@ export async function getTwilioConversations(loggedInAgentId: string): Promise<C
         senderId: String(message.senderId),
       })),
       unreadCount: Number(chat.unreadCount),
+      status: String(chat.status),
+      priority: String(chat.priority),
+      tags: chat.tags ? chat.tags.map(String) : undefined,
+      createdAt: String(chat.createdAt),
+      updatedAt: String(chat.updatedAt),
+      assignedAt: chat.assignedAt ? String(chat.assignedAt) : undefined,
+      closedAt: chat.closedAt ? String(chat.closedAt) : undefined,
+      closedBy: chat.closedBy ? String(chat.closedBy) : undefined,
+      notes: chat.notes ? String(chat.notes) : undefined,
     }));
 
     return serializedChats.sort((a,b) => {

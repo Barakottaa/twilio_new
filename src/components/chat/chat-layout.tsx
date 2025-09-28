@@ -25,6 +25,13 @@ function ensurePlainChat(chat: Chat): Chat {
       id: String(chat.agent.id),
       name: String(chat.agent.name),
       avatar: String(chat.agent.avatar),
+      email: chat.agent.email ? String(chat.agent.email) : undefined,
+      status: String(chat.agent.status),
+      maxConcurrentChats: Number(chat.agent.maxConcurrentChats),
+      currentChats: Number(chat.agent.currentChats),
+      skills: chat.agent.skills ? chat.agent.skills.map(String) : undefined,
+      department: chat.agent.department ? String(chat.agent.department) : undefined,
+      lastActive: chat.agent.lastActive ? String(chat.agent.lastActive) : undefined,
     },
     messages: chat.messages.map(msg => ({
       id: String(msg.id),
@@ -34,6 +41,15 @@ function ensurePlainChat(chat: Chat): Chat {
       senderId: String(msg.senderId),
     })),
     unreadCount: Number(chat.unreadCount),
+    status: String(chat.status),
+    priority: String(chat.priority),
+    tags: chat.tags ? chat.tags.map(String) : undefined,
+    createdAt: String(chat.createdAt),
+    updatedAt: String(chat.updatedAt),
+    assignedAt: chat.assignedAt ? String(chat.assignedAt) : undefined,
+    closedAt: chat.closedAt ? String(chat.closedAt) : undefined,
+    closedBy: chat.closedBy ? String(chat.closedBy) : undefined,
+    notes: chat.notes ? String(chat.notes) : undefined,
   };
 }
 
@@ -111,41 +127,56 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
     }
   };
 
-  const handleReassignAgent = async (chatId: string, newAgentId: string) => {
-    const newAgent = agents.find((agent) => agent.id === newAgentId);
-    if (!newAgent) return;
+      const handleReassignAgent = async (chatId: string, newAgentId: string) => {
+        const newAgent = agents.find((agent) => agent.id === newAgentId);
+        if (!newAgent) return;
 
-    try {
-      await reassignTwilioConversation(chatId, newAgentId);
-      
-      const updatedChats = chats.map((chat) => {
-        if (chat.id === chatId) {
-          toast({
-            title: "Chat Reassigned",
-            description: `Conversation with ${chat.customer.name} has been reassigned to ${newAgent.name}.`,
+        try {
+          await reassignTwilioConversation(chatId, newAgentId);
+          
+          const updatedChats = chats.map((chat) => {
+            if (chat.id === chatId) {
+              toast({
+                title: "Chat Reassigned",
+                description: `Conversation with ${chat.customer.name} has been reassigned to ${newAgent.name}.`,
+              });
+              const updatedChat = {
+                ...chat,
+                agent: newAgent,
+              };
+              return ensurePlainChat(updatedChat);
+            }
+            return ensurePlainChat(chat);
           });
-          const updatedChat = {
-            ...chat,
-            agent: newAgent,
-          };
-          return ensurePlainChat(updatedChat);
+      
+          setChats(updatedChats);
+          const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
+           if(updatedSelectedChat) {
+              setSelectedChat(updatedSelectedChat);
+          }
+        } catch (error) {
+          toast({
+            title: "Error Reassigning Agent",
+            description: "Failed to reassign agent in Twilio. Please check your connection and try again.",
+            variant: "destructive",
+          });
         }
-        return ensurePlainChat(chat);
-      });
-  
-      setChats(updatedChats);
-      const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
-       if(updatedSelectedChat) {
-          setSelectedChat(updatedSelectedChat);
-      }
-    } catch (error) {
-      toast({
-        title: "Error Reassigning Agent",
-        description: "Failed to reassign agent in Twilio. Please check your connection and try again.",
-        variant: "destructive",
-      });
-    }
-  };
+      };
+
+      const handleUpdateChat = (updatedChat: Chat) => {
+        const updatedChats = chats.map((chat) => {
+          if (chat.id === updatedChat.id) {
+            return ensurePlainChat(updatedChat);
+          }
+          return ensurePlainChat(chat);
+        });
+        
+        setChats(updatedChats);
+        
+        if (selectedChat && selectedChat.id === updatedChat.id) {
+          setSelectedChat(ensurePlainChat(updatedChat));
+        }
+      };
 
 
   const handleSelectChat = (chat: Chat) => {
@@ -194,14 +225,16 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
         onSelectChat={handleSelectChat}
         onRefresh={handleRefreshChats}
         loggedInAgent={loggedInAgent}
-      />
-      <ChatView
-        chat={selectedChat}
         agents={agents}
-        loggedInAgent={loggedInAgent}
-        onSendMessage={handleSendMessage}
-        onReassignAgent={handleReassignAgent}
       />
+          <ChatView
+            chat={selectedChat}
+            agents={agents}
+            loggedInAgent={loggedInAgent}
+            onSendMessage={handleSendMessage}
+            onReassignAgent={handleReassignAgent}
+            onUpdateChat={handleUpdateChat}
+          />
     </div>
   );
 }

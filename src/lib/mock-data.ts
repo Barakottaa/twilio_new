@@ -2,10 +2,54 @@ import type { Agent, Chat, Customer, Message } from '@/types';
 import { subMinutes, subHours, subDays } from 'date-fns';
 
 const agents: Agent[] = [
-  { id: 'agent-1', name: 'Alice', avatar: 'https://ui-avatars.com/api/?name=Alice&background=3b82f6&color=ffffff&size=150' },
-  { id: 'agent-2', name: 'Bob', avatar: 'https://ui-avatars.com/api/?name=Bob&background=3b82f6&color=ffffff&size=150' },
-  { id: 'agent-3', name: 'Charlie', avatar: 'https://ui-avatars.com/api/?name=Charlie&background=3b82f6&color=ffffff&size=150' },
-  { id: 'agent-4', name: 'Diana', avatar: 'https://ui-avatars.com/api/?name=Diana&background=3b82f6&color=ffffff&size=150' },
+  { 
+    id: 'agent-1', 
+    name: 'Alice Johnson', 
+    avatar: 'https://ui-avatars.com/api/?name=Alice+Johnson&background=3b82f6&color=ffffff&size=150',
+    email: 'alice@company.com',
+    status: 'online',
+    maxConcurrentChats: 5,
+    currentChats: 2,
+    skills: ['customer-support', 'technical-support', 'billing'],
+    department: 'Customer Success',
+    lastActive: new Date().toISOString()
+  },
+  { 
+    id: 'agent-2', 
+    name: 'Bob Smith', 
+    avatar: 'https://ui-avatars.com/api/?name=Bob+Smith&background=3b82f6&color=ffffff&size=150',
+    email: 'bob@company.com',
+    status: 'online',
+    maxConcurrentChats: 4,
+    currentChats: 1,
+    skills: ['sales', 'product-support'],
+    department: 'Sales',
+    lastActive: new Date().toISOString()
+  },
+  { 
+    id: 'agent-3', 
+    name: 'Charlie Brown', 
+    avatar: 'https://ui-avatars.com/api/?name=Charlie+Brown&background=3b82f6&color=ffffff&size=150',
+    email: 'charlie@company.com',
+    status: 'busy',
+    maxConcurrentChats: 6,
+    currentChats: 4,
+    skills: ['technical-support', 'escalation'],
+    department: 'Technical Support',
+    lastActive: new Date().toISOString()
+  },
+  { 
+    id: 'agent-4', 
+    name: 'Diana Prince', 
+    avatar: 'https://ui-avatars.com/api/?name=Diana+Prince&background=3b82f6&color=ffffff&size=150',
+    email: 'diana@company.com',
+    status: 'away',
+    maxConcurrentChats: 3,
+    currentChats: 0,
+    skills: ['customer-support', 'billing'],
+    department: 'Customer Success',
+    lastActive: subHours(new Date(), 1).toISOString()
+  },
 ];
 
 const customers: Customer[] = [
@@ -94,6 +138,12 @@ export const chats: Chat[] = [
     agent: agents[0],
     messages: generateMessages(8, customers[0], agents[0], new Date()),
     unreadCount: 2,
+    status: 'open',
+    priority: 'medium',
+    tags: ['order-support', 'billing'],
+    createdAt: subMinutes(new Date(), 30).toISOString(),
+    updatedAt: subMinutes(new Date(), 5).toISOString(),
+    assignedAt: subMinutes(new Date(), 25).toISOString(),
   },
   {
     id: 'chat-2',
@@ -101,6 +151,12 @@ export const chats: Chat[] = [
     agent: agents[0],
     messages: generateMessages(5, customers[1], agents[0], subHours(new Date(), 1)),
     unreadCount: 0,
+    status: 'open',
+    priority: 'low',
+    tags: ['sales', 'pricing'],
+    createdAt: subHours(new Date(), 1).toISOString(),
+    updatedAt: subMinutes(new Date(), 10).toISOString(),
+    assignedAt: subHours(new Date(), 1).toISOString(),
   },
   {
     id: 'chat-3',
@@ -108,6 +164,12 @@ export const chats: Chat[] = [
     agent: agents[1],
     messages: generateMessages(3, customers[2], agents[1], subHours(new Date(), 3)),
     unreadCount: 1,
+    status: 'pending',
+    priority: 'high',
+    tags: ['billing', 'refund'],
+    createdAt: subHours(new Date(), 3).toISOString(),
+    updatedAt: subHours(new Date(), 3).toISOString(),
+    assignedAt: subHours(new Date(), 3).toISOString(),
   },
   {
     id: 'chat-4',
@@ -115,6 +177,15 @@ export const chats: Chat[] = [
     agent: agents[0],
     messages: generateMessages(6, customers[3], agents[0], subDays(new Date(), 1)),
     unreadCount: 0,
+    status: 'resolved',
+    priority: 'medium',
+    tags: ['technical-support', 'login'],
+    createdAt: subDays(new Date(), 1).toISOString(),
+    updatedAt: subDays(new Date(), 1).toISOString(),
+    assignedAt: subDays(new Date(), 1).toISOString(),
+    closedAt: subDays(new Date(), 1).toISOString(),
+    closedBy: agents[0].id,
+    notes: 'Issue resolved - password reset email was in spam folder',
   },
   {
     id: 'chat-5',
@@ -122,6 +193,12 @@ export const chats: Chat[] = [
     agent: agents[2],
     messages: generateMessages(2, customers[4], agents[2], subDays(new Date(), 2)),
     unreadCount: 0,
+    status: 'escalated',
+    priority: 'urgent',
+    tags: ['sales', 'upgrade', 'vip'],
+    createdAt: subDays(new Date(), 2).toISOString(),
+    updatedAt: subDays(new Date(), 2).toISOString(),
+    assignedAt: subDays(new Date(), 2).toISOString(),
   },
 ];
 
