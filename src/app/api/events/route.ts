@@ -1,16 +1,16 @@
 // src/app/api/events/route.ts
 import { NextRequest } from 'next/server';
-
-// Store active connections
-const connections = new Set<ReadableStreamDefaultController>();
+import { addConnection, removeConnection } from '@/lib/sse-broadcast';
 
 export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController | null = null;
   
   const stream = new ReadableStream({
-    start(controller) {
+    start(ctrl) {
+      controller = ctrl;
       // Add this connection to our set
-      connections.add(controller);
+      addConnection(controller);
       
       // Send initial connection message
       const data = JSON.stringify({ type: 'connected', message: 'Connected to real-time updates' });
@@ -20,22 +20,24 @@ export async function GET(req: NextRequest) {
       const heartbeat = setInterval(() => {
         try {
           const heartbeatData = JSON.stringify({ type: 'heartbeat', timestamp: Date.now() });
-          controller.enqueue(encoder.encode(`data: ${heartbeatData}\n\n`));
+          controller?.enqueue(encoder.encode(`data: ${heartbeatData}\n\n`));
         } catch (error) {
           clearInterval(heartbeat);
-          connections.delete(controller);
+          if (controller) removeConnection(controller);
         }
       }, 30000); // Send heartbeat every 30 seconds
       
       // Handle client disconnect
       req.signal.addEventListener('abort', () => {
         clearInterval(heartbeat);
-        connections.delete(controller);
-        controller.close();
+        if (controller) {
+          removeConnection(controller);
+          controller.close();
+        }
       });
     },
     cancel() {
-      connections.delete(controller);
+      if (controller) removeConnection(controller);
     }
   });
 
@@ -51,19 +53,4 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// Function to broadcast messages to all connected clients
-export function broadcastMessage(type: string, data: any) {
-  const encoder = new TextEncoder();
-  const message = JSON.stringify({ type, data });
-  const eventData = `data: ${message}\n\n`;
-  
-  connections.forEach(controller => {
-    try {
-      controller.enqueue(encoder.encode(eventData));
-    } catch (error) {
-      // Remove dead connections
-      connections.delete(controller);
-    }
-  });
-}
 

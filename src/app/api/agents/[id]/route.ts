@@ -3,10 +3,11 @@ import { getAgentById, updateAgent, deleteAgent, updateAgentStatus } from '@/lib
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const agent = await getAgentById(params.id);
+    const resolvedParams = await params;
+    const agent = await getAgentById(resolvedParams.id);
     
     if (!agent) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
@@ -21,12 +22,13 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const updates = await req.json();
     
-    const updatedAgent = await updateAgent(params.id, updates);
+    const updatedAgent = await updateAgent(resolvedParams.id, updates);
     
     if (!updatedAgent) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
@@ -41,10 +43,11 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const deleted = await deleteAgent(params.id);
+    const resolvedParams = await params;
+    const deleted = await deleteAgent(resolvedParams.id);
     
     if (!deleted) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });

@@ -3,10 +3,11 @@ import { getConversationById } from '@/lib/conversation-service';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversation = await getConversationById(params.id);
+    const resolvedParams = await params;
+    const conversation = await getConversationById(resolvedParams.id);
     
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });

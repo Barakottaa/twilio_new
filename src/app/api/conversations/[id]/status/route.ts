@@ -3,9 +3,10 @@ import { updateConversationStatus } from '@/lib/conversation-service';
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const { status, closedBy } = await req.json();
     
     if (!status || !['open', 'closed', 'pending', 'resolved', 'escalated'].includes(status)) {
@@ -15,7 +16,7 @@ export async function PUT(
       );
     }
     
-    const updatedConversation = await updateConversationStatus(params.id, status, closedBy);
+    const updatedConversation = await updateConversationStatus(resolvedParams.id, status, closedBy);
     
     if (!updatedConversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });

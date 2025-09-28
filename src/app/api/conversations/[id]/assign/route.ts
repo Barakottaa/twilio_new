@@ -3,9 +3,10 @@ import { assignConversation } from '@/lib/conversation-service';
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const { agentId } = await req.json();
     
     if (!agentId) {
@@ -15,7 +16,7 @@ export async function PUT(
       );
     }
     
-    const updatedConversation = await assignConversation(params.id, agentId);
+    const updatedConversation = await assignConversation(resolvedParams.id, agentId);
     
     if (!updatedConversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });

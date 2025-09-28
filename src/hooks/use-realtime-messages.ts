@@ -1,5 +1,5 @@
 // src/hooks/use-realtime-messages.ts
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Chat, Message } from '@/types';
 
 interface RealtimeMessageData {
@@ -19,7 +19,7 @@ interface RealtimeConversationData {
 
 interface UseRealtimeMessagesProps {
   chats: Chat[];
-  setChats: (chats: Chat[]) => void;
+  setChats: React.Dispatch<React.SetStateAction<Chat[]>>;
   setSelectedChat: (chat: Chat | null) => void;
 }
 
@@ -98,7 +98,7 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat }: UseRea
       senderId: messageData.author,
     };
 
-    setChats(prevChats => {
+    setChats((prevChats: Chat[]) => {
       const updatedChats = prevChats.map(chat => {
         if (chat.id === messageData.conversationSid) {
           // Check if message already exists to avoid duplicates

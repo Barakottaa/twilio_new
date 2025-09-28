@@ -25,7 +25,7 @@ export default async function Home() {
     lastActive: agent.lastActive ? String(agent.lastActive) : undefined,
   })));
   
-  const loggedInAgent: Agent = serializedAgents[0];
+  const loggedInAgent: Agent = serializedAgents[0] as Agent;
   let chats = [];
   
   try {
@@ -63,7 +63,7 @@ export default async function Home() {
     <main className="flex h-screen w-full flex-col items-center justify-center p-4">
       <ChatLayout
         chats={chats}
-        agents={serializedAgents}
+        agents={serializedAgents as Agent[]}
         loggedInAgent={loggedInAgent}
       />
       <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />

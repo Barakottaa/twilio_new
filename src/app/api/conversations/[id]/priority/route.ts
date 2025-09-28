@@ -3,9 +3,10 @@ import { updateConversationPriority } from '@/lib/conversation-service';
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const { priority } = await req.json();
     
     if (!priority || !['low', 'medium', 'high', 'urgent'].includes(priority)) {
@@ -15,7 +16,7 @@ export async function PUT(
       );
     }
     
-    const updatedConversation = await updateConversationPriority(params.id, priority);
+    const updatedConversation = await updateConversationPriority(resolvedParams.id, priority);
     
     if (!updatedConversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
