@@ -31,6 +31,13 @@ const users: Record<string, SimpleUser> = {
     username: 'manager',
     role: 'admin',
     permissions: ['dashboard', 'agents', 'contacts', 'analytics', 'settings']
+  },
+  // Add your new agent here
+  newagent: {
+    id: 'newagent',
+    username: 'newagent',
+    role: 'agent',
+    permissions: ['dashboard', 'contacts']
   }
 };
 
@@ -39,7 +46,8 @@ const passwords: Record<string, string> = {
   admin: 'admin',
   agent1: 'password123',
   supervisor: 'supervisor123',
-  manager: 'manager123'
+  manager: 'manager123',
+  newagent: 'newagent123'  // Add password for your new agent
 };
 
 export function login(username: string, password: string): SimpleUser | null {
