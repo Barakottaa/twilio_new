@@ -105,10 +105,11 @@ create_env() {
     
     if [ ! -f .env.local ]; then
         cat > .env.local << EOF
-# Database Configuration
-DATABASE_TYPE=memory
+# Database Configuration (SQLite is default)
+DATABASE_TYPE=sqlite
+SQLITE_DB_PATH=./database.sqlite
 
-# Oracle Database Configuration (uncomment to use Oracle)
+# Oracle Database Configuration (uncomment to use Oracle instead)
 # DATABASE_TYPE=oracle
 # ORACLE_USER=crm
 # ORACLE_PASSWORD=crm

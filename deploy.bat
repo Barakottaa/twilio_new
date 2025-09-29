@@ -111,10 +111,11 @@ call :print_status "Creating environment file..."
 
 if not exist .env.local (
     (
-        echo # Database Configuration
-        echo DATABASE_TYPE=memory
+        echo # Database Configuration ^(SQLite is default^)
+        echo DATABASE_TYPE=sqlite
+        echo SQLITE_DB_PATH=./database.sqlite
         echo.
-        echo # Oracle Database Configuration ^(uncomment to use Oracle^)
+        echo # Oracle Database Configuration ^(uncomment to use Oracle instead^)
         echo # DATABASE_TYPE=oracle
         echo # ORACLE_USER=crm
         echo # ORACLE_PASSWORD=crm

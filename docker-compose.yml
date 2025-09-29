@@ -7,13 +7,15 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_TYPE=memory
+      - DATABASE_TYPE=sqlite
+      - SQLITE_DB_PATH=/app/database.sqlite
       - PORT=3000
     volumes:
       - .:/app
       - /app/node_modules
-    depends_on:
-      - oracle-db
+      - sqlite-data:/app/database.sqlite
+    # depends_on:
+    #   - oracle-db
     restart: unless-stopped
 
   oracle-db:
@@ -41,3 +43,4 @@ services:
 
 volumes:
   oracle-data:
+  sqlite-data:

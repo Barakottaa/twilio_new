@@ -12,7 +12,8 @@
     "test:watch": "jest --watch",
     "deploy:setup": "node scripts/setup.js",
     "deploy:build": "npm run build",
-    "deploy:start": "npm start"
+    "deploy:start": "npm start",
+    "db:init": "node -e \"require('./src/lib/sqlite-database').sqliteDb.ensureInitialized().then(() => console.log('Database initialized'))\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

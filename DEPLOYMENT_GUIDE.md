@@ -4,7 +4,7 @@
 
 ### Prerequisites
 - Node.js 18+ installed
-- Oracle Database (optional - can use in-memory database)
+- SQLite (included with Node.js)
 - Git installed
 
 ### 1. Clone the Repository
@@ -20,10 +20,10 @@ npm install
 
 ### 3. Environment Configuration
 
-#### Option A: Use In-Memory Database (Default)
-No additional setup required. The app will use the in-memory database by default.
+#### SQLite Database (Default)
+The app uses SQLite database by default. No additional setup required.
 
-#### Option B: Use Oracle Database
+#### Optional: Use Oracle Database
 1. Install Oracle Instant Client
 2. Create a `.env.local` file:
 ```env
@@ -60,30 +60,34 @@ This will provide a stable public URL that doesn't drop like Cloudflare.
 
 ## 🗄️ Database Configuration
 
-### In-Memory Database (Default)
-- **Pros**: No setup required, fast for development
-- **Cons**: Data lost on restart
-- **Use case**: Development, testing
+### SQLite Database (Default)
+- **Pros**: No setup required, persistent data, fast, production-ready
+- **Cons**: Single-user access (suitable for most use cases)
+- **Use case**: Development, testing, production (small to medium scale)
 
-### Oracle Database
-- **Pros**: Persistent data, production-ready
-- **Cons**: Requires Oracle setup
-- **Use case**: Production, data persistence
+### Oracle Database (Optional)
+- **Pros**: Multi-user, enterprise features, high concurrency
+- **Cons**: Requires Oracle setup and licensing
+- **Use case**: Enterprise production environments
 
 ### Switching Database Types
 Set the `DATABASE_TYPE` environment variable:
-- `memory` - In-memory database
+- `sqlite` - SQLite database (default)
 - `oracle` - Oracle database
 
 ## 🔧 Configuration Options
 
 ### Environment Variables
 ```env
-# Database
-DATABASE_TYPE=oracle
-ORACLE_USER=crm
-ORACLE_PASSWORD=crm
-ORACLE_CONNECT_STRING=localhost:1521/XE
+# Database (SQLite is default)
+DATABASE_TYPE=sqlite
+SQLITE_DB_PATH=./database.sqlite
+
+# Oracle Database (Optional)
+# DATABASE_TYPE=oracle
+# ORACLE_USER=crm
+# ORACLE_PASSWORD=crm
+# ORACLE_CONNECT_STRING=localhost:1521/XE
 
 # Twilio (Optional)
 TWILIO_ACCOUNT_SID=your_account_sid
@@ -92,6 +96,7 @@ WEBHOOK_URL=https://your-domain.com/api/twilio/webhook
 
 # Application
 NODE_ENV=development
+PORT=3000
 ```
 
 ## 📱 Features
@@ -102,7 +107,7 @@ NODE_ENV=development
 - **Contact Management**: Manage customer contacts and information
 - **Chat Interface**: WhatsApp integration via Twilio
 - **Real-time Messaging**: Live chat functionality
-- **Database Support**: Both in-memory and Oracle database
+- **Database Support**: SQLite (default) and Oracle database
 - **Responsive UI**: Modern interface with Tailwind CSS
 
 ### 🔄 In Progress
@@ -138,9 +143,8 @@ src/
 3. Verify database connection (if using Oracle)
 
 ### Database Connection Issues
-1. Verify Oracle service is running
-2. Check connection string format
-3. Ensure user has proper permissions
+1. **SQLite**: Check file permissions and disk space
+2. **Oracle**: Verify Oracle service is running, check connection string format, ensure user has proper permissions
 
 ### Port Conflicts
 If port 9002 is in use, modify `package.json`:
@@ -155,15 +159,15 @@ If port 9002 is in use, modify `package.json`:
 ## 📋 Deployment Checklist
 
 ### Before Deployment
-- [ ] Set up Oracle database (if using)
-- [ ] Configure environment variables
+- [ ] Configure environment variables (SQLite works out of the box)
+- [ ] Set up Oracle database (if using Oracle instead of SQLite)
 - [ ] Test login functionality
 - [ ] Verify all features work
 - [ ] Set up ngrok for external access
 
 ### After Deployment
 - [ ] Test external access via ngrok URL
-- [ ] Verify database persistence
+- [ ] Verify database persistence (SQLite file should be created)
 - [ ] Check all API endpoints
 - [ ] Test Twilio integration (if configured)
 
@@ -181,12 +185,12 @@ For issues or questions:
 1. Check the GitHub repository: https://github.com/Barakottaa/twilio_new
 2. Review server logs for error messages
 3. Verify all prerequisites are installed
-4. Test with in-memory database first
+4. Test with SQLite database (default)
 
 ## 🎯 Next Steps
 
-1. **Production Database**: Set up PostgreSQL or MySQL for production
-2. **Password Security**: Implement bcrypt for password hashing
-3. **Session Management**: Add session refresh and better security
-4. **Error Handling**: Add comprehensive error handling
-5. **Monitoring**: Set up application monitoring and logging
+1. **Password Security**: Implement bcrypt for password hashing
+2. **Session Management**: Add session refresh and better security
+3. **Error Handling**: Add comprehensive error handling
+4. **Monitoring**: Set up application monitoring and logging
+5. **Database Migration**: Consider PostgreSQL/MySQL for high-concurrency production
