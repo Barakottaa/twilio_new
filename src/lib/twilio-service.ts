@@ -3,7 +3,6 @@
 import type { Agent, Chat, Customer, Message } from '@/types';
 import twilio from 'twilio';
 import { PlaceHolderImages } from './placeholder-images';
-import { availableAgents } from './mock-data';
 import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllContacts, addContact } from './contact-mapping';
 
 // A map to cache agent and customer details to avoid repeated lookups
@@ -191,7 +190,14 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
       } else {
         // If no agent is assigned, assign it to the logged-in agent for now.
         // In a real app, you'd have a pool of available agents to choose from.
-        const defaultAgent = availableAgents.find(a => a.id === loggedInAgentId) || availableAgents[0];
+        const defaultAgent = {
+          id: loggedInAgentId,
+          name: 'Agent',
+          avatar: 'https://ui-avatars.com/api/?name=Agent&background=random',
+          status: 'online' as const,
+          maxConcurrentChats: 10,
+          currentChats: 0
+        };
         try {
           await twilioClient.conversations.v1.conversations(convo.sid).participants.create({ identity: defaultAgent.id });
           agent = defaultAgent;
@@ -214,13 +220,21 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
       const messages: Message[] = await Promise.all(
         twilioMessages.map(async (msg) => {
           const senderIdentity = msg.author;
-          const senderType = senderIdentity.startsWith('agent-') ? 'agent' : 'customer';
+          // Check if it's an agent message
+          // Agent messages have author like "admin_001" or "agent-xxx"
+          // WhatsApp messages have author like "whatsapp:+1234567890"
+          const isAgentMessage = senderIdentity && (
+            senderIdentity.startsWith('agent-') || 
+            senderIdentity === loggedInAgentId ||
+            senderIdentity === 'admin_001' // Fallback for admin
+          );
+          const senderType = isAgentMessage ? 'agent' : 'customer';
           return {
             id: msg.sid,
             text: msg.body ?? '',
             timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
             sender: senderType,
-            senderId: senderIdentity,
+            senderId: senderIdentity || 'customer',
           };
         })
       );
@@ -322,31 +336,19 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         const customerWhatsAppNumber = customerParticipant.messagingBinding.address; // e.g., "whatsapp:+201016666348"
         console.log("Customer WhatsApp number:", customerWhatsAppNumber);
         
-        // Use Twilio Programmable Messaging API for WhatsApp delivery
-        const message = await twilioClient.messages.create({
-            body: text,
-            from: 'whatsapp:+13464864372', // Your main Twilio WhatsApp number
-            to: customerWhatsAppNumber, // Customer's WhatsApp number
-        });
-        
-        console.log("WhatsApp message sent successfully:", message.sid);
-        console.log("Message status:", message.status);
-        
-        // Also add the message to the conversation for UI consistency
+        // Use Twilio Conversations API for WhatsApp delivery
         const conversationMessage = await twilioClient.conversations.v1.conversations(conversationSid).messages.create({
             author,
             body: text,
         });
         
-        console.log("Conversation message added:", conversationMessage.sid);
+        console.log("Conversation message sent successfully:", conversationMessage.sid);
         
-        // Return only plain object properties
+        // Return success object
         return {
-            sid: conversationMessage.sid,
-            author: conversationMessage.author,
-            body: conversationMessage.body,
-            dateCreated: conversationMessage.dateCreated ? new Date(conversationMessage.dateCreated).toISOString() : null,
-            index: conversationMessage.index,
+            success: true,
+            messageId: conversationMessage.sid,
+            message: conversationMessage
         };
     } catch (error: any) {
         console.error("Detailed error sending Twilio message:", {

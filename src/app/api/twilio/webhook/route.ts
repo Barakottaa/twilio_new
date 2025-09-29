@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
     
     console.log('✅ Verified Twilio webhook received:', { eventType, params });
     console.log('📋 All webhook parameters:', Object.keys(params).map(key => `${key}: ${params[key]}`).join(', '));
+    console.log('📋 ProfileName received:', params.ProfileName);
+    console.log('📋 WaId received:', params.WaId);
+    console.log('📋 From received:', params.From);
     
     // Handle WhatsApp messages with ProfileName and WaId
     if (eventType === 'onMessageAdded' || eventType === 'onMessageReceived') {
@@ -75,6 +78,40 @@ export async function POST(req: NextRequest) {
         addContact(phoneNumber, profileName, avatar);
         
         console.log('✅ WhatsApp contact stored:', { phoneNumber, profileName, avatar });
+        
+        // Also update the participant attributes in the conversation
+        if (params.ConversationSid) {
+          try {
+            const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
+            
+            // Find the participant by their WhatsApp address
+            const participants = await twilioClient.conversations.v1
+              .conversations(params.ConversationSid)
+              .participants.list();
+            
+            const participant = participants.find(p => 
+              p.messagingBinding?.address === from
+            );
+            
+            if (participant) {
+              // Update participant attributes with the profile name
+              await twilioClient.conversations.v1
+                .conversations(params.ConversationSid)
+                .participants(participant.sid)
+                .update({
+                  attributes: JSON.stringify({
+                    display_name: profileName,
+                    phone_number: phoneNumber,
+                    wa_id: waId
+                  })
+                });
+              
+              console.log('✅ Updated participant attributes with profile name:', profileName);
+            }
+          } catch (error) {
+            console.error('❌ Error updating participant attributes:', error);
+          }
+        }
       }
       
       // Broadcast the new message to all connected clients

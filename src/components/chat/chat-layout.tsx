@@ -5,7 +5,7 @@ import type { Agent, Chat, Message } from '@/types';
 import { ChatList } from './chat-list';
 import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
-import { sendTwilioMessage, reassignTwilioConversation, getTwilioConversations } from '@/lib/twilio-service';
+import { reassignTwilioConversation, getTwilioConversations } from '@/lib/twilio-service';
 import { useRealtimeMessages } from '@/hooks/use-realtime-messages';
 import { usePollingMessages } from '@/hooks/use-polling-messages';
 
@@ -81,7 +81,24 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   const handleSendMessage = async (chatId: string, text: string) => {
     try {
       console.log("Sending message:", { chatId, text, agentId: loggedInAgent.id });
-      await sendTwilioMessage(chatId, loggedInAgent.id, text);
+      
+      const response = await fetch(`/api/twilio/conversations/${chatId}/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: text,
+          author: loggedInAgent.id
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send message');
+      }
+      
       console.log("Message sent successfully via Twilio");
       
       // Create a plain object message

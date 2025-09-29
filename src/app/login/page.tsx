@@ -28,21 +28,28 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return; // Prevent double submission
+    
     setIsLoading(true);
     setError('');
 
-    const result = await login(username, password);
-    
-    if (result.success) {
-      // Give the browser a tick to store the Set-Cookie, then navigate
-      setTimeout(() => {
+    try {
+      const result = await login(username, password);
+      
+      if (result.success) {
+        // Clear form
+        setUsername('');
+        setPassword('');
+        // Navigate immediately - the auth state will handle the redirect
         router.push('/');
-      }, 100);
-    } else {
-      setError(result.error || 'Login failed');
+      } else {
+        setError(result.error || 'Login failed');
+      }
+    } catch (error) {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -118,23 +125,19 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading}
+                disabled={isLoading || !username.trim() || !password.trim()}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Signing in...
+                  </div>
+                ) : (
+                  'Sign In'
+                )}
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Test credentials:
-              </p>
-              <div className="mt-2 space-y-1 text-xs text-gray-500">
-                <p><strong>Admin:</strong> admin / admin</p>
-                <p><strong>Agent:</strong> agent1 / password123</p>
-                <p><strong>Supervisor:</strong> supervisor / supervisor123</p>
-                <p><strong>Manager:</strong> manager / manager123</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 

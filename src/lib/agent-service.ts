@@ -1,10 +1,8 @@
 'use server';
 
 import type { Agent, ConversationStatus } from '@/types';
-import { availableAgents } from './mock-data';
-
 // In-memory agent management (in production, this would be a database)
-let agents: Agent[] = [...availableAgents];
+let agents: Agent[] = [];
 
 export async function getAllAgents(): Promise<Agent[]> {
   return agents;

@@ -2,7 +2,6 @@
 // Fallback polling mechanism when SSE fails
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { Chat, Message } from '@/types';
-import { getTwilioConversations } from '@/lib/twilio-service';
 
 interface UsePollingMessagesProps {
   chats: Chat[];
@@ -37,7 +36,15 @@ export function usePollingMessages({
       }
       lastPollTimeRef.current = now;
 
-      const freshChats = await getTwilioConversations(loggedInAgentId);
+      const response = await fetch(`/api/twilio/conversations?agentId=${loggedInAgentId}&limit=20`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.error('Failed to fetch conversations:', data.error);
+        return;
+      }
+      
+      const freshChats = data.conversations;
       
       // Check if there are new messages by comparing message IDs
       let hasNewMessages = false;

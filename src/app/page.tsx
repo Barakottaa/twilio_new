@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import { ChatLayout } from "@/components/chat/chat-layout";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PerformanceMonitor } from "@/components/performance-monitor";
-import { availableAgents as mockAgents, chats as mockChats } from "@/lib/mock-data";
-import { getTwilioConversations } from "@/lib/twilio-service";
 import { initializeConversations } from "@/lib/conversation-service";
 import { assertSerializable } from "@/lib/assertSerializable";
 import { toPlain } from "@/lib/toPlain";
@@ -39,23 +37,23 @@ export default function Home() {
       try {
         // Fetch real Twilio conversations
         try {
-          const conversations = await getTwilioConversations();
-          if (conversations && conversations.length > 0) {
+          const response = await fetch(`/api/twilio/conversations?agentId=${agent.id}&limit=20`);
+          const data = await response.json();
+          
+          if (data.success && data.conversations && data.conversations.length > 0) {
             // Initialize with real conversations
-            initializeConversations(conversations);
-            setChats(toPlain(conversations));
-            console.log('Using real Twilio conversations:', conversations.length);
+            initializeConversations(data.conversations);
+            setChats(toPlain(data.conversations));
+            console.log('Using real Twilio conversations:', data.conversations.length);
           } else {
-            // Fallback to mock data if no real conversations
-            console.log('No real conversations found, using mock data');
-            initializeConversations(mockChats);
-            setChats(toPlain(mockChats));
+            // No conversations found - start with empty state
+            console.log('No real conversations found, starting with empty state');
+            setChats([]);
           }
         } catch (error) {
           console.error('Error fetching Twilio conversations:', error);
-          // Fallback to mock data
-          initializeConversations(mockChats);
-          setChats(toPlain(mockChats));
+          // Start with empty state on error
+          setChats([]);
         }
 
         // Fetch real agents
@@ -68,38 +66,12 @@ export default function Home() {
             setAgents(agentsData);
             console.log('Using real agents:', agentsData.length);
           } else {
-            // Fallback to mock agents
-            console.log('Using mock agents');
-            const serializedAgents = toPlain(mockAgents.map(agent => ({
-              id: String(agent.id),
-              name: String(agent.name),
-              avatar: String(agent.avatar),
-              email: agent.email ? String(agent.email) : undefined,
-              status: String(agent.status),
-              maxConcurrentChats: Number(agent.maxConcurrentChats),
-              currentChats: Number(agent.currentChats),
-              skills: agent.skills ? agent.skills.map(String) : undefined,
-              department: agent.department ? String(agent.department) : undefined,
-              lastActive: agent.lastActive ? String(agent.lastActive) : undefined,
-            })));
-            setAgents(serializedAgents as Agent[]);
+            console.error('Failed to fetch agents:', agentsResponse.status);
+            setAgents([]);
           }
         } catch (error) {
           console.error('Error fetching agents:', error);
-          // Fallback to mock agents
-          const serializedAgents = toPlain(mockAgents.map(agent => ({
-            id: String(agent.id),
-            name: String(agent.name),
-            avatar: String(agent.avatar),
-            email: agent.email ? String(agent.email) : undefined,
-            status: String(agent.status),
-            maxConcurrentChats: Number(agent.maxConcurrentChats),
-            currentChats: Number(agent.currentChats),
-            skills: agent.skills ? agent.skills.map(String) : undefined,
-            department: agent.department ? String(agent.department) : undefined,
-            lastActive: agent.lastActive ? String(agent.lastActive) : undefined,
-          })));
-          setAgents(serializedAgents as Agent[]);
+          setAgents([]);
         }
       } catch (error) {
         console.error('Error initializing app:', error);
