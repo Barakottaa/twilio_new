@@ -8,7 +8,6 @@ export async function issueSessionCookie(agent: {
   id: string; username: string; role: string;
   permissions?: Record<string, boolean>;
 }) {
-  console.log('🔐 Creating session for agent:', agent);
   const jwt = await new SignJWT({
     sub: agent.id,
     username: agent.username,
@@ -26,7 +25,6 @@ export async function issueSessionCookie(agent: {
 
 export async function readSessionFrom(token: string) {
   const { payload } = await jwtVerify(token, secret);
-  console.log('🔍 JWT payload:', payload);
   return {
     isAuthenticated: true,
     agent: {
