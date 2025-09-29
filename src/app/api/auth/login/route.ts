@@ -53,8 +53,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Create JWT session cookie
-    console.log('🔐 Agent object from authenticateAgent:', agent);
-    console.log('🔐 Agent permissions:', agent.permissions);
     const cookie = await issueSessionCookie({
       id: agent.id,
       username: agent.username,
