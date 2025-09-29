@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAgent } from '@/lib/auth';
-
-const SESSION_COOKIE_NAME = 'twiliochat_session';
-const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+import { issueSessionCookie } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,35 +52,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create session data
-    const sessionData = {
-      agentId: agent.id,
-      username: agent.username,
-      role: agent.role,
-      timestamp: Date.now()
-    };
+    // Create JWT session cookie
+    const cookie = await issueSessionCookie(agent);
 
-    // Create response with agent data
-    const response = NextResponse.json({
-      message: 'Login successful',
-      agent: {
-        id: agent.id,
-        username: agent.username,
-        role: agent.role,
-        permissions: agent.permissions
-      }
-    });
-
-    // Set session cookie
-    response.cookies.set(SESSION_COOKIE_NAME, JSON.stringify(sessionData), {
+    // IMPORTANT: set cookie and redirect together to avoid the "double press"
+    const res = NextResponse.redirect(new URL('/', req.url)); 
+    res.cookies.set(cookie.name, cookie.value, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: false,       // localhost (set true in prod/HTTPS)
+      sameSite: 'lax',     // localhost same-origin
       path: '/',
-      maxAge: SESSION_DURATION / 1000 // Convert to seconds
+      maxAge: cookie.maxAge,
     });
-
-    return response;
+    return res;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

@@ -86,7 +86,7 @@ export default function SettingsPage() {
     soundNotifications: true,
     
     // Database Settings
-    databaseType: 'oracle',
+    databaseType: 'sqlite',
     connectionPool: 10,
     queryTimeout: 30
   });
@@ -132,7 +132,7 @@ export default function SettingsPage() {
       emailNotifications: true,
       pushNotifications: false,
       soundNotifications: true,
-      databaseType: 'oracle',
+      databaseType: 'sqlite',
       connectionPool: 10,
       queryTimeout: 30
     });
@@ -463,7 +463,6 @@ export default function SettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="memory">In-Memory (Development)</SelectItem>
-                    <SelectItem value="oracle">Oracle Database</SelectItem>
                     <SelectItem value="postgresql">PostgreSQL</SelectItem>
                     <SelectItem value="mysql">MySQL</SelectItem>
                 </SelectContent>

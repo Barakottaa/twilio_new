@@ -3,6 +3,7 @@
 import { getDatabase } from './database-config';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { readSessionFrom } from './session';
 import type { Agent } from '@/types';
 
 // Initialize database on first import
@@ -20,9 +21,6 @@ export interface AuthSession {
   isAuthenticated: boolean;
 }
 
-const SESSION_COOKIE_NAME = 'twiliochat_session';
-const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-
 export async function authenticateAgent(username: string, password: string): Promise<Agent | null> {
   try {
     await ensureInitialized();
@@ -35,7 +33,13 @@ export async function authenticateAgent(username: string, password: string): Pro
       id: agentRecord.id,
       username: agentRecord.username,
       role: agentRecord.role,
-      permissions: agentRecord.permissions
+      permissions: {
+        dashboard: agentRecord.permissions_dashboard === 1,
+        agents: agentRecord.permissions_agents === 1,
+        contacts: agentRecord.permissions_contacts === 1,
+        analytics: agentRecord.permissions_analytics === 1,
+        settings: agentRecord.permissions_settings === 1
+      }
     };
 
     return agent;
@@ -45,66 +49,22 @@ export async function authenticateAgent(username: string, password: string): Pro
   }
 }
 
-export async function createSession(agent: Agent): Promise<void> {
-  const cookieStore = await cookies();
-  const sessionData = {
-    agentId: agent.id,
-    username: agent.username,
-    role: agent.role,
-    timestamp: Date.now()
-  };
-
-  cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionData), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: SESSION_DURATION / 1000 // Convert to seconds
-  });
-}
-
 export async function getSession(): Promise<AuthSession | null> {
   try {
-    await ensureInitialized();
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
+    const token = (await cookies()).get('twiliochat_session')?.value;
+    if (!token) return null;
     
-    if (!sessionCookie) return null;
-
-    const sessionData = JSON.parse(sessionCookie.value);
-    
-    // Check if session is expired
-    if (Date.now() - sessionData.timestamp > SESSION_DURATION) {
-      return null;
-    }
-
-    // Get agent from database
-    const db = await getDatabase();
-    const agentRecord = await db.getAgent(sessionData.agentId);
-    if (!agentRecord || !agentRecord.isActive) {
-      return null;
-    }
-
-    // Convert to Agent type
-    const agent: Agent = {
-      id: agentRecord.id,
-      username: agentRecord.username,
-      role: agentRecord.role,
-      permissions: agentRecord.permissions
-    };
-
-    return {
-      agent,
-      isAuthenticated: true
-    };
+    const session = await readSessionFrom(token);
+    return session;
   } catch (error) {
     console.error('Session error:', error);
-    return null;
+    return null; // expired/invalid -> treated as logged out
   }
 }
 
 export async function clearSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
+  cookieStore.delete('twiliochat_session');
 }
 
 export async function requireAuth(): Promise<Agent> {

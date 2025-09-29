@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/database';
+import { getDatabase } from '@/lib/database-config';
 
 export async function GET() {
   try {
+    const db = await getDatabase();
     await db.initialize();
     const agents = await db.getAllAgents();
     return NextResponse.json({ 

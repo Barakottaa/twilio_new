@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/database-config';
+import { readSessionFrom } from '@/lib/session';
 
 const SESSION_COOKIE_NAME = 'twiliochat_session';
-const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,34 +15,23 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const sessionData = JSON.parse(sessionCookie.value);
+    // Verify JWT token
+    const session = await readSessionFrom(sessionCookie.value);
     
-    // Check if session is expired
-    if (Date.now() - sessionData.timestamp > SESSION_DURATION) {
+    if (!session.isAuthenticated) {
       return NextResponse.json(
-        { error: 'Session expired' },
-        { status: 401 }
-      );
-    }
-
-    // Get agent from database
-    const db = await getDatabase();
-    const agentRecord = await db.getAgent(sessionData.agentId);
-    
-    if (!agentRecord || !agentRecord.isActive) {
-      return NextResponse.json(
-        { error: 'Agent not found' },
+        { error: 'Invalid session' },
         { status: 401 }
       );
     }
 
     return NextResponse.json({
-      id: agentRecord.id,
-      username: agentRecord.username,
-      name: agentRecord.username, // Use username as name for now
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(agentRecord.username)}&background=10b981&color=ffffff&size=150`,
-      role: agentRecord.role,
-      permissions: agentRecord.permissions
+      id: session.agent.id,
+      username: session.agent.username,
+      name: session.agent.username, // Use username as name for now
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(session.agent.username)}&background=10b981&color=ffffff&size=150`,
+      role: session.agent.role,
+      permissions: session.agent.permissions
     });
   } catch (error) {
     console.error('Auth check error:', error);
