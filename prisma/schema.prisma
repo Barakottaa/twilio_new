@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id                    String   @id @default(cuid())
+  username              String   @unique
+  password              String
+  role                  String   // 'admin' | 'agent'
+  permissions_dashboard Int      @default(0)
+  permissions_agents    Int      @default(0)
+  permissions_contacts  Int      @default(0)
+  permissions_analytics Int      @default(0)
+  permissions_settings  Int      @default(0)
+  is_active             Int      @default(1)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  // Relations
+  conversations Conversation[]
+
+  @@map("agents")
+}
+
+model Contact {
+  id           String   @id @default(cuid())
+  name         String
+  phone_number String?
+  email        String?
+  avatar       String?
+  last_seen    DateTime?
+  notes        String?
+  tags         String?
+  is_active    Int      @default(1)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  // Relations
+  conversations Conversation[]
+
+  @@map("contacts")
+}
+
+model Conversation {
+  id                      String   @id @default(cuid())
+  contact_id              String
+  agent_id                String
+  status                  String   @default("active")
+  priority                String   @default("normal")
+  twilio_conversation_sid String?  @unique
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  // Relations
+  contact Contact @relation(fields: [contact_id], references: [id])
+  agent   Agent   @relation(fields: [agent_id], references: [id])
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversation_id String
+  sender_type    String   // 'agent' | 'contact'
+  sender_id      String
+  content        String
+  message_type   String   @default("text")
+  twilio_sid     String?  @unique
+  created_at     DateTime @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversation_id], references: [id])
+
+  @@map("messages")
+}

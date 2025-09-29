@@ -5,7 +5,14 @@ export type Agent = {
   username: string;
   name: string;
   avatar: string;
+  email?: string;
   role: 'admin' | 'agent';
+  status?: 'online' | 'offline' | 'busy' | 'away';
+  maxConcurrentChats?: number;
+  currentChats?: number;
+  skills?: string[];
+  department?: string;
+  lastActive?: string;
   permissions: {
     dashboard: boolean;
     agents: boolean;
@@ -22,6 +29,20 @@ export type Customer = {
   phoneNumber?: string;
   email?: string;
   lastSeen?: string;
+};
+
+export type Contact = {
+  id: string;
+  name: string;
+  avatar: string;
+  phoneNumber?: string;
+  email?: string;
+  lastSeen?: string;
+  notes?: string;
+  tags?: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Message = {

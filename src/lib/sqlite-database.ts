@@ -34,6 +34,15 @@ interface AgentRecord extends DatabaseRecord {
 class SQLiteDatabaseService {
   private db: sqlite3.Database | null = null;
   private isInitialized = false;
+  private static instance: SQLiteDatabaseService | null = null;
+
+  // Singleton pattern for better performance
+  static getInstance(): SQLiteDatabaseService {
+    if (!SQLiteDatabaseService.instance) {
+      SQLiteDatabaseService.instance = new SQLiteDatabaseService();
+    }
+    return SQLiteDatabaseService.instance;
+  }
 
   async ensureInitialized(): Promise<void> {
     if (!this.isInitialized) {
@@ -393,9 +402,15 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const result = await run('UPDATE agents SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id]);
-    return result.changes > 0;
+    return new Promise((resolve, reject) => {
+      this.db!.run('UPDATE agents SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id], function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes > 0);
+        }
+      });
+    });
   }
 
   async findAgentByUsername(username: string): Promise<AgentRecord | null> {
@@ -450,4 +465,4 @@ class SQLiteDatabaseService {
 }
 
 // Export singleton instance
-export const sqliteDb = new SQLiteDatabaseService();
+export const sqliteDb = SQLiteDatabaseService.getInstance();

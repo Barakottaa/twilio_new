@@ -1,55 +1,35 @@
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
-  enabled: process.env.ANALYZE === 'true',
-});
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable experimental features for better performance
+  // Move to correct location (Next.js 15+)
+  serverExternalPackages: ['sqlite3'],
+  
+  // Performance optimizations
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', '@radix-ui/react-avatar', '@radix-ui/react-button', '@radix-ui/react-dialog'],
+    // Reduce compilation overhead
+    optimizeCss: false,
   },
   
-  // Optimize images
-  images: {
-    domains: ['ui-avatars.com', 'images.unsplash.com'],
-    formats: ['image/webp', 'image/avif'],
-  },
-  
-  // Enable compression
-  compress: true,
-  
-  // Optimize bundle
+  // Webpack optimizations
   webpack: (config, { dev, isServer }) => {
-    // Reduce bundle size in production
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            chunks: 'all',
-            enforce: true,
-          },
-        },
+    if (dev) {
+      // Reduce module resolution overhead
+      config.resolve.symlinks = false;
+      config.resolve.cacheWithContext = false;
+      
+      // Optimize for development
+      config.optimization = {
+        ...config.optimization,
+        removeAvailableModules: false,
+        removeEmptyChunks: false,
+        splitChunks: false,
       };
     }
     
     return config;
   },
   
-  // SWC minification is enabled by default in Next.js 15
-  
-  // Reduce memory usage
-  onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
-  },
+  // Disable source maps in development for faster builds
+  productionBrowserSourceMaps: false,
 };
 
-module.exports = withBundleAnalyzer(nextConfig);
+module.exports = nextConfig;
