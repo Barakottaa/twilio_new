@@ -55,8 +55,19 @@ export async function POST(req: NextRequest) {
     // Create JWT session cookie
     const cookie = await issueSessionCookie(agent);
 
-    // IMPORTANT: set cookie and redirect together to avoid the "double press"
-    const res = NextResponse.redirect(new URL('/', req.url)); 
+    // Return JSON response with cookie set (client will handle navigation)
+    const res = NextResponse.json({ 
+      success: true, 
+      agent: {
+        id: agent.id,
+        username: agent.username,
+        name: agent.username,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(agent.username)}&background=10b981&color=ffffff&size=150`,
+        role: agent.role,
+        permissions: agent.permissions
+      }
+    }, { status: 200 });
+    
     res.cookies.set(cookie.name, cookie.value, {
       httpOnly: true,
       secure: false,       // localhost (set true in prod/HTTPS)

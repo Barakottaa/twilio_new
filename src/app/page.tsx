@@ -21,11 +21,18 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-      return;
-    }
+    // Add a small delay to ensure cookies are set after login
+    const timer = setTimeout(() => {
+      if (!authLoading && !isAuthenticated) {
+        router.push('/login');
+        return;
+      }
+    }, 100);
 
+    return () => clearTimeout(timer);
+  }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
     if (!isAuthenticated || !agent) return;
 
     const initializeApp = async () => {

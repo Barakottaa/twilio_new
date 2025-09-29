@@ -34,8 +34,10 @@ export default function LoginPage() {
     const result = await login(username, password);
     
     if (result.success) {
-      // Redirect to main page
-      router.push('/');
+      // Give the browser a tick to store the Set-Cookie, then navigate
+      setTimeout(() => {
+        router.push('/');
+      }, 100);
     } else {
       setError(result.error || 'Login failed');
     }

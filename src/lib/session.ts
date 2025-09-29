@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose';
 
 const NAME = 'twiliochat_session';
 const TTL = 60 * 60 * 12; // 12h in seconds
-const secret = new TextEncoder().encode(process.env.SESSION_SECRET || 'fallback-secret-key-for-development-only');
+const secret = new TextEncoder().encode(process.env.SESSION_SECRET || 'superlongrandomstringforjwtdevelopmentonlychangethisinproduction');
 
 export async function issueSessionCookie(agent: {
   id: string; username: string; role: string;

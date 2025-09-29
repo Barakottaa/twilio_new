@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { safeJson } from '@/lib/safe-json';
 import type { Agent } from '@/types';
 
 interface AuthState {
@@ -20,6 +21,7 @@ export function useAuth() {
 
   const checkAuth = async () => {
     try {
+      console.log('🔍 Checking authentication...');
       const response = await fetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include', // Important: include cookies
@@ -29,23 +31,36 @@ export function useAuth() {
         }
       });
       
+      console.log('🔍 Auth response status:', response.status);
+      
+      if (response.status === 401) {
+        console.log('🔍 Not authenticated (401)');
+        setAuthState({
+          agent: null,
+          isLoading: false,
+          isAuthenticated: false
+        });
+        return;
+      }
+      
       if (response.ok) {
-        const agentData = await response.json();
+        const agentData = await safeJson(response);
+        console.log('🔍 Authentication successful:', agentData);
         setAuthState({
           agent: agentData,
           isLoading: false,
           isAuthenticated: true
         });
       } else {
+        console.log('🔍 Auth failed with status:', response.status);
         setAuthState({
           agent: null,
           isLoading: false,
           isAuthenticated: false
         });
-        // Don't redirect here, let the component decide
       }
     } catch (error) {
-      console.error('Auth check error:', error);
+      console.error('🔍 Auth check error:', error);
       setAuthState({
         agent: null,
         isLoading: false,
@@ -56,17 +71,22 @@ export function useAuth() {
 
   const login = async (username: string, password: string) => {
     try {
+      console.log('🔐 Attempting login for:', username);
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         credentials: 'include', // Important: include cookies
         body: JSON.stringify({ username, password }),
       });
 
+      console.log('🔐 Login response status:', response.status);
+
       if (response.ok) {
-        const data = await response.json();
+        const data = await safeJson(response);
+        console.log('🔐 Login successful:', data);
         setAuthState({
           agent: data.agent,
           isLoading: false,
@@ -74,11 +94,12 @@ export function useAuth() {
         });
         return { success: true, agent: data.agent };
       } else {
-        const errorData = await response.json();
+        const errorData = await safeJson(response);
+        console.log('🔐 Login failed:', errorData);
         return { success: false, error: errorData.error };
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('🔐 Login error:', error);
       return { success: false, error: 'Login failed' };
     }
   };
