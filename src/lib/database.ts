@@ -95,6 +95,15 @@ class Database {
     return null;
   }
 
+  async findContactByName(name: string): Promise<ContactRecord | null> {
+    for (const contact of this.contacts.values()) {
+      if (contact.name === name && contact.isActive) {
+        return contact;
+      }
+    }
+    return null;
+  }
+
   async findContactByEmail(email: string): Promise<ContactRecord | null> {
     for (const contact of this.contacts.values()) {
       if (contact.email === email && contact.isActive) {
@@ -177,45 +186,57 @@ class Database {
 
   // Initialize with sample data
   async initialize(): Promise<void> {
-    // Create admin user
-    await this.createAgent({
-      username: 'admin',
-      password: 'admin', // In production, this should be hashed
-      role: 'admin',
-      permissions: {
-        dashboard: true,
-        agents: true,
-        contacts: true,
-        analytics: true,
-        settings: true
-      }
-    });
+    // Create admin user only if it doesn't exist
+    const existingAdmin = await this.findAgentByUsername('admin');
+    if (!existingAdmin) {
+      await this.createAgent({
+        username: 'admin',
+        password: 'admin', // In production, this should be hashed
+        role: 'admin',
+        permissions: {
+          dashboard: true,
+          agents: true,
+          contacts: true,
+          analytics: true,
+          settings: true
+        }
+      });
+    }
 
-    // Create sample contacts
-    await this.createContact({
-      name: 'Dr Abdelrahman Baraka',
-      phoneNumber: '+201557000970',
-      email: 'abdelrahman@example.com',
-      avatar: 'https://ui-avatars.com/api/?name=Dr+Abdelrahman+Baraka&background=10b981&color=ffffff&size=150',
-      lastSeen: new Date().toISOString(),
-      tags: ['vip', 'medical']
-    });
+    // Create sample contacts only if they don't exist
+    const existingContact1 = await this.findContactByName('Dr Abdelrahman Baraka');
+    if (!existingContact1) {
+      await this.createContact({
+        name: 'Dr Abdelrahman Baraka',
+        phoneNumber: '+201557000970',
+        email: 'abdelrahman@example.com',
+        avatar: 'https://ui-avatars.com/api/?name=Dr+Abdelrahman+Baraka&background=10b981&color=ffffff&size=150',
+        lastSeen: new Date().toISOString(),
+        tags: ['vip', 'medical']
+      });
+    }
 
-    await this.createContact({
-      name: 'Abdelrahman Baraka',
-      phoneNumber: '+201016666348',
-      avatar: 'https://ui-avatars.com/api/?name=Abdelrahman+Baraka&background=10b981&color=ffffff&size=150',
-      lastSeen: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      tags: ['regular']
-    });
+    const existingContact2 = await this.findContactByName('Abdelrahman Baraka');
+    if (!existingContact2) {
+      await this.createContact({
+        name: 'Abdelrahman Baraka',
+        phoneNumber: '+201016666348',
+        avatar: 'https://ui-avatars.com/api/?name=Abdelrahman+Baraka&background=10b981&color=ffffff&size=150',
+        lastSeen: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+        tags: ['regular']
+      });
+    }
 
-    await this.createContact({
-      name: 'WhatsApp +201120035300',
-      phoneNumber: '+201120035300',
-      avatar: 'https://ui-avatars.com/api/?name=WhatsApp+201120035300&background=10b981&color=ffffff&size=150',
-      lastSeen: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-      tags: ['new']
-    });
+    const existingContact3 = await this.findContactByName('WhatsApp +201120035300');
+    if (!existingContact3) {
+      await this.createContact({
+        name: 'WhatsApp +201120035300',
+        phoneNumber: '+201120035300',
+        avatar: 'https://ui-avatars.com/api/?name=WhatsApp+201120035300&background=10b981&color=ffffff&size=150',
+        lastSeen: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+        tags: ['new']
+      });
+    }
   }
 }
 

@@ -1,10 +1,18 @@
 import oracledb from 'oracledb';
 
+// Initialize Oracle client in thick mode for older database versions
+try {
+  oracledb.initOracleClient();
+  console.log('✅ Oracle client initialized in thick mode');
+} catch (error) {
+  console.log('⚠️  Thick mode not available, using thin mode');
+}
+
 // Oracle Database configuration
 const dbConfig = {
   user: 'crm',
   password: 'crm',
-  connectString: 'localhost:1521/XE', // Adjust this based on your Oracle setup
+  connectString: 'localhost:1521/ldm', // Updated to use correct SID
   poolMin: 2,
   poolMax: 10,
   poolIncrement: 1,

@@ -3,6 +3,8 @@ export type ConversationStatus = 'open' | 'closed' | 'pending' | 'resolved' | 'e
 export type Agent = {
   id: string;
   username: string;
+  name: string;
+  avatar: string;
   role: 'admin' | 'agent';
   permissions: {
     dashboard: boolean;

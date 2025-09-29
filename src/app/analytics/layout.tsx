@@ -1,17 +1,9 @@
-import { MainLayout } from '@/components/layout/main-layout';
-import { requireAuth } from '@/lib/auth';
+import { AuthLayout } from '@/components/layout/auth-layout';
 
-export default async function AnalyticsLayout({
+export default function AnalyticsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Require authentication
-  const loggedInAgent = await requireAuth();
-
-  return (
-    <MainLayout loggedInAgent={loggedInAgent}>
-      {children}
-    </MainLayout>
-  );
+  return <AuthLayout>{children}</AuthLayout>;
 }

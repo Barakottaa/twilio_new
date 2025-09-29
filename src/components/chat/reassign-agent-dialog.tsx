@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Agent, Chat } from '@/types';
-import { suggestAgentReassignment, SuggestAgentReassignmentOutput } from '@/ai/flows/suggest-agent-reassignment';
+import { suggestAgentReassignment, SuggestAgentReassignmentOutput } from '@/lib/agent-suggestion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
