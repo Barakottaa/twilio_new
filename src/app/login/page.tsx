@@ -126,11 +126,13 @@ export default function LoginPage() {
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Admin credentials:
+                Test credentials:
               </p>
               <div className="mt-2 space-y-1 text-xs text-gray-500">
-                <p>Username: admin</p>
-                <p>Password: admin</p>
+                <p><strong>Admin:</strong> admin / admin</p>
+                <p><strong>Agent:</strong> agent1 / password123</p>
+                <p><strong>Supervisor:</strong> supervisor / supervisor123</p>
+                <p><strong>Manager:</strong> manager / manager123</p>
               </div>
             </div>
           </CardContent>
