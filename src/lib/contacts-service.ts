@@ -136,3 +136,66 @@ export async function findContactByPhone(phoneNumber: string): Promise<Customer 
     return null;
   }
 }
+
+// Auto-create or update contact when new customer sends message
+export async function autoCreateOrUpdateContact(data: {
+  phoneNumber: string;
+  name?: string;
+  waId?: string;
+  profileName?: string;
+}): Promise<Customer | null> {
+  try {
+    const db = await getDatabase();
+    
+    // Check if contact already exists by phone number
+    const existingContact = await db.findContactByPhone(data.phoneNumber);
+    
+    if (existingContact) {
+      // Update existing contact with new information
+      const updatedContact = await db.updateContact(existingContact.id, {
+        name: data.name || data.profileName || existingContact.name,
+        last_seen: new Date().toISOString(),
+        avatar: data.name || data.profileName ? 
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.profileName || '')}&background=10b981&color=ffffff&size=150` : 
+          existingContact.avatar
+      });
+      
+      if (updatedContact) {
+        console.log('✅ Updated existing contact:', { phoneNumber: data.phoneNumber, name: updatedContact.name });
+        return {
+          id: updatedContact.id,
+          name: updatedContact.name,
+          avatar: updatedContact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(updatedContact.name)}&background=10b981&color=ffffff&size=150`,
+          phoneNumber: updatedContact.phoneNumber,
+          email: updatedContact.email,
+          lastSeen: updatedContact.lastSeen
+        };
+      }
+    } else {
+      // Create new contact
+      const contactName = data.name || data.profileName || `WhatsApp ${data.phoneNumber}`;
+      const newContact = await db.createContact({
+        name: contactName,
+        phone_number: data.phoneNumber,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(contactName)}&background=10b981&color=ffffff&size=150`,
+        last_seen: new Date().toISOString(),
+        tags: ['auto-created', 'whatsapp']
+      });
+      
+      console.log('✅ Created new contact:', { phoneNumber: data.phoneNumber, name: contactName });
+      return {
+        id: newContact.id,
+        name: newContact.name,
+        avatar: newContact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(newContact.name)}&background=10b981&color=ffffff&size=150`,
+        phoneNumber: newContact.phoneNumber,
+        email: newContact.email,
+        lastSeen: newContact.lastSeen
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error auto-creating/updating contact:', error);
+    return null;
+  }
+}

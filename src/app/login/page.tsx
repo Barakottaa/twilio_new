@@ -37,19 +37,18 @@ export default function LoginPage() {
       const result = await login(username, password);
       
       if (result.success) {
-        // Clear form
-        setUsername('');
-        setPassword('');
-        // Navigate immediately - the auth state will handle the redirect
-        router.push('/');
+        // Don't clear form fields immediately - let the loading state show
+        // The redirect will happen automatically via useEffect
+        // router.push('/'); // Remove immediate redirect
       } else {
         setError(result.error || 'Login failed');
+        setIsLoading(false); // Reset loading state on error
       }
     } catch (error) {
       setError('An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Reset loading state on error
     }
+    // Don't set isLoading(false) on success - let the redirect handle it
   };
 
   return (
@@ -124,16 +123,16 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full transition-all duration-200"
                 disabled={isLoading || !username.trim() || !password.trim()}
               >
                 {isLoading ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 animate-in fade-in duration-200">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Signing in...
                   </div>
                 ) : (
-                  'Sign In'
+                  <span className="transition-all duration-200">Sign In</span>
                 )}
               </Button>
             </form>

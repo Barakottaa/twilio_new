@@ -1,5 +1,6 @@
 // Contact mapping system for WhatsApp contacts
 // Since Twilio doesn't provide contact names, we maintain our own mapping
+// This now works alongside the database for better performance
 
 export interface ContactInfo {
   phoneNumber: string;
@@ -8,8 +9,8 @@ export interface ContactInfo {
   lastSeen?: string;
 }
 
-// Simple in-memory contact mapping
-// In production, this should be stored in a database
+// Simple in-memory contact mapping for fast lookups
+// This is now synchronized with the database
 const contactMapping = new Map<string, ContactInfo>();
 
 // Add a contact to the mapping

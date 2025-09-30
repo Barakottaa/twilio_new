@@ -30,13 +30,19 @@ export function usePollingMessages({
   const pollForMessages = useCallback(async () => {
     try {
       const now = Date.now();
-          // Throttle polling to max once every 5 seconds for better performance
-          if (now - lastPollTimeRef.current < 5000) {
+      // Throttle polling to max once every 10 seconds for better performance
+      if (now - lastPollTimeRef.current < 10000) {
         return;
       }
       lastPollTimeRef.current = now;
 
-      const response = await fetch(`/api/twilio/conversations?agentId=${loggedInAgentId}&limit=20&messageLimit=100`);
+      // Use a more efficient endpoint that only fetches recent changes
+      const response = await fetch(`/api/twilio/conversations?agentId=${loggedInAgentId}&limit=20&messageLimit=50&since=${lastPollTimeRef.current - 30000}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       const data = await response.json();
       
       if (!data.success) {
@@ -92,8 +98,9 @@ export function usePollingMessages({
 
     console.log('🔄 Starting polling for new messages...');
     
-        // Poll every 10 seconds for better real-time experience
-        intervalRef.current = setInterval(pollForMessages, 10000);
+        // Poll less frequently to reduce server load
+        const pollInterval = process.env.NODE_ENV === 'development' ? 15000 : 30000;
+        intervalRef.current = setInterval(pollForMessages, pollInterval);
 
     return () => {
       if (intervalRef.current) {

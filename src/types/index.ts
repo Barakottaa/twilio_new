@@ -51,6 +51,18 @@ export type Message = {
   timestamp: string;
   sender: 'agent' | 'customer';
   senderId: string;
+  // Media fields (Option 1: Twilio-only storage)
+  mediaType?: 'image' | 'video' | 'audio' | 'document';
+  mediaUrl?: string; // Twilio temporary URL
+  mediaContentType?: string; // MIME type
+  mediaFileName?: string; // Original filename
+  mediaCaption?: string; // Caption text
+  // New media array for multiple media items
+  media?: Array<{
+    url: string;
+    contentType: string;
+    filename?: string;
+  }>;
 };
 
 export type Chat = {

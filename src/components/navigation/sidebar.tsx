@@ -12,6 +12,8 @@ import {
   UserCheck, 
   Settings, 
   BarChart3,
+  Activity,
+  Bug,
   Menu,
   X,
   Home,
@@ -54,6 +56,27 @@ const navigationItems = [
     permission: 'analytics'
   },
   {
+    name: 'Performance',
+    href: '/performance',
+    icon: Activity,
+    description: 'Real-time performance monitoring',
+    permission: 'analytics'
+  },
+  {
+    name: 'Debug',
+    href: '/debug',
+    icon: Bug,
+    description: 'Debug tools and testing',
+    permission: 'analytics'
+  },
+  {
+    name: 'Debug Conversations',
+    href: '/debug-conversations',
+    icon: Activity,
+    description: 'Compare Twilio vs UI conversations',
+    permission: 'analytics'
+  },
+  {
     name: 'Settings',
     href: '/settings',
     icon: Settings,
@@ -64,6 +87,7 @@ const navigationItems = [
 
 export function Sidebar({ loggedInAgent, className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [clickedItem, setClickedItem] = useState<string | null>(null);
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -81,7 +105,7 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
 
   return (
     <div className={cn(
-      "flex flex-col h-full bg-card border-r transition-all duration-300",
+      "flex flex-col h-full bg-card border-r transition-all duration-150 ease-out",
       isCollapsed ? "w-16" : "w-64",
       className
     )}>
@@ -102,7 +126,7 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="h-8 w-8"
+          className="h-8 w-8 transition-all duration-100 hover:scale-105 active:scale-95"
         >
           {isCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
         </Button>
@@ -117,17 +141,28 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
           
           if (!hasPermission) return null;
           
+          const isClicked = clickedItem === item.href;
+          
           return (
             <Link key={item.href} href={item.href}>
               <Button
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
-                  "w-full justify-start gap-3 h-10",
-                  isCollapsed && "justify-center px-2"
+                  "w-full justify-start gap-3 h-10 transition-all duration-100",
+                  isCollapsed && "justify-center px-2",
+                  isClicked && "scale-95 bg-primary/10"
                 )}
                 title={isCollapsed ? item.name : undefined}
+                onClick={() => {
+                  setClickedItem(item.href);
+                  // Reset clicked state after a short delay
+                  setTimeout(() => setClickedItem(null), 150);
+                }}
               >
-                <Icon className="h-4 w-4 flex-shrink-0" />
+                <Icon className={cn(
+                  "h-4 w-4 flex-shrink-0 transition-transform duration-100",
+                  isClicked && "scale-110"
+                )} />
                 {!isCollapsed && (
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-medium">{item.name}</span>

@@ -1,179 +1,91 @@
-'use server';
+// Server-side conversation service with enhanced caching
+import type { Chat } from '@/types';
+import { getTwilioConversations, invalidateConversationCache } from './twilio-service';
 
-import type { Chat, ConversationStatus, Agent } from '@/types';
-import { updateAgentStatus, incrementAgentChatCount, decrementAgentChatCount } from './agent-service';
+// Enhanced cache for conversations to reduce API calls
+const conversationCache = new Map<string, { data: Chat[], timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds cache
 
-// In-memory conversation management (in production, this would be a database)
-let conversations: Chat[] = [];
+export class ConversationService {
+  static async getConversations(
+    agentId: string, 
+    limit: number = 20, 
+    forceRefresh: boolean = false
+  ): Promise<Chat[]> {
+    try {
+      // Check cache first
+      const cacheKey = `${agentId}-${limit}`;
+      const cached = conversationCache.get(cacheKey);
+      const now = Date.now();
+      
+      if (!forceRefresh && cached && (now - cached.timestamp) < CACHE_DURATION) {
+        console.log("📦 Using cached conversations");
+        return cached.data;
+      }
 
-export async function getAllConversations(): Promise<Chat[]> {
-  return conversations;
-}
+      console.log('🔄 Syncing conversations from Twilio...');
+      
+      // Fetch from Twilio
+      const twilioConversations = await getTwilioConversations(agentId, limit);
+      
+      // Cache the results
+      conversationCache.set(cacheKey, {
+        data: twilioConversations,
+        timestamp: now
+      });
+      
+      console.log(`✅ Synced ${twilioConversations.length} conversations`);
+      return twilioConversations;
+    } catch (error) {
+      console.error('❌ Error in ConversationService:', error);
+      
+      // Fallback to cache on error
+      const cacheKey = `${agentId}-${limit}`;
+      const cached = conversationCache.get(cacheKey);
+      if (cached) {
+        console.log('📦 Using cached fallback data');
+        return cached.data;
+      }
+      
+      // Final fallback to Twilio
+      return await getTwilioConversations(agentId, limit);
+    }
+  }
 
-export async function getConversationById(id: string): Promise<Chat | null> {
-  return conversations.find(conv => conv.id === id) || null;
-}
-
-export async function getConversationsByStatus(status: ConversationStatus): Promise<Chat[]> {
-  return conversations.filter(conv => conv.status === status);
-}
-
-export async function getConversationsByAgent(agentId: string): Promise<Chat[]> {
-  return conversations.filter(conv => conv.agent.id === agentId);
-}
-
-export async function getConversationsByPriority(priority: Chat['priority']): Promise<Chat[]> {
-  return conversations.filter(conv => conv.priority === priority);
-}
-
-export async function updateConversationStatus(
-  conversationId: string, 
-  status: ConversationStatus,
-  closedBy?: string
-): Promise<Chat | null> {
-  const conversation = conversations.find(conv => conv.id === conversationId);
-  if (!conversation) return null;
-
-  const now = new Date().toISOString();
-  
-  conversation.status = status;
-  conversation.updatedAt = now;
-  
-  if (status === 'closed' || status === 'resolved') {
-    conversation.closedAt = now;
-    conversation.closedBy = closedBy;
+  static async invalidateCache(conversationId?: string): Promise<void> {
+    if (conversationId) {
+      // Clear specific conversation cache
+      for (const [key, value] of conversationCache.entries()) {
+        if (key.includes(conversationId)) {
+          conversationCache.delete(key);
+        }
+      }
+      console.log(`🗑️ Invalidated cache for conversation: ${conversationId}`);
+    } else {
+      // Clear all cache
+      conversationCache.clear();
+      console.log('🗑️ Invalidated all cache');
+    }
     
-    // Decrement agent's current chat count
-    await decrementAgentChatCount(conversation.agent.id);
+    // Also invalidate Twilio cache
+    await invalidateConversationCache(conversationId);
   }
 
-  return conversation;
-}
-
-export async function assignConversation(
-  conversationId: string, 
-  agentId: string
-): Promise<Chat | null> {
-  const conversation = conversations.find(conv => conv.id === conversationId);
-  if (!conversation) return null;
-
-  // Decrement old agent's chat count if different
-  if (conversation.agent.id !== agentId) {
-    await decrementAgentChatCount(conversation.agent.id);
+  static async cleanup(): Promise<void> {
+    const now = Date.now();
+    for (const [key, value] of conversationCache.entries()) {
+      if ((now - value.timestamp) > CACHE_DURATION * 10) { // 5 minutes
+        conversationCache.delete(key);
+      }
+    }
   }
-
-  // Update conversation with new agent
-  conversation.agent = { ...conversation.agent, id: agentId };
-  conversation.assignedAt = new Date().toISOString();
-  conversation.updatedAt = new Date().toISOString();
-
-  // Increment new agent's chat count
-  await incrementAgentChatCount(agentId);
-
-  return conversation;
 }
 
-export async function updateConversationPriority(
-  conversationId: string, 
-  priority: Chat['priority']
-): Promise<Chat | null> {
-  const conversation = conversations.find(conv => conv.id === conversationId);
-  if (!conversation) return null;
-
-  conversation.priority = priority;
-  conversation.updatedAt = new Date().toISOString();
-
-  return conversation;
+// Initialize conversations function for client-side usage
+export function initializeConversations(conversations: Chat[]): void {
+  console.log('🔄 Initializing conversations:', conversations.length);
+  // This function is used by the client to initialize conversations
+  // The actual initialization logic is handled by the client state management
 }
 
-export async function addConversationTags(
-  conversationId: string, 
-  tags: string[]
-): Promise<Chat | null> {
-  const conversation = conversations.find(conv => conv.id === conversationId);
-  if (!conversation) return null;
-
-  conversation.tags = [...(conversation.tags || []), ...tags];
-  conversation.updatedAt = new Date().toISOString();
-
-  return conversation;
-}
-
-export async function removeConversationTags(
-  conversationId: string, 
-  tags: string[]
-): Promise<Chat | null> {
-  const conversation = conversations.find(conv => conv.id === conversationId);
-  if (!conversation) return null;
-
-  conversation.tags = conversation.tags?.filter(tag => !tags.includes(tag));
-  conversation.updatedAt = new Date().toISOString();
-
-  return conversation;
-}
-
-export async function addConversationNotes(
-  conversationId: string, 
-  notes: string
-): Promise<Chat | null> {
-  const conversation = conversations.find(conv => conv.id === conversationId);
-  if (!conversation) return null;
-
-  conversation.notes = notes;
-  conversation.updatedAt = new Date().toISOString();
-
-  return conversation;
-}
-
-export async function getConversationStats(): Promise<{
-  total: number;
-  open: number;
-  closed: number;
-  pending: number;
-  resolved: number;
-  escalated: number;
-  byPriority: Record<Chat['priority'], number>;
-}> {
-  const total = conversations.length;
-  const open = conversations.filter(c => c.status === 'open').length;
-  const closed = conversations.filter(c => c.status === 'closed').length;
-  const pending = conversations.filter(c => c.status === 'pending').length;
-  const resolved = conversations.filter(c => c.status === 'resolved').length;
-  const escalated = conversations.filter(c => c.status === 'escalated').length;
-
-  const byPriority = {
-    low: conversations.filter(c => c.priority === 'low').length,
-    medium: conversations.filter(c => c.priority === 'medium').length,
-    high: conversations.filter(c => c.priority === 'high').length,
-    urgent: conversations.filter(c => c.priority === 'urgent').length,
-  };
-
-  return {
-    total,
-    open,
-    closed,
-    pending,
-    resolved,
-    escalated,
-    byPriority,
-  };
-}
-
-export async function searchConversations(query: string): Promise<Chat[]> {
-  const lowercaseQuery = query.toLowerCase();
-  
-  return conversations.filter(conv => 
-    conv.customer.name.toLowerCase().includes(lowercaseQuery) ||
-    conv.customer.email?.toLowerCase().includes(lowercaseQuery) ||
-    conv.customer.phoneNumber?.includes(query) ||
-    conv.agent.name.toLowerCase().includes(lowercaseQuery) ||
-    conv.tags?.some(tag => tag.toLowerCase().includes(lowercaseQuery)) ||
-    conv.notes?.toLowerCase().includes(lowercaseQuery) ||
-    conv.messages.some(msg => msg.text.toLowerCase().includes(lowercaseQuery))
-  );
-}
-
-// Initialize with mock data
-export async function initializeConversations(mockChats: Chat[]): Promise<void> {
-  conversations = [...mockChats];
-}
+export default ConversationService;

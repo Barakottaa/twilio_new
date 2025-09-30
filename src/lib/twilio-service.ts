@@ -8,9 +8,13 @@ import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllCo
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
 
-// Cache for conversations to reduce API calls
+// Enhanced cache for conversations to reduce API calls
 const conversationCache = new Map<string, { data: Chat[], timestamp: number }>();
+const participantCache = new Map<string, { data: any[], timestamp: number }>();
+const messageCache = new Map<string, { data: any[], timestamp: number }>();
 const CACHE_DURATION = 30000; // 30 seconds cache
+const PARTICIPANT_CACHE_DURATION = 60000; // 1 minute for participants
+const MESSAGE_CACHE_DURATION = 15000; // 15 seconds for messages
 
 // Function to invalidate cache when new messages arrive
 export async function invalidateConversationCache(conversationSid?: string) {
@@ -28,7 +32,7 @@ export async function invalidateConversationCache(conversationSid?: string) {
   console.log('🗑️ Conversation cache invalidated');
 }
 
-function getTwilioClient() {
+export async function getTwilioClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
 
@@ -40,6 +44,115 @@ function getTwilioClient() {
   }
 
   return twilio(accountSid, authToken);
+}
+
+// ---- Helpers for light listing & paged messages ----
+export async function listConversationsLite(limit = 30, after?: string) {
+  const client = await getTwilioClient();
+  const opts: any = { limit: Math.min(limit, 50) };
+  if (after) opts.pageToken = after;
+  const page = await client.conversations.v1.conversations.page(opts);
+  
+  // Fetch participant info for each conversation to get proper names
+  const items = await Promise.all(page.instances.map(async (c: any) => {
+    try {
+      // Get participants to find customer name
+      const participants = await client.conversations.v1
+        .conversations(c.sid)
+        .participants.list();
+      
+      // Find customer participant (not agent)
+      // Look for participants that are not agents/admins, including those with null identity
+      const customerParticipant = participants.find(p => {
+        if (!p.identity) {
+          // If identity is null, check if it's a WhatsApp participant (customer)
+          return p.messagingBinding && p.messagingBinding.type === 'whatsapp';
+        }
+        return !p.identity.startsWith('agent-') && !p.identity.startsWith('admin-');
+      });
+      
+      let customerName = 'Unknown Customer';
+      if (customerParticipant) {
+        // Try to get display name from attributes
+        try {
+          const attributes = customerParticipant.attributes ? 
+            JSON.parse(customerParticipant.attributes) : {};
+          customerName = attributes.display_name || 
+                        customerParticipant.identity || 
+                        'Unknown Customer';
+        } catch {
+          customerName = customerParticipant.identity || 'Unknown Customer';
+        }
+      }
+      
+      const conversationItem = {
+        id: c.sid,
+        title: customerName,
+        lastMessagePreview: '', // Will be populated when messages are loaded
+        unreadCount: 0, // Twilio doesn't provide this easily, defaulting to 0
+        createdAt: c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
+        updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
+        customerId: customerParticipant?.identity || 'unknown',
+        agentId: 'unknown', // Will be populated when conversation is selected
+      };
+      console.log('🔍 Created conversation item:', conversationItem);
+      return conversationItem;
+    } catch (error) {
+      console.error('Error fetching participants for conversation:', c.sid, error);
+      // Fallback to basic info
+      return {
+        id: c.sid,
+        title: c.friendlyName || c.sid,
+        lastMessagePreview: '',
+        unreadCount: 0,
+        createdAt: c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
+        updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
+        customerId: 'unknown',
+        agentId: 'unknown',
+      };
+    }
+  }));
+  
+  const nextCursor = page.nextPageUrl ? page.nextPageUrl.match(/PageToken=([^&]+)/)?.[1] : undefined;
+  return { items, nextCursor };
+}
+
+export async function listMessages(conversationId: string, limit = 25, before?: string) {
+  console.log('🔍 listMessages called with:', { conversationId, limit, before });
+  const client = await getTwilioClient();
+  const convo = client.conversations.v1.conversations(conversationId);
+  const opts: any = { limit: Math.min(limit, 100) };
+  if (before) opts.pageToken = before; // simplistic cursor using Twilio pages
+  const page = await convo.messages.page(opts);
+  console.log('🔍 Twilio messages page:', { count: page.instances.length, hasMore: !!page.nextPageUrl });
+  const messages = await Promise.all(page.instances.map(async (msg: any) => {
+    // Map media defensively (Conversations API exposes media collection)
+    let mediaArr: any[] = [];
+    try {
+      if (msg.attachedMedia && msg.attachedMedia.length) {
+        mediaArr = msg.attachedMedia.map((m: any) => ({
+          url: m.links?.contentDirect || m.mediaUrl || m.url,
+          contentType: m.contentType || m.type,
+          filename: m.filename
+        }));
+      }
+    } catch {}
+    // determine sender
+    const senderId = msg.author ?? 'unknown';
+    const sender = (senderId.startsWith('agent:') || senderId === 'admin_001') ? 'agent' : 'customer';
+    const mappedMessage = {
+      id: msg.sid,
+      text: msg.body ?? '',
+      timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
+      sender,
+      senderId,
+      media: mediaArr.length ? mediaArr : undefined
+    };
+    console.log('🔍 Mapped message:', { id: mappedMessage.id, text: mappedMessage.text, sender: mappedMessage.sender, senderId: mappedMessage.senderId });
+    return mappedMessage;
+  }));
+  const nextBefore = page.nextPageUrl ? page.nextPageUrl.match(/PageToken=([^&]+)/)?.[1] : undefined;
+  return { messages, nextBefore };
 }
 
 async function getUserDetails(identity: string, isAgent: boolean, participant?: any): Promise<Agent | Customer> {
@@ -183,7 +296,7 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
 export async function getTwilioConversations(loggedInAgentId: string, limit: number = 20, conversationId?: string, messageLimit: number = 100): Promise<Chat[]> {
   try {
     // Check cache first
-    const cacheKey = `${loggedInAgentId}-${limit}`;
+    const cacheKey = `${loggedInAgentId}-${limit}-${conversationId || 'all'}-${messageLimit}`;
     const cached = conversationCache.get(cacheKey);
     const now = Date.now();
     
@@ -193,7 +306,7 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
     }
 
     console.log("Creating Twilio client...");
-    const twilioClient = getTwilioClient();
+    const twilioClient = await getTwilioClient();
     console.log("Fetching conversations...");
     
     let conversations;
@@ -211,17 +324,39 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
     console.log("Found conversations:", conversations.length);
     const chats: Chat[] = [];
 
-    for (const convo of conversations) {
-      const participants = await twilioClient.conversations.v1.conversations(convo.sid).participants.list();
+    // Process conversations in parallel for better performance
+    const conversationPromises = conversations.map(async (convo) => {
+      // Check participant cache first
+      const participantCacheKey = `participants-${convo.sid}`;
+      const cachedParticipants = participantCache.get(participantCacheKey);
+      let participants;
+      
+      if (cachedParticipants && (now - cachedParticipants.timestamp) < PARTICIPANT_CACHE_DURATION) {
+        console.log("📦 Using cached participants for:", convo.sid);
+        participants = cachedParticipants.data;
+      } else {
+        participants = await twilioClient.conversations.v1.conversations(convo.sid).participants.list();
+        participantCache.set(participantCacheKey, { data: participants, timestamp: now });
+      }
       
       const agentParticipant = participants.find(p => p.identity?.startsWith('agent-'));
       const customerParticipant = participants.find(p => !p.identity?.startsWith('agent-'));
 
+      let customer: Customer;
       if (!customerParticipant) {
-        continue;
+        console.log("⚠️ No customer participant found for conversation:", convo.sid);
+        // Create a default customer for conversations without participants
+        customer = {
+          id: 'unknown',
+          name: 'Unknown Customer',
+          avatar: 'https://ui-avatars.com/api/?name=Unknown&background=random',
+          phoneNumber: undefined,
+          email: undefined,
+          lastSeen: undefined,
+        };
+      } else {
+        customer = await getUserDetails(customerParticipant.identity!, false, customerParticipant) as Customer;
       }
-      
-      const customer = await getUserDetails(customerParticipant.identity!, false, customerParticipant) as Customer;
       
       let agent: Agent;
       if (agentParticipant) {
@@ -232,10 +367,23 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         const defaultAgent = {
           id: loggedInAgentId,
           name: 'Agent',
+          username: loggedInAgentId,
           avatar: 'https://ui-avatars.com/api/?name=Agent&background=random',
+          email: `${loggedInAgentId}@company.com`,
           status: 'online' as const,
           maxConcurrentChats: 10,
-          currentChats: 0
+          currentChats: 0,
+          skills: ['customer-support'],
+          department: 'Customer Success',
+          lastActive: new Date().toISOString(),
+          role: 'agent' as const,
+          permissions: {
+            dashboard: true,
+            agents: true,
+            contacts: true,
+            analytics: true,
+            settings: true
+          }
         };
         try {
           await twilioClient.conversations.v1.conversations(convo.sid).participants.create({ identity: defaultAgent.id });
@@ -243,60 +391,114 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         } catch (e: any) {
             // It's possible the agent is already being added, so we can ignore the error
             if (e.code === 50433) { // Participant already exists
-                agent = defaultAgent;
+                agent = defaultAgent as Agent;
             } else {
                 console.error(`Failed to add agent to conversation ${convo.sid}:`, e);
                 // Fallback to a default agent for UI purposes if adding fails
-                agent = defaultAgent; 
+                agent = defaultAgent as Agent; 
             }
         }
       }
 
-          // Fetch messages with configurable limit
-          const twilioMessages = await twilioClient.conversations.v1.conversations(convo.sid).messages.list({ 
-            limit: messageLimit // Configurable message limit for full chat history
+      // Check message cache first
+      const messageCacheKey = `messages-${convo.sid}-${messageLimit}`;
+      const cachedMessages = messageCache.get(messageCacheKey);
+      let twilioMessages;
+      
+      if (cachedMessages && (now - cachedMessages.timestamp) < MESSAGE_CACHE_DURATION) {
+        console.log("📦 Using cached messages for:", convo.sid);
+        twilioMessages = cachedMessages.data;
+      } else {
+        // Fetch messages with configurable limit
+        twilioMessages = await twilioClient.conversations.v1.conversations(convo.sid).messages.list({ 
+          limit: messageLimit // Configurable message limit for full chat history
+        });
+        messageCache.set(messageCacheKey, { data: twilioMessages, timestamp: now });
+      }
+      const messages: Message[] = twilioMessages.map((msg) => {
+        const senderIdentity = msg.author;
+        // Check if it's an agent message
+        // Agent messages have author like "admin_001" or "agent-xxx"
+        // WhatsApp messages have author like "whatsapp:+1234567890"
+        const isAgentMessage = senderIdentity && (
+          senderIdentity.startsWith('agent-') || 
+          senderIdentity === loggedInAgentId ||
+          senderIdentity === 'admin_001' // Fallback for admin
+        );
+        const senderType = isAgentMessage ? 'agent' : 'customer';
+        
+        // Check for media attachments (Option 1: Twilio-only storage)
+        const mediaType = msg.attributes ? 
+          (JSON.parse(msg.attributes).mediaType || null) : null;
+        const mediaUrl = msg.attributes ? 
+          (JSON.parse(msg.attributes).mediaUrl || null) : null;
+        const mediaContentType = msg.attributes ? 
+          (JSON.parse(msg.attributes).mediaContentType || null) : null;
+        const mediaFileName = msg.attributes ? 
+          (JSON.parse(msg.attributes).mediaFileName || null) : null;
+        const mediaCaption = msg.attributes ? 
+          (JSON.parse(msg.attributes).mediaCaption || null) : null;
+        
+        // Handle multiple media items from Twilio
+        const mediaItems = [];
+        if (msg.attachedMedia && msg.attachedMedia.length > 0) {
+          // Use Twilio's attachedMedia array
+          msg.attachedMedia.forEach((media: any) => {
+            mediaItems.push({
+              url: media.links?.contentDirect || media.mediaUrl || media.url,
+              contentType: media.contentType || media.type,
+              filename: media.filename
+            });
           });
-      const messages: Message[] = await Promise.all(
-        twilioMessages.map(async (msg) => {
-          const senderIdentity = msg.author;
-          // Check if it's an agent message
-          // Agent messages have author like "admin_001" or "agent-xxx"
-          // WhatsApp messages have author like "whatsapp:+1234567890"
-          const isAgentMessage = senderIdentity && (
-            senderIdentity.startsWith('agent-') || 
-            senderIdentity === loggedInAgentId ||
-            senderIdentity === 'admin_001' // Fallback for admin
-          );
-          const senderType = isAgentMessage ? 'agent' : 'customer';
-          return {
-            id: msg.sid,
-            text: msg.body ?? '',
-            timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
-            sender: senderType,
-            senderId: senderIdentity || 'customer',
-          };
-        })
-      );
+        } else if (mediaUrl && mediaContentType) {
+          // Fallback to single media from attributes
+          mediaItems.push({
+            url: mediaUrl,
+            contentType: mediaContentType,
+            filename: mediaFileName
+          });
+        }
+        
+        return {
+          id: msg.sid,
+          text: msg.body ?? '',
+          timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
+          sender: senderType,
+          senderId: senderIdentity || 'customer',
+          // Media fields (Option 1: Twilio-only storage)
+          mediaType: mediaType as 'image' | 'video' | 'audio' | 'document' | undefined,
+          mediaUrl: mediaUrl || undefined,
+          mediaContentType: mediaContentType || undefined,
+          mediaFileName: mediaFileName || undefined,
+          mediaCaption: mediaCaption || undefined,
+          // New media array for multiple media items
+          media: mediaItems.length > 0 ? mediaItems : undefined,
+        };
+      });
 
       // Sort messages by timestamp ascending (using string comparison to avoid Date objects)
       messages.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-      if (messages.length > 0) {
-        chats.push({
-          id: convo.sid,
-          customer,
-          agent,
-          messages,
-          unreadCount: 0, // Twilio unread count is per-user, simplifying for now
-          status: 'open' as const,
-          priority: 'medium' as const,
-          tags: [],
-          createdAt: convo.dateCreated ? new Date(convo.dateCreated).toISOString() : new Date().toISOString(),
-          updatedAt: convo.dateUpdated ? new Date(convo.dateUpdated).toISOString() : new Date().toISOString(),
-          assignedAt: agentParticipant ? new Date(agentParticipant.dateCreated).toISOString() : new Date().toISOString(),
-        });
-      }
-    }
+      // Always return conversation, even if no messages (for new conversations)
+      return {
+        id: convo.sid,
+        customer,
+        agent,
+        messages,
+        unreadCount: 0, // Twilio unread count is per-user, simplifying for now
+        status: 'open' as const,
+        priority: 'medium' as const,
+        tags: [],
+        createdAt: convo.dateCreated ? new Date(convo.dateCreated).toISOString() : new Date().toISOString(),
+        updatedAt: convo.dateUpdated ? new Date(convo.dateUpdated).toISOString() : new Date().toISOString(),
+        assignedAt: agentParticipant ? new Date(agentParticipant.dateCreated).toISOString() : new Date().toISOString(),
+      };
+    });
+
+    // Wait for all conversations to be processed in parallel
+    const conversationResults = await Promise.all(conversationPromises);
+    const validChats = conversationResults.filter(chat => chat !== null) as Chat[];
+    chats.push(...validChats);
 
     // Ensure all data is serializable before returning
     const serializedChats = chats.map(chat => ({
@@ -313,6 +515,7 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         id: String(chat.agent.id),
         name: String(chat.agent.name),
         avatar: String(chat.agent.avatar),
+        username: chat.agent.username ? String(chat.agent.username) : String(chat.agent.id),
         email: chat.agent.email ? String(chat.agent.email) : undefined,
         status: chat.agent.status as 'online' | 'offline' | 'busy' | 'away',
         maxConcurrentChats: Number(chat.agent.maxConcurrentChats),
@@ -320,6 +523,14 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         skills: chat.agent.skills ? chat.agent.skills.map(String) : undefined,
         department: chat.agent.department ? String(chat.agent.department) : undefined,
         lastActive: chat.agent.lastActive ? String(chat.agent.lastActive) : undefined,
+        role: (chat.agent.role === 'admin' || chat.agent.role === 'agent') ? chat.agent.role : 'agent' as 'admin' | 'agent',
+        permissions: chat.agent.permissions || {
+          dashboard: true,
+          agents: true,
+          contacts: true,
+          analytics: true,
+          settings: true
+        },
       },
       messages: chat.messages.map(message => ({
         id: String(message.id),
@@ -366,7 +577,7 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
 export async function sendTwilioMessage(conversationSid: string, author: string, text: string) {
     try {
         console.log("Attempting to send message:", { conversationSid, author, text });
-        const twilioClient = getTwilioClient();
+        const twilioClient = await getTwilioClient();
         console.log("Twilio client created successfully");
         
         // First, get the conversation to find the customer's WhatsApp number
@@ -413,7 +624,7 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
 
 export async function reassignTwilioConversation(conversationSid: string, newAgentId: string) {
   try {
-    const twilioClient = getTwilioClient();
+    const twilioClient = await getTwilioClient();
     const participants = await twilioClient.conversations.v1.conversations(conversationSid).participants.list();
     
     // Find and remove the current agent

@@ -75,6 +75,14 @@ model Message {
   content        String
   message_type   String   @default("text")
   twilio_sid     String?  @unique
+  
+  // Media fields (Option 1: Twilio-only storage)
+  media_type     String?  // 'image' | 'video' | 'audio' | 'document'
+  media_url      String?  // Twilio temporary URL
+  media_content_type String? // MIME type
+  media_file_name String? // Original filename
+  media_caption  String?  // Caption text
+  
   created_at     DateTime @default(now())
 
   // Relations

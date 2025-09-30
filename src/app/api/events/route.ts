@@ -1,10 +1,17 @@
 // src/app/api/events/route.ts
 import { NextRequest } from 'next/server';
-import { addConnection, removeConnection } from '@/lib/sse-broadcast';
+import { addConnection, removeConnection, getConnectionCount } from '@/lib/sse-broadcast';
 
 export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController | null = null;
+  
+  // Limit connections to prevent memory issues
+  const maxConnections = 10;
+  if (getConnectionCount() >= maxConnections) {
+    console.log(`⚠️ Connection limit reached (${maxConnections}), rejecting new connection`);
+    return new Response("Connection limit reached", { status: 429 });
+  }
   
   const stream = new ReadableStream({
     start(ctrl) {
@@ -15,7 +22,7 @@ export async function GET(req: NextRequest) {
       // Send initial connection message
       const data = JSON.stringify({ type: 'connected', message: 'Connected to real-time updates' });
       controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-      
+    
       // Send periodic heartbeat to keep connection alive
       const heartbeat = setInterval(() => {
         try {

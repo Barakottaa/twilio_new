@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import type { Agent, Chat, Message } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { reassignTwilioConversation, getTwilioConversations } from '@/lib/twilio-service';
+import { reassignTwilioConversation } from '@/lib/twilio-service';
 import { useRealtimeMessages } from '@/hooks/use-realtime-messages';
-import { usePollingMessages } from '@/hooks/use-polling-messages';
-// import { useTwilioConversations } from '@/hooks/use-twilio-conversations';
+import { useMessages } from '@/hooks/use-messages';
+import { useChatStore } from '@/store/chat-store';
+import { OptimizedChatList } from './optimized-chat-list';
+import { VirtualMessageList } from './virtual-message-list';
+import { MessageInput } from './message-input';
 
-// Lazy load chat components for better performance
-const ChatList = lazy(() => import('./chat-list').then(module => ({ default: module.ChatList })));
+// Lazy load heavy components
 const ChatView = lazy(() => import('./chat-view').then(module => ({ default: module.ChatView })));
 
 // Helper function to ensure all chat objects are plain objects
@@ -64,10 +66,37 @@ interface ChatLayoutProps {
 }
 
 export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatLayoutProps) {
-  // Ensure initial chats are plain objects
-  const [chats, setChats] = useState<Chat[]>(initialChats.map(ensurePlainChat));
+  // Use optimized local conversations hook
+  const {
+    chats: localChats,
+    loading: chatsLoading,
+    error: chatsError,
+    lastSync,
+    refreshConversations,
+    addMessage: addLocalMessage
+  } = useLocalConversations({
+    agentId: loggedInAgent.id,
+    limit: 20,
+    autoRefresh: true,
+    refreshInterval: 30000 // 30 seconds
+  });
+
+  // Fallback to initial chats if local storage is empty
+  const [chats, setChats] = useState<Chat[]>(() => 
+    localChats.length > 0 ? localChats : initialChats.map(ensurePlainChat)
+  );
   const [selectedChat, setSelectedChat] = useState<Chat | null>(chats.length > 0 ? chats[0] : null);
   const { toast } = useToast();
+
+  // Update chats when local storage updates
+  useEffect(() => {
+    if (localChats.length > 0) {
+      setChats(localChats);
+      if (!selectedChat && localChats.length > 0) {
+        setSelectedChat(localChats[0]);
+      }
+    }
+  }, [localChats, selectedChat]);
 
   // Disable Twilio SDK - it's causing conflicts
   // const { isConnected: twilioConnected, error: twilioError } = useTwilioConversations({ 
@@ -80,20 +109,51 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   // Use SSE as primary real-time system (webhooks → SSE → UI)
   useRealtimeMessages({ chats, setChats, setSelectedChat, loggedInAgentId: loggedInAgent.id });
   
-  // Disable polling - webhooks + SSE are sufficient and much faster
-  usePollingMessages({ 
-    chats, 
-    setChats, 
-    setSelectedChat, 
-    selectedChat,
-    loggedInAgentId: loggedInAgent.id,
-    enabled: false // Disabled - webhooks are instant, polling is slow
-  });
+      // Enable polling as fallback when SSE fails in development
+      usePollingMessages({ 
+        chats, 
+        setChats, 
+        setSelectedChat, 
+        selectedChat,
+        loggedInAgentId: loggedInAgent.id,
+        enabled: true // Enabled as fallback for development
+      });
 
   const handleSendMessage = async (chatId: string, text: string) => {
     try {
       console.log("Sending message:", { chatId, text, agentId: loggedInAgent.id });
       
+      // Create a plain object message
+      const newMessage: Message = {
+        id: String(`msg-${Date.now()}`),
+        text: String(text),
+        timestamp: String(new Date().toISOString()),
+        sender: 'agent' as const,
+        senderId: String(loggedInAgent.id),
+      };
+
+      // Add to local storage immediately for instant UI update
+      await addLocalMessage(chatId, newMessage);
+      
+      // Update local state immediately
+      const updatedChats = chats.map((chat) => {
+        if (chat.id === chatId) {
+          const updatedChat = {
+            ...chat,
+            messages: [...chat.messages, newMessage],
+          };
+          return ensurePlainChat(updatedChat);
+        }
+        return ensurePlainChat(chat);
+      });
+  
+      setChats(updatedChats);
+      const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
+      if(updatedSelectedChat) {
+          setSelectedChat(updatedSelectedChat);
+      }
+      
+      // Send to Twilio in background
       const response = await fetch(`/api/twilio/conversations/${chatId}/message`, {
         method: 'POST',
         headers: {
@@ -112,33 +172,6 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
       }
       
       console.log("Message sent successfully via Twilio");
-      
-      // Create a plain object message
-      const newMessage: Message = {
-        id: String(`msg-${Date.now()}`),
-        text: String(text),
-        timestamp: String(new Date().toISOString()),
-        sender: 'agent' as const,
-        senderId: String(loggedInAgent.id),
-      };
-  
-      // Create updated chats with plain objects
-      const updatedChats = chats.map((chat) => {
-        if (chat.id === chatId) {
-          const updatedChat = {
-            ...chat,
-            messages: [...chat.messages, newMessage],
-          };
-          return ensurePlainChat(updatedChat);
-        }
-        return ensurePlainChat(chat);
-      });
-  
-      setChats(updatedChats);
-      const updatedSelectedChat = updatedChats.find(chat => chat.id === chatId);
-      if(updatedSelectedChat) {
-          setSelectedChat(updatedSelectedChat);
-      }
       
       // Show success message
       toast({
@@ -220,17 +253,7 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   const handleRefreshChats = async () => {
     try {
       console.log('🔄 Manually refreshing chats...');
-      const freshChats = await getTwilioConversations(loggedInAgent.id);
-      const updatedChats = freshChats.map(ensurePlainChat);
-      setChats(updatedChats);
-      
-      // Update selected chat if it exists
-      if (selectedChat) {
-        const updatedSelectedChat = updatedChats.find(chat => chat.id === selectedChat.id);
-        if (updatedSelectedChat) {
-          setSelectedChat(updatedSelectedChat);
-        }
-      }
+      await refreshConversations();
       
       toast({
         title: "Chats Refreshed",
@@ -248,17 +271,22 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
 
   return (
     <div className="z-10 h-full w-full max-w-7xl flex text-sm xl:rounded-lg border bg-card shadow-lg">
-      {/* Connection Status Indicator - Disabled Twilio SDK */}
-      {/* {twilioError && (
-        <div className="absolute top-2 right-2 z-20 bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs">
-          ⚠️ {twilioError}
+      {/* Performance Status Indicator */}
+      {lastSync && (
+        <div className="absolute top-2 right-2 z-20 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs">
+          📦 Local Cache • Last sync: {lastSync.toLocaleTimeString()}
         </div>
       )}
-      {twilioConnected && (
-        <div className="absolute top-2 right-2 z-20 bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">
-          🟢 Real-time connected
+      {chatsError && (
+        <div className="absolute top-2 right-2 z-20 bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs">
+          ⚠️ {chatsError}
         </div>
-      )} */}
+      )}
+      {chatsLoading && (
+        <div className="absolute top-2 right-2 z-20 bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs">
+          🔄 Syncing...
+        </div>
+      )}
       
       <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading chat list...</p></div></div>}>
         <ChatList

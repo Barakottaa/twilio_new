@@ -49,23 +49,48 @@ export async function POST(req: Request) {
         try {
           const messages = await client.conversations.v1
             .conversations(conversationSid)
-            .messages.list({ limit: 1 });
+            .messages.list({ limit: 5 }); // Get more messages to find the actual latest one
           
           if (messages.length > 0) {
+            // Find the most recent message (messages are sorted by dateCreated desc)
             const latestMessage = messages[0];
             console.log('📨 Found latest message:', latestMessage.body);
+            console.log('📨 Message timestamp:', latestMessage.dateCreated);
+            console.log('📨 Message author:', latestMessage.author);
             
-            // Broadcast the actual message
-            broadcastMessage('newMessage', {
-              conversationSid: conversationSid,
-              messageSid: latestMessage.sid,
-              body: latestMessage.body || 'New message received',
-              author: latestMessage.author || `whatsapp:+${waId}`,
-              dateCreated: latestMessage.dateCreated?.toISOString() || new Date().toISOString(),
-              index: latestMessage.index?.toString() || '0'
-            });
+            // Check if this is a very recent message (within last 30 seconds)
+            const messageTime = new Date(latestMessage.dateCreated);
+            const now = new Date();
+            const timeDiff = now.getTime() - messageTime.getTime();
+            const isRecent = timeDiff < 30000; // 30 seconds
             
-            console.log('📡 Broadcasted actual message via SSE for conversation:', conversationSid);
+            console.log('📨 Message age:', timeDiff / 1000, 'seconds, isRecent:', isRecent);
+            
+            if (isRecent) {
+              // Broadcast the actual message
+              broadcastMessage('newMessage', {
+                conversationSid: conversationSid,
+                messageSid: latestMessage.sid,
+                body: latestMessage.body || 'New message received',
+                author: latestMessage.author || `whatsapp:+${waId}`,
+                dateCreated: latestMessage.dateCreated?.toISOString() || new Date().toISOString(),
+                index: latestMessage.index?.toString() || '0'
+              });
+              
+              console.log('📡 Broadcasted recent message via SSE for conversation:', conversationSid);
+            } else {
+              // Message is too old, broadcast a generic notification
+              broadcastMessage('newMessage', {
+                conversationSid: conversationSid,
+                messageSid: `msg-${Date.now()}`,
+                body: 'New message received',
+                author: `whatsapp:+${waId}`,
+                dateCreated: new Date().toISOString(),
+                index: '0'
+              });
+              
+              console.log('📡 Broadcasted generic message via SSE for conversation:', conversationSid);
+            }
           } else {
             // Fallback to generic message
             broadcastMessage('newMessage', {

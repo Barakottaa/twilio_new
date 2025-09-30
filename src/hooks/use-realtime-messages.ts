@@ -1,6 +1,7 @@
 // src/hooks/use-realtime-messages.ts
 import React, { useEffect, useRef } from 'react';
 import { Chat, Message } from '@/types';
+import { messageBatcher } from '@/store/chat-store';
 
 interface RealtimeMessageData {
   conversationSid: string;
@@ -9,6 +10,23 @@ interface RealtimeMessageData {
   author: string;
   dateCreated: string;
   index: string;
+  numMedia?: number;
+  mediaMessages?: Array<{
+    type: string;
+    url: string;
+    contentType: string;
+    fileName: string;
+    caption?: string;
+  }>;
+  // New media array format
+  media?: Array<{
+    url: string;
+    contentType: string;
+    filename?: string;
+  }>;
+  profileName?: string;
+  waId?: string;
+  from?: string;
 }
 
 interface RealtimeConversationData {
@@ -28,17 +46,28 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const connectSSE = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
+      const connectSSE = () => {
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+        }
 
-    console.log('🔌 Connecting to SSE...');
-    const eventSource = new EventSource('/api/events');
-    eventSourceRef.current = eventSource;
+        console.log('🔌 Connecting to SSE...');
+        const eventSource = new EventSource('/api/events');
+        eventSourceRef.current = eventSource;
+        
+        // Add a small delay to ensure connection is established
+        setTimeout(() => {
+          if (eventSource.readyState === EventSource.OPEN) {
+            console.log('✅ SSE connection confirmed as open');
+          } else {
+            console.log('⚠️ SSE connection not open, readyState:', eventSource.readyState);
+          }
+        }, 100);
 
     eventSource.onopen = () => {
       console.log('✅ SSE connection opened');
+      console.log('🔗 SSE URL:', eventSource.url);
+      console.log('🔗 SSE readyState:', eventSource.readyState);
     };
 
     eventSource.onmessage = (event) => {
@@ -51,6 +80,16 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
           console.log('💓 SSE heartbeat received');
         } else if (data.type === 'newMessage') {
           console.log('📨 New message via SSE:', data.data);
+          console.log('📨 Message details:', {
+            conversationSid: data.data.conversationSid,
+            messageSid: data.data.messageSid,
+            body: data.data.body,
+            author: data.data.author,
+            profileName: data.data.profileName,
+            from: data.data.from,
+            numMedia: data.data.numMedia,
+            mediaMessages: data.data.mediaMessages
+          });
           handleNewMessage(data.data as RealtimeMessageData);
         } else if (data.type === 'newConversation') {
           console.log('💬 New conversation via SSE:', data.data);
@@ -61,36 +100,55 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('❌ SSE connection error:', error);
-      
-      // Clear any existing reconnect timeout
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      
-      // Attempt to reconnect after 5 seconds
-      reconnectTimeoutRef.current = setTimeout(() => {
-        console.log('🔄 Attempting to reconnect SSE...');
-        connectSSE();
-      }, 5000);
-    };
+        eventSource.onerror = (error) => {
+          console.error('❌ SSE connection error:', error);
+          console.log('🔍 SSE readyState on error:', eventSource.readyState);
+          
+          // Clear any existing reconnect timeout
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+          
+          // Attempt to reconnect more aggressively in development
+          const reconnectDelay = process.env.NODE_ENV === 'development' ? 1000 : 5000;
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log(`🔄 Attempting to reconnect SSE after ${reconnectDelay}ms...`);
+            connectSSE();
+          }, reconnectDelay);
+        };
 
     return eventSource;
   };
 
   useEffect(() => {
     const eventSource = connectSSE();
+    
+    // Add periodic connection health check
+    const healthCheckInterval = setInterval(() => {
+      if (eventSourceRef.current) {
+        if (eventSourceRef.current.readyState === EventSource.CLOSED) {
+          console.log('🔍 SSE connection is closed, attempting to reconnect...');
+          connectSSE();
+        } else if (eventSourceRef.current.readyState === EventSource.CONNECTING) {
+          console.log('🔍 SSE connection is still connecting...');
+        } else {
+          console.log('✅ SSE connection is healthy');
+        }
+      }
+    }, 10000); // Check every 10 seconds
 
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+      clearInterval(healthCheckInterval);
       eventSource.close();
     };
   }, []);
 
   const handleNewMessage = (messageData: RealtimeMessageData) => {
+    console.log('🔄 Processing new message:', messageData);
+    
     // Fix message direction logic to match the main service
     const isAgentMessage = messageData.author && (
       messageData.author.startsWith('agent-') || 
@@ -98,37 +156,65 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
       messageData.author.startsWith('admin_')
     );
     
+    console.log('🔍 Message direction check:', {
+      author: messageData.author,
+      isAgentMessage,
+      senderType: isAgentMessage ? 'agent' : 'customer'
+    });
+    
+    // Handle new contact information
+    if (messageData.profileName && messageData.from && !isAgentMessage) {
+      console.log('👤 New contact detected:', {
+        profileName: messageData.profileName,
+        from: messageData.from,
+        waId: messageData.waId
+      });
+      
+      // Add contact to in-memory mapping
+      const phoneNumber = messageData.from.replace('whatsapp:', '');
+      const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(messageData.profileName)}&background=random`;
+      
+      // Import and use addContact function
+      import('@/lib/contact-mapping').then(({ addContact }) => {
+        addContact(phoneNumber, messageData.profileName, avatar);
+        console.log('✅ New contact added to memory mapping');
+      });
+    }
+    
     const newMessage: Message = {
       id: messageData.messageSid,
-      text: messageData.body,
+      text: messageData.body || (messageData.mediaMessages?.[0]?.caption || ''),
       timestamp: messageData.dateCreated,
       sender: isAgentMessage ? 'agent' : 'customer',
       senderId: messageData.author || 'customer',
+      // Legacy media fields for backward compatibility
+      mediaType: messageData.mediaMessages?.[0]?.type,
+      mediaUrl: messageData.mediaMessages?.[0]?.url,
+      mediaContentType: messageData.mediaMessages?.[0]?.contentType,
+      mediaFileName: messageData.mediaMessages?.[0]?.fileName,
+      mediaCaption: messageData.mediaMessages?.[0]?.caption,
+      // New media array format
+      media: messageData.media || (messageData.mediaMessages?.map(msg => ({
+        url: msg.url,
+        contentType: msg.contentType,
+        filename: msg.fileName
+      }))),
     };
-
-    setChats((prevChats: Chat[]) => {
-      const updatedChats = prevChats.map(chat => {
-        if (chat.id === messageData.conversationSid) {
-          // Check if message already exists to avoid duplicates
-          const messageExists = chat.messages.some(msg => msg.id === newMessage.id);
-          if (!messageExists) {
-            return {
-              ...chat,
-              messages: [...chat.messages, newMessage],
-            };
-          }
-        }
-        return chat;
-      });
-
-      // Update selected chat if it's the one receiving the message
-      const updatedChat = updatedChats.find(chat => chat.id === messageData.conversationSid);
-      if (updatedChat) {
-        setSelectedChat(updatedChat);
-      }
-
-      return updatedChats;
+    
+    console.log('📝 Created new message object:', newMessage);
+    console.log('📝 Message text content:', newMessage.text);
+    console.log('📝 Message media info:', {
+      mediaType: newMessage.mediaType,
+      mediaUrl: newMessage.mediaUrl,
+      mediaContentType: newMessage.mediaContentType,
+      mediaFileName: newMessage.mediaFileName,
+      mediaCaption: newMessage.mediaCaption
     });
+
+    // Use batched updates for better performance
+    messageBatcher.enqueue(messageData.conversationSid, newMessage);
+    
+    console.log('📝 Message queued for batched update:', newMessage.id);
   };
 
   const handleNewConversation = async (conversationData: RealtimeConversationData) => {
