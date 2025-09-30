@@ -8,7 +8,6 @@ import { useAuth } from "@/hooks/use-auth";
 
 // Lazy load heavy components for better initial bundle size
 const OptimizedChatLayout = lazy(() => import("@/components/chat/optimized-chat-layout").then(module => ({ default: module.OptimizedChatLayout })));
-const PerformanceMonitor = lazy(() => import("@/components/performance-monitor").then(module => ({ default: module.PerformanceMonitor })));
 
 export default function Home() {
   const { agent, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -48,9 +47,6 @@ export default function Home() {
       <div className="h-full">
         <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading chat interface...</p></div></div>}>
           <OptimizedChatLayout loggedInAgent={agent} />
-        </Suspense>
-        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading performance monitor...</p></div></div>}>
-          <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />
         </Suspense>
       </div>
     </MainLayout>

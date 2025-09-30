@@ -56,27 +56,6 @@ const navigationItems = [
     permission: 'analytics'
   },
   {
-    name: 'Performance',
-    href: '/performance',
-    icon: Activity,
-    description: 'Real-time performance monitoring',
-    permission: 'analytics'
-  },
-  {
-    name: 'Debug',
-    href: '/debug',
-    icon: Bug,
-    description: 'Debug tools and testing',
-    permission: 'analytics'
-  },
-  {
-    name: 'Debug Conversations',
-    href: '/debug-conversations',
-    icon: Activity,
-    description: 'Compare Twilio vs UI conversations',
-    permission: 'analytics'
-  },
-  {
     name: 'Settings',
     href: '/settings',
     icon: Settings,
