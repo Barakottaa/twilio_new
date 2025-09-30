@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import type { Agent, Chat, Message } from '@/types';
-import { ChatList } from './chat-list';
-import { ChatView } from './chat-view';
 import { useToast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { reassignTwilioConversation, getTwilioConversations } from '@/lib/twilio-service';
 import { useRealtimeMessages } from '@/hooks/use-realtime-messages';
 import { usePollingMessages } from '@/hooks/use-polling-messages';
+
+// Lazy load chat components for better performance
+const ChatList = lazy(() => import('./chat-list').then(module => ({ default: module.ChatList })));
+const ChatView = lazy(() => import('./chat-view').then(module => ({ default: module.ChatView })));
 
 // Helper function to ensure all chat objects are plain objects
 function ensurePlainChat(chat: Chat): Chat {
@@ -66,16 +69,16 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   const { toast } = useToast();
 
   // Enable real-time messaging with SSE
-  useRealtimeMessages({ chats, setChats, setSelectedChat });
+  useRealtimeMessages({ chats, setChats, setSelectedChat, loggedInAgentId: loggedInAgent.id });
   
-  // Enable polling as fallback (enabled since SSE has tunnel issues)
+  // Enable polling as fallback while webhook system is being fixed
   usePollingMessages({ 
     chats, 
     setChats, 
     setSelectedChat, 
     selectedChat,
     loggedInAgentId: loggedInAgent.id,
-    enabled: true // Enabled since SSE is having tunnel issues
+    enabled: true // Re-enabled as fallback
   });
 
   const handleSendMessage = async (chatId: string, text: string) => {
@@ -236,22 +239,26 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
 
   return (
     <div className="z-10 h-full w-full max-w-7xl flex text-sm xl:rounded-lg border bg-card shadow-lg">
-      <ChatList
-        chats={chats}
-        selectedChat={selectedChat}
-        onSelectChat={handleSelectChat}
-        onRefresh={handleRefreshChats}
-        loggedInAgent={loggedInAgent}
-        agents={agents}
-      />
-          <ChatView
-            chat={selectedChat}
-            agents={agents}
-            loggedInAgent={loggedInAgent}
-            onSendMessage={handleSendMessage}
-            onReassignAgent={handleReassignAgent}
-            onUpdateChat={handleUpdateChat}
-          />
+      <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading chat list...</p></div></div>}>
+        <ChatList
+          chats={chats}
+          selectedChat={selectedChat}
+          onSelectChat={handleSelectChat}
+          onRefresh={handleRefreshChats}
+          loggedInAgent={loggedInAgent}
+          agents={agents}
+        />
+      </Suspense>
+      <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading chat view...</p></div></div>}>
+        <ChatView
+          chat={selectedChat}
+          agents={agents}
+          loggedInAgent={loggedInAgent}
+          onSendMessage={handleSendMessage}
+          onReassignAgent={handleReassignAgent}
+          onUpdateChat={handleUpdateChat}
+        />
+      </Suspense>
     </div>
   );
 }

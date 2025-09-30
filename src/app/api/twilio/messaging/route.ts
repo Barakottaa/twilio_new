@@ -1,5 +1,7 @@
 // Next.js App Router — Twilio Programmable Messaging inbound webhook
 import Twilio from "twilio";
+import { broadcastMessage } from '@/lib/sse-broadcast';
+import { invalidateConversationCache } from '@/lib/twilio-service';
 
 const client = Twilio(
   process.env.TWILIO_ACCOUNT_SID as string,
@@ -35,6 +37,26 @@ export async function POST(req: Request) {
       );
       
       console.log('✅ Successfully updated participant attributes for:', profileName);
+      
+      // Broadcast new message to all connected clients via SSE
+      if (pcs.length > 0) {
+        const conversationSid = pcs[0].conversationSid;
+        
+        // Invalidate cache for this conversation
+        await invalidateConversationCache(conversationSid);
+        
+        // Broadcast new message event
+        broadcastMessage('newMessage', {
+          conversationSid: conversationSid,
+          messageSid: `msg-${Date.now()}`, // Generate a temporary ID
+          body: 'New message received', // We don't have the actual message body here
+          author: `whatsapp:+${waId}`,
+          dateCreated: new Date().toISOString(),
+          index: '0'
+        });
+        
+        console.log('📡 Broadcasted new message via SSE for conversation:', conversationSid);
+      }
     }
 
     return new Response("<Response/>", {

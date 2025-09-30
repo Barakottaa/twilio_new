@@ -8,6 +8,26 @@ import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllCo
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
 
+// Cache for conversations to reduce API calls
+const conversationCache = new Map<string, { data: Chat[], timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds cache
+
+// Function to invalidate cache when new messages arrive
+export async function invalidateConversationCache(conversationSid?: string) {
+  if (conversationSid) {
+    // Invalidate specific conversation cache
+    for (const [key, value] of conversationCache.entries()) {
+      if (key.includes(conversationSid)) {
+        conversationCache.delete(key);
+      }
+    }
+  } else {
+    // Invalidate all cache
+    conversationCache.clear();
+  }
+  console.log('🗑️ Conversation cache invalidated');
+}
+
 function getTwilioClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -160,15 +180,34 @@ async function getUserDetails(identity: string, isAgent: boolean, participant?: 
 }
 
 
-export async function getTwilioConversations(loggedInAgentId: string, limit: number = 20): Promise<Chat[]> {
+export async function getTwilioConversations(loggedInAgentId: string, limit: number = 20, conversationId?: string): Promise<Chat[]> {
   try {
+    // Check cache first
+    const cacheKey = `${loggedInAgentId}-${limit}`;
+    const cached = conversationCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+      console.log("📦 Using cached conversations");
+      return cached.data;
+    }
+
     console.log("Creating Twilio client...");
     const twilioClient = getTwilioClient();
     console.log("Fetching conversations...");
-    // Limit conversations to reduce memory usage
-    const conversations = await twilioClient.conversations.v1.conversations.list({ 
-      limit: Math.min(limit, 50) // Cap at 50 to prevent excessive memory usage
-    });
+    
+    let conversations;
+    if (conversationId) {
+      // Fetch specific conversation
+      console.log("Fetching specific conversation:", conversationId);
+      const conversation = await twilioClient.conversations.v1.conversations(conversationId).fetch();
+      conversations = [conversation];
+    } else {
+      // Fetch all conversations
+      conversations = await twilioClient.conversations.v1.conversations.list({ 
+        limit: Math.min(limit, 50) // Cap at 50 to prevent excessive memory usage
+      });
+    }
     console.log("Found conversations:", conversations.length);
     const chats: Chat[] = [];
 
@@ -213,9 +252,9 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         }
       }
 
-          // Limit messages to reduce memory usage
+          // Limit messages to reduce memory usage and improve performance
           const twilioMessages = await twilioClient.conversations.v1.conversations(convo.sid).messages.list({ 
-            limit: 50 // Reduced from 100 to 50
+            limit: 20 // Reduced to 20 for better performance
           });
       const messages: Message[] = await Promise.all(
         twilioMessages.map(async (msg) => {
@@ -301,11 +340,19 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
       notes: chat.notes ? String(chat.notes) : undefined,
     }));
 
-    return serializedChats.sort((a,b) => {
+    const sortedChats = serializedChats.sort((a,b) => {
       const aTimestamp = a.messages[a.messages.length - 1]?.timestamp || '0';
       const bTimestamp = b.messages[b.messages.length - 1]?.timestamp || '0';
       return bTimestamp.localeCompare(aTimestamp);
     });
+
+    // Cache the results
+    conversationCache.set(cacheKey, {
+      data: sortedChats,
+      timestamp: now
+    });
+
+    return sortedChats;
   } catch (error) {
     console.error("Error fetching Twilio conversations:", error);
     // Re-throwing the error to make it visible in the UI during development

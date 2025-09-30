@@ -30,8 +30,8 @@ export function usePollingMessages({
   const pollForMessages = useCallback(async () => {
     try {
       const now = Date.now();
-      // Throttle polling to max once every 3 seconds
-      if (now - lastPollTimeRef.current < 3000) {
+          // Throttle polling to max once every 20 seconds for better performance
+          if (now - lastPollTimeRef.current < 20000) {
         return;
       }
       lastPollTimeRef.current = now;
@@ -92,8 +92,8 @@ export function usePollingMessages({
 
     console.log('🔄 Starting polling for new messages...');
     
-    // Poll every 5 seconds instead of 2 seconds to reduce load
-    intervalRef.current = setInterval(pollForMessages, 5000);
+        // Poll every 30 seconds as fallback (less aggressive)
+        intervalRef.current = setInterval(pollForMessages, 30000);
 
     return () => {
       if (intervalRef.current) {

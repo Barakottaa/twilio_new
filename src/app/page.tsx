@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChatLayout } from "@/components/chat/chat-layout";
 import { MainLayout } from "@/components/layout/main-layout";
-import { PerformanceMonitor } from "@/components/performance-monitor";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { initializeConversations } from "@/lib/conversation-service";
 import { assertSerializable } from "@/lib/assertSerializable";
 import { toPlain } from "@/lib/toPlain";
 import { useAuth } from "@/hooks/use-auth";
 import type { Agent } from "@/types";
+
+// Lazy load heavy components for better initial bundle size
+const ChatLayout = lazy(() => import("@/components/chat/chat-layout").then(module => ({ default: module.ChatLayout })));
+const PerformanceMonitor = lazy(() => import("@/components/performance-monitor").then(module => ({ default: module.PerformanceMonitor })));
 
 export default function Home() {
   const { agent, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -87,8 +90,8 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading...</p>
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-gray-600">Loading application data...</p>
         </div>
       </div>
     );
@@ -101,12 +104,16 @@ export default function Home() {
   return (
     <MainLayout loggedInAgent={agent}>
       <div className="h-full">
-        <ChatLayout
-          chats={chats}
-          agents={agents}
-          loggedInAgent={agent}
-        />
-        <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />
+        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading chat interface...</p></div></div>}>
+          <ChatLayout
+            chats={chats}
+            agents={agents}
+            loggedInAgent={agent}
+          />
+        </Suspense>
+        <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading performance monitor...</p></div></div>}>
+          <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />
+        </Suspense>
       </div>
     </MainLayout>
   );

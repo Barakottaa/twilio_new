@@ -21,9 +21,10 @@ interface UseRealtimeMessagesProps {
   chats: Chat[];
   setChats: React.Dispatch<React.SetStateAction<Chat[]>>;
   setSelectedChat: (chat: Chat | null) => void;
+  loggedInAgentId?: string;
 }
 
-export function useRealtimeMessages({ chats, setChats, setSelectedChat }: UseRealtimeMessagesProps) {
+export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedInAgentId }: UseRealtimeMessagesProps) {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -90,12 +91,19 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat }: UseRea
   }, []);
 
   const handleNewMessage = (messageData: RealtimeMessageData) => {
+    // Fix message direction logic to match the main service
+    const isAgentMessage = messageData.author && (
+      messageData.author.startsWith('agent-') || 
+      messageData.author === 'admin_001' ||
+      messageData.author.startsWith('admin_')
+    );
+    
     const newMessage: Message = {
       id: messageData.messageSid,
       text: messageData.body,
       timestamp: messageData.dateCreated,
-      sender: messageData.author.startsWith('agent-') ? 'agent' : 'customer',
-      senderId: messageData.author,
+      sender: isAgentMessage ? 'agent' : 'customer',
+      senderId: messageData.author || 'customer',
     };
 
     setChats((prevChats: Chat[]) => {
@@ -123,13 +131,42 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat }: UseRea
     });
   };
 
-  const handleNewConversation = (conversationData: RealtimeConversationData) => {
-    // For new conversations, we might need to fetch the full conversation details
-    // For now, we'll just log it and let the user refresh to see new conversations
-    console.log('New conversation created:', conversationData);
+  const handleNewConversation = async (conversationData: RealtimeConversationData) => {
+    console.log('💬 New conversation created:', conversationData);
     
-    // You could implement a more sophisticated approach here to fetch
-    // the full conversation details and add it to the chats list
+    if (!loggedInAgentId) {
+      console.log('⚠️ No logged in agent ID, skipping conversation fetch');
+      return;
+    }
+
+    try {
+      // Fetch the full conversation details from the API
+      const response = await fetch(`/api/twilio/conversations?agentId=${loggedInAgentId}&limit=1&conversationId=${conversationData.conversationSid}`);
+      const data = await response.json();
+      
+      if (data.success && data.conversations && data.conversations.length > 0) {
+        const newConversation = data.conversations[0];
+        
+        // Check if conversation already exists to avoid duplicates
+        const conversationExists = chats.some(chat => chat.id === newConversation.id);
+        
+        if (!conversationExists) {
+          console.log('✅ Adding new conversation to UI:', newConversation.id);
+          
+          // Add the new conversation to the beginning of the chats list
+          setChats(prevChats => [newConversation, ...prevChats]);
+          
+          // Optionally auto-select the new conversation
+          setSelectedChat(newConversation);
+        } else {
+          console.log('ℹ️ Conversation already exists in UI:', newConversation.id);
+        }
+      } else {
+        console.log('⚠️ Failed to fetch new conversation details:', data.error);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching new conversation:', error);
+    }
   };
 }
 

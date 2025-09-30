@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addContact } from '@/lib/contact-mapping';
 import { broadcastMessage } from '@/lib/sse-broadcast';
+import { invalidateConversationCache } from '@/lib/twilio-service';
 import twilio from 'twilio';
 
 
@@ -113,6 +114,9 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+      
+      // Invalidate cache for this conversation
+      await invalidateConversationCache(params.ConversationSid);
       
       // Broadcast the new message to all connected clients
       broadcastMessage('newMessage', {
