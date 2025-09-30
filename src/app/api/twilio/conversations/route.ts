@@ -7,10 +7,11 @@ export async function GET(req: NextRequest) {
     const agentId = searchParams.get('agentId') || 'admin_001'; // Default to admin
     const limit = parseInt(searchParams.get('limit') || '20');
     const conversationId = searchParams.get('conversationId'); // For fetching specific conversation
+    const messageLimit = parseInt(searchParams.get('messageLimit') || '100'); // For fetching full chat history
 
-    console.log('Fetching Twilio conversations for agent:', agentId, 'limit:', limit, 'conversationId:', conversationId);
+    console.log('Fetching Twilio conversations for agent:', agentId, 'limit:', limit, 'conversationId:', conversationId, 'messageLimit:', messageLimit);
     
-    const conversations = await getTwilioConversations(agentId, limit, conversationId);
+    const conversations = await getTwilioConversations(agentId, limit, conversationId, messageLimit);
     
     const response = NextResponse.json({
       success: true,

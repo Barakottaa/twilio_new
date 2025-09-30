@@ -56,6 +56,14 @@ const nextConfig: NextConfig = {
       config.optimization.usedExports = true;
       config.optimization.sideEffects = false;
     }
+    
+    // Fix for Twilio Conversations SDK WebSocket dependencies
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      bufferutil: false,
+      'utf-8-validate': false,
+    };
+    
     return config;
   },
 };

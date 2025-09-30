@@ -45,17 +45,55 @@ export async function POST(req: Request) {
         // Invalidate cache for this conversation
         await invalidateConversationCache(conversationSid);
         
-        // Broadcast new message event
-        broadcastMessage('newMessage', {
-          conversationSid: conversationSid,
-          messageSid: `msg-${Date.now()}`, // Generate a temporary ID
-          body: 'New message received', // We don't have the actual message body here
-          author: `whatsapp:+${waId}`,
-          dateCreated: new Date().toISOString(),
-          index: '0'
-        });
-        
-        console.log('📡 Broadcasted new message via SSE for conversation:', conversationSid);
+        // Try to get the latest message from the conversation
+        try {
+          const messages = await client.conversations.v1
+            .conversations(conversationSid)
+            .messages.list({ limit: 1 });
+          
+          if (messages.length > 0) {
+            const latestMessage = messages[0];
+            console.log('📨 Found latest message:', latestMessage.body);
+            
+            // Broadcast the actual message
+            broadcastMessage('newMessage', {
+              conversationSid: conversationSid,
+              messageSid: latestMessage.sid,
+              body: latestMessage.body || 'New message received',
+              author: latestMessage.author || `whatsapp:+${waId}`,
+              dateCreated: latestMessage.dateCreated?.toISOString() || new Date().toISOString(),
+              index: latestMessage.index?.toString() || '0'
+            });
+            
+            console.log('📡 Broadcasted actual message via SSE for conversation:', conversationSid);
+          } else {
+            // Fallback to generic message
+            broadcastMessage('newMessage', {
+              conversationSid: conversationSid,
+              messageSid: `msg-${Date.now()}`,
+              body: 'New message received',
+              author: `whatsapp:+${waId}`,
+              dateCreated: new Date().toISOString(),
+              index: '0'
+            });
+            
+            console.log('📡 Broadcasted generic message via SSE for conversation:', conversationSid);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching latest message:', error);
+          
+          // Fallback to generic message
+          broadcastMessage('newMessage', {
+            conversationSid: conversationSid,
+            messageSid: `msg-${Date.now()}`,
+            body: 'New message received',
+            author: `whatsapp:+${waId}`,
+            dateCreated: new Date().toISOString(),
+            index: '0'
+          });
+          
+          console.log('📡 Broadcasted fallback message via SSE for conversation:', conversationSid);
+        }
       }
     }
 

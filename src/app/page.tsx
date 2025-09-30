@@ -40,7 +40,7 @@ export default function Home() {
       try {
         // Fetch real Twilio conversations
         try {
-          const response = await fetch(`/api/twilio/conversations?agentId=${agent.id}&limit=20`);
+          const response = await fetch(`/api/twilio/conversations?agentId=${agent.id}&limit=20&messageLimit=100`);
           const data = await response.json();
           
           if (data.success && data.conversations && data.conversations.length > 0) {

@@ -6,9 +6,15 @@ import { broadcastMessage } from '@/lib/sse-broadcast';
 import { invalidateConversationCache } from '@/lib/twilio-service';
 import twilio from 'twilio';
 
+// Test GET endpoint to verify webhook is reachable
+export async function GET() {
+  console.log('✅ Webhook GET endpoint called - webhook is reachable');
+  return new Response("Webhook endpoint is working", { status: 200 });
+}
 
 // This is your new webhook endpoint
 export async function POST(req: NextRequest) {
+  console.log('🚨 WEBHOOK CALLED - Raw request received');
   try {
     // Get the webhook URL for validation
     const webhookUrl = new URL(req.url);
@@ -141,9 +147,9 @@ export async function POST(req: NextRequest) {
       console.log('ℹ️ Other webhook event:', eventType);
     }
     
-    return NextResponse.json({ message: 'Webhook received and verified' }, { status: 200 });
+    return new Response("ok", { status: 200 });
   } catch (error) {
     console.error('Error handling Twilio webhook:', error);
-    return NextResponse.json({ message: 'Webhook error' }, { status: 500 });
+    return new Response("error", { status: 500 });
   }
 }

@@ -30,13 +30,13 @@ export function usePollingMessages({
   const pollForMessages = useCallback(async () => {
     try {
       const now = Date.now();
-          // Throttle polling to max once every 20 seconds for better performance
-          if (now - lastPollTimeRef.current < 20000) {
+          // Throttle polling to max once every 5 seconds for better performance
+          if (now - lastPollTimeRef.current < 5000) {
         return;
       }
       lastPollTimeRef.current = now;
 
-      const response = await fetch(`/api/twilio/conversations?agentId=${loggedInAgentId}&limit=20`);
+      const response = await fetch(`/api/twilio/conversations?agentId=${loggedInAgentId}&limit=20&messageLimit=100`);
       const data = await response.json();
       
       if (!data.success) {
@@ -92,8 +92,8 @@ export function usePollingMessages({
 
     console.log('🔄 Starting polling for new messages...');
     
-        // Poll every 30 seconds as fallback (less aggressive)
-        intervalRef.current = setInterval(pollForMessages, 30000);
+        // Poll every 10 seconds for better real-time experience
+        intervalRef.current = setInterval(pollForMessages, 10000);
 
     return () => {
       if (intervalRef.current) {

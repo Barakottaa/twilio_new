@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { reassignTwilioConversation, getTwilioConversations } from '@/lib/twilio-service';
 import { useRealtimeMessages } from '@/hooks/use-realtime-messages';
 import { usePollingMessages } from '@/hooks/use-polling-messages';
+// import { useTwilioConversations } from '@/hooks/use-twilio-conversations';
 
 // Lazy load chat components for better performance
 const ChatList = lazy(() => import('./chat-list').then(module => ({ default: module.ChatList })));
@@ -68,17 +69,25 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
   const [selectedChat, setSelectedChat] = useState<Chat | null>(chats.length > 0 ? chats[0] : null);
   const { toast } = useToast();
 
-  // Enable real-time messaging with SSE
+  // Disable Twilio SDK - it's causing conflicts
+  // const { isConnected: twilioConnected, error: twilioError } = useTwilioConversations({ 
+  //   chats, 
+  //   setChats, 
+  //   setSelectedChat, 
+  //   loggedInAgentId: loggedInAgent.id 
+  // });
+  
+  // Use SSE as primary real-time system (webhooks → SSE → UI)
   useRealtimeMessages({ chats, setChats, setSelectedChat, loggedInAgentId: loggedInAgent.id });
   
-  // Enable polling as fallback while webhook system is being fixed
+  // Disable polling - webhooks + SSE are sufficient and much faster
   usePollingMessages({ 
     chats, 
     setChats, 
     setSelectedChat, 
     selectedChat,
     loggedInAgentId: loggedInAgent.id,
-    enabled: true // Re-enabled as fallback
+    enabled: false // Disabled - webhooks are instant, polling is slow
   });
 
   const handleSendMessage = async (chatId: string, text: string) => {
@@ -239,6 +248,18 @@ export function ChatLayout({ chats: initialChats, agents, loggedInAgent }: ChatL
 
   return (
     <div className="z-10 h-full w-full max-w-7xl flex text-sm xl:rounded-lg border bg-card shadow-lg">
+      {/* Connection Status Indicator - Disabled Twilio SDK */}
+      {/* {twilioError && (
+        <div className="absolute top-2 right-2 z-20 bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs">
+          ⚠️ {twilioError}
+        </div>
+      )}
+      {twilioConnected && (
+        <div className="absolute top-2 right-2 z-20 bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs">
+          🟢 Real-time connected
+        </div>
+      )} */}
+      
       <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="flex flex-col items-center space-y-2"><LoadingSpinner /><p className="text-sm text-gray-600">Loading chat list...</p></div></div>}>
         <ChatList
           chats={chats}
