@@ -197,7 +197,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        {localConversations.map((conversation) => (
+        {(conversations.length > 0 ? conversations : localConversations).map((conversation) => (
           <div
             key={conversation.id}
             className={`w-full p-3 mb-1 rounded-lg border transition-colors cursor-pointer ${
@@ -301,7 +301,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           </div>
         ))}
         
-        {hasMore && localConversations.length > 0 && (
+        {hasMore && (conversations.length > 0 ? conversations : localConversations).length > 0 && (
           <div className="p-4 text-center">
             <Button 
               variant="outline" 

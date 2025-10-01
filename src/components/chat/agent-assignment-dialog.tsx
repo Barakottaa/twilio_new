@@ -106,6 +106,22 @@ export function AgentAssignmentDialog({
           assignment: { id: selectedAgent.id, name: selectedAgent.username } 
         });
         setAssignment(conversationId, { id: selectedAgent.id, name: selectedAgent.username });
+        
+        // Also update the conversation data in the store
+        const { setConversations } = useChatStore.getState();
+        const currentConversations = useChatStore.getState().conversations;
+        const updatedConversations = currentConversations.map(conv => 
+          conv.id === conversationId 
+            ? { 
+                ...conv, 
+                agentId: selectedAgent.id,
+                agentName: selectedAgent.username,
+                agentStatus: 'online'
+              }
+            : conv
+        );
+        setConversations(updatedConversations);
+        console.log('🔍 Updated conversations in store:', updatedConversations);
       }
 
       // Call the API to assign the agent
@@ -149,6 +165,22 @@ export function AgentAssignmentDialog({
     try {
       // Update the store optimistically
       setAssignment(conversationId, null);
+      
+      // Also update the conversation data in the store
+      const { setConversations } = useChatStore.getState();
+      const currentConversations = useChatStore.getState().conversations;
+      const updatedConversations = currentConversations.map(conv => 
+        conv.id === conversationId 
+          ? { 
+              ...conv, 
+              agentId: 'unassigned',
+              agentName: 'Unassigned',
+              agentStatus: 'offline'
+            }
+          : conv
+        );
+      setConversations(updatedConversations);
+      console.log('🔍 Unassigned conversations in store:', updatedConversations);
 
       // Call the API to unassign the agent
       const response = await fetch(`/api/twilio/conversations/${conversationId}/assign`, {
