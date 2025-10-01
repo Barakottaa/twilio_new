@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTwilioClient } from '@/lib/twilio-service';
+import { getDatabase } from '@/lib/database-config';
 
 export async function PATCH(
   req: NextRequest,
@@ -15,11 +15,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'Conversation ID is required' }, { status: 400 });
     }
 
-    // For now, we'll just return success
-    // In a real implementation, you would:
-    // 1. Update the conversation attributes in Twilio
-    // 2. Update your database
-    // 3. Handle participant management
+    // Store the assignment in the database
+    const db = await getDatabase();
+    
+    // First, check if the conversation exists in our database
+    let conversation = await db.getConversation(conversationId);
+    
+    if (!conversation) {
+      // If conversation doesn't exist, create it
+      conversation = await db.createConversation({
+        id: conversationId,
+        twilio_conversation_sid: conversationId, // Using conversationId as Twilio SID for now
+        agent_id: agentId
+      });
+      console.log('🔍 Created new conversation in database:', conversation);
+    } else {
+      // Update existing conversation
+      conversation = await db.assignConversationToAgent(conversationId, agentId);
+      console.log('🔍 Updated conversation assignment in database:', conversation);
+    }
 
     console.log('✅ Agent assignment successful:', { conversationId, agentId });
 
@@ -27,6 +41,7 @@ export async function PATCH(
       success: true, 
       conversationId, 
       agentId,
+      conversation,
       message: agentId ? 'Agent assigned successfully' : 'Agent unassigned successfully'
     });
 

@@ -116,7 +116,28 @@ export async function listConversationsLite(limit = 30, after?: string) {
       let agentId = 'unassigned';
       let agentStatus = 'offline';
       
-      if (agentParticipant) {
+      // First, check if there's an assignment in our database
+      try {
+        const { getDatabase } = await import('@/lib/database-config');
+        const db = await getDatabase();
+        const dbConversation = await db.getConversation(c.sid);
+        
+        if (dbConversation && dbConversation.agent_id) {
+          // Get agent details from database
+          const agent = await db.getAgent(dbConversation.agent_id);
+          if (agent) {
+            agentId = agent.id;
+            agentName = agent.username;
+            agentStatus = 'online';
+            console.log('🔍 Found database assignment:', { conversationId: c.sid, agentId, agentName });
+          }
+        }
+      } catch (error) {
+        console.log('🔍 Error checking database assignment:', error);
+      }
+      
+      // If no database assignment found, check Twilio participants
+      if (agentId === 'unassigned' && agentParticipant) {
         agentId = agentParticipant.identity || 'unassigned';
         try {
           const attributes = agentParticipant.attributes ? 

@@ -462,6 +462,107 @@ class SQLiteDatabaseService {
       });
     }
   }
+
+  // Conversation operations
+  async createConversation(data: {
+    id: string;
+    contact_id?: string;
+    agent_id?: string;
+    status?: string;
+    priority?: string;
+    twilio_conversation_sid: string;
+  }): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const run = promisify(this.db.run.bind(this.db));
+    const now = new Date().toISOString();
+
+    await run(`
+      INSERT INTO conversations (id, contact_id, agent_id, status, priority, twilio_conversation_sid, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      data.id,
+      data.contact_id || null,
+      data.agent_id || null,
+      data.status || 'active',
+      data.priority || 'normal',
+      data.twilio_conversation_sid,
+      now,
+      now
+    ]);
+
+    return await this.getConversation(data.id);
+  }
+
+  async getConversation(id: string): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const get = promisify(this.db.get.bind(this.db));
+    return await get('SELECT * FROM conversations WHERE id = ?', [id]);
+  }
+
+  async updateConversation(id: string, data: {
+    contact_id?: string;
+    agent_id?: string;
+    status?: string;
+    priority?: string;
+  }): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const run = promisify(this.db.run.bind(this.db));
+    const now = new Date().toISOString();
+
+    const updates = [];
+    const values = [];
+
+    if (data.contact_id !== undefined) {
+      updates.push('contact_id = ?');
+      values.push(data.contact_id);
+    }
+    if (data.agent_id !== undefined) {
+      updates.push('agent_id = ?');
+      values.push(data.agent_id);
+    }
+    if (data.status !== undefined) {
+      updates.push('status = ?');
+      values.push(data.status);
+    }
+    if (data.priority !== undefined) {
+      updates.push('priority = ?');
+      values.push(data.priority);
+    }
+
+    if (updates.length === 0) {
+      return await this.getConversation(id);
+    }
+
+    updates.push('updated_at = ?');
+    values.push(now);
+    values.push(id);
+
+    await run(`
+      UPDATE conversations 
+      SET ${updates.join(', ')} 
+      WHERE id = ?
+    `, values);
+
+    return await this.getConversation(id);
+  }
+
+  async assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any> {
+    return await this.updateConversation(conversationId, { agent_id: agentId });
+  }
+
+  async getAllConversations(): Promise<any[]> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const all = promisify(this.db.all.bind(this.db));
+    return await all('SELECT * FROM conversations ORDER BY updated_at DESC');
+  }
 }
 
 // Export singleton instance

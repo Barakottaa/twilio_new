@@ -22,11 +22,12 @@ interface OptimizedChatLayoutProps {
 }
 
 export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps) {
-  const { 
-    selectedConversationId, 
+  const {
+    selectedConversationId,
     setSelectedConversation,
     isLoading,
-    error 
+    error,
+    loadAssignmentsFromDatabase
   } = useChatStore();
   
   const { toast } = useToast();
@@ -68,6 +69,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     : isAssignedToOtherAgent 
     ? `This conversation is assigned to ${assignedAgent?.name}. Only the assigned agent can send messages.`
     : "You cannot send messages to this conversation.";
+
+  // Load assignments from database on mount
+  useEffect(() => {
+    loadAssignmentsFromDatabase();
+  }, [loadAssignmentsFromDatabase]);
 
   // Debug assignment status
   console.log('🔍 Assignment Status:', {

@@ -238,6 +238,56 @@ class Database {
       });
     }
   }
+
+  // Conversation operations (for compatibility with SQLite)
+  async createConversation(data: {
+    id: string;
+    contact_id?: string;
+    agent_id?: string;
+    status?: string;
+    priority?: string;
+    twilio_conversation_sid: string;
+  }): Promise<any> {
+    // For in-memory database, we'll just return a mock object
+    return {
+      id: data.id,
+      contact_id: data.contact_id,
+      agent_id: data.agent_id,
+      status: data.status || 'active',
+      priority: data.priority || 'normal',
+      twilio_conversation_sid: data.twilio_conversation_sid,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  async getConversation(id: string): Promise<any> {
+    // For in-memory database, return null (no persistence)
+    return null;
+  }
+
+  async updateConversation(id: string, data: {
+    contact_id?: string;
+    agent_id?: string;
+    status?: string;
+    priority?: string;
+  }): Promise<any> {
+    // For in-memory database, return a mock object
+    return {
+      id,
+      ...data,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  async assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any> {
+    return await this.updateConversation(conversationId, { agent_id: agentId });
+  }
+
+  async getAllConversations(): Promise<any[]> {
+    // For in-memory database, return empty array
+    return [];
+  }
 }
 
 // Export singleton instance

@@ -50,6 +50,7 @@ interface ChatActions {
   setAssignment: (conversationId: string, agent: { id: string; name: string } | null) => void;
   setStatus: (conversationId: string, status: "open" | "closed") => void;
   setMe: (agent: { id: string; name: string } | null) => void;
+  loadAssignmentsFromDatabase: () => Promise<void>;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -162,8 +163,38 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     statuses: { ...state.statuses, [conversationId]: status }
   })),
   
-  setMe: (agent) => set({ me: agent })
-}));
+        setMe: (agent) => set({ me: agent }),
+
+        // Load assignments from database
+        loadAssignmentsFromDatabase: async () => {
+          try {
+            const { getDatabase } = await import('@/lib/database-config');
+            const db = await getDatabase();
+            const conversations = await db.getAllConversations();
+            
+            const assignments: Record<string, { id: string; name: string } | null> = {};
+            const statuses: Record<string, "open" | "closed"> = {};
+            
+            for (const conv of conversations) {
+              if (conv.agent_id) {
+                const agent = await db.getAgent(conv.agent_id);
+                if (agent) {
+                  assignments[conv.id] = { id: agent.id, name: agent.username };
+                }
+              } else {
+                assignments[conv.id] = null;
+              }
+              
+              statuses[conv.id] = conv.status === 'closed' ? 'closed' : 'open';
+            }
+            
+            set({ assignments, statuses });
+            console.log('🔍 Loaded assignments from database:', { assignments, statuses });
+          } catch (error) {
+            console.error('Error loading assignments from database:', error);
+          }
+        }
+      }));
 
 // Batched update utility
 class MessageBatcher {
