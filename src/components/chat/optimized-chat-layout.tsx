@@ -167,6 +167,16 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       // Refresh messages to show the new message
       refreshMessages();
       
+      // Update the conversation list with the new last message
+      const { setConversations } = useChatStore.getState();
+      const currentConversations = useChatStore.getState().conversations;
+      const updatedConversations = currentConversations.map(conv => 
+        conv.id === selectedConversationId 
+          ? { ...conv, lastMessagePreview: text.trim(), updatedAt: new Date().toISOString() }
+          : conv
+      );
+      setConversations(updatedConversations);
+      
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

@@ -35,7 +35,7 @@ export function MessageInput({ onSendMessage, disabled = false, disabledReason }
           <p className="text-sm text-orange-800">{disabledReason}</p>
         </div>
       )}
-      <div className="flex items-center gap-2">
+      <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex items-center gap-2">
          <Button 
            variant="ghost" 
            size="icon" 
@@ -55,14 +55,14 @@ export function MessageInput({ onSendMessage, disabled = false, disabledReason }
           className="flex-1 resize-none bg-background border-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <Button 
-          onClick={handleSend} 
+          type="submit"
           disabled={!text.trim() || disabled} 
           size="icon"
         >
           <Send className="h-5 w-5" />
           <span className="sr-only">Send</span>
         </Button>
-      </div>
+      </form>
     </div>
   );
 }

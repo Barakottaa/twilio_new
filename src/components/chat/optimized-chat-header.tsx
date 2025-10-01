@@ -15,6 +15,7 @@ import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, A
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ContactDialog } from './contact-dialog';
+import { AgentAssignmentDialog } from './agent-assignment-dialog';
 
 interface ConversationItem {
   id: string;
@@ -52,6 +53,7 @@ export function OptimizedChatHeader({
   onChangePriority 
 }: OptimizedChatHeaderProps) {
   const [showContactDialog, setShowContactDialog] = useState(false);
+  const [showAgentDialog, setShowAgentDialog] = useState(false);
   
   // Pull fallbacks from the store if props are missing
   const convFromStore = useChatStore(s => 
@@ -168,12 +170,10 @@ export function OptimizedChatHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {onAssignAgent && (
-                <DropdownMenuItem onClick={() => onAssignAgent(id)}>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Assign Agent
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem onClick={() => setShowAgentDialog(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Assign Agent
+              </DropdownMenuItem>
               
               {onToggleStatus && (
                 <>
@@ -252,6 +252,18 @@ export function OptimizedChatHeader({
           }}
         />
       )}
+      
+      {/* Agent Assignment Dialog */}
+      <AgentAssignmentDialog
+        open={showAgentDialog}
+        onOpenChange={setShowAgentDialog}
+        conversationId={id}
+        currentAgentId={assigned?.id}
+        onAgentAssigned={(conversationId, agentId) => {
+          console.log('🔍 Agent assigned:', { conversationId, agentId });
+          // The dialog already updates the store, so we just need to close it
+        }}
+      />
     </div>
   );
 }
