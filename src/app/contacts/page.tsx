@@ -57,7 +57,6 @@ export default function ContactsPage() {
   const [newContact, setNewContact] = useState<Partial<Customer>>({
     name: '',
     phoneNumber: '',
-    email: '',
     lastSeen: new Date().toISOString()
   });
 
@@ -114,7 +113,7 @@ export default function ContactsPage() {
     });
 
   const handleAddContact = async () => {
-    if (newContact.name && (newContact.phoneNumber || newContact.email)) {
+    if (newContact.name && newContact.phoneNumber) {
       try {
         const response = await fetch('/api/contacts', {
           method: 'POST',
@@ -123,8 +122,7 @@ export default function ContactsPage() {
           },
           body: JSON.stringify({
             name: newContact.name,
-            phoneNumber: newContact.phoneNumber,
-            email: newContact.email
+            phoneNumber: newContact.phoneNumber
           }),
         });
 
@@ -134,7 +132,6 @@ export default function ContactsPage() {
           setNewContact({
             name: '',
             phoneNumber: '',
-            email: '',
             lastSeen: new Date().toISOString()
           });
           setIsAddDialogOpen(false);
@@ -278,7 +275,6 @@ export default function ContactsPage() {
     setNewContact({
       name: contact.name || '',
       phoneNumber: contact.phoneNumber || '',
-      email: contact.email || '',
       lastSeen: contact.lastSeen || new Date().toISOString()
     });
   };
@@ -293,8 +289,7 @@ export default function ContactsPage() {
           },
           body: JSON.stringify({
             name: newContact.name,
-            phoneNumber: newContact.phoneNumber,
-            email: newContact.email
+            phoneNumber: newContact.phoneNumber
           }),
         });
 
@@ -307,7 +302,6 @@ export default function ContactsPage() {
           setNewContact({
             name: '',
             phoneNumber: '',
-            email: '',
             lastSeen: new Date().toISOString()
           });
           toast({
@@ -508,16 +502,6 @@ export default function ContactsPage() {
                     placeholder="+1234567890"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newContact.email || ''}
-                    onChange={(e) => setNewContact(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="contact@example.com"
-                  />
-                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -624,12 +608,6 @@ export default function ContactsPage() {
                     </div>
                   )}
                   
-                  {contact.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{contact.email}</span>
-                    </div>
-                  )}
                   
                   {contact.lastSeen && (
                     <div className="flex items-center gap-2">
@@ -679,16 +657,6 @@ export default function ContactsPage() {
                 value={newContact.phoneNumber || ''}
                 onChange={(e) => setNewContact(prev => ({ ...prev, phoneNumber: e.target.value }))}
                 placeholder="+1234567890"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={newContact.email || ''}
-                onChange={(e) => setNewContact(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="contact@example.com"
               />
             </div>
           </div>

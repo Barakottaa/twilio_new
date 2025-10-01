@@ -171,7 +171,21 @@ class SQLiteDatabaseService {
     ]);
 
     const result = await get('SELECT * FROM contacts WHERE id = ?', [id]);
-    return result as ContactRecord;
+    
+    // Map snake_case database fields to camelCase interface fields
+    return {
+      id: result.id,
+      name: result.name,
+      phoneNumber: result.phone_number,
+      email: result.email,
+      avatar: result.avatar,
+      lastSeen: result.last_seen,
+      notes: result.notes,
+      tags: result.tags ? JSON.parse(result.tags) : [],
+      isActive: result.is_active === 1,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    } as ContactRecord;
   }
 
   async getContact(id: string): Promise<ContactRecord | null> {
@@ -180,7 +194,23 @@ class SQLiteDatabaseService {
 
     const get = promisify(this.db.get.bind(this.db));
     const result = await get('SELECT * FROM contacts WHERE id = ? AND is_active = 1', [id]);
-    return result as ContactRecord || null;
+    
+    if (!result) return null;
+    
+    // Map snake_case database fields to camelCase interface fields
+    return {
+      id: result.id,
+      name: result.name,
+      phoneNumber: result.phone_number,
+      email: result.email,
+      avatar: result.avatar,
+      lastSeen: result.last_seen,
+      notes: result.notes,
+      tags: result.tags ? JSON.parse(result.tags) : [],
+      isActive: result.is_active === 1,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    } as ContactRecord;
   }
 
   async getAllContacts(): Promise<ContactRecord[]> {
@@ -189,7 +219,21 @@ class SQLiteDatabaseService {
 
     const all = promisify(this.db.all.bind(this.db));
     const result = await all('SELECT * FROM contacts WHERE is_active = 1 ORDER BY created_at DESC');
-    return result as ContactRecord[];
+    
+    // Map snake_case database fields to camelCase interface fields
+    return result.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      phoneNumber: row.phone_number,
+      email: row.email,
+      avatar: row.avatar,
+      lastSeen: row.last_seen,
+      notes: row.notes,
+      tags: row.tags ? JSON.parse(row.tags) : [],
+      isActive: row.is_active === 1,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })) as ContactRecord[];
   }
 
   async updateContact(id: string, data: Partial<Omit<ContactRecord, 'id' | 'created_at'>>): Promise<ContactRecord | null> {
