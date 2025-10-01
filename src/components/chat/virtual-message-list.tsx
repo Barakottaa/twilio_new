@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { Message } from '@/types';
 import { MessageBubble } from './message-bubble';
@@ -23,12 +23,39 @@ export function VirtualMessageList({
   onLoadOlder,
   className = ''
 }: VirtualMessageListProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(false);
   
   console.log('🔍 VirtualMessageList render:', { messagesCount: messages.length, isLoading, firstMessage: messages[0] });
   console.log('🔍 VirtualMessageList - all messages:', messages);
   
-  // No auto-scroll - let user control scrolling
-  // Messages will be displayed with newest at the bottom, user can scroll up for older messages
+  // Auto-scroll to bottom only when new messages arrive (not when loading older messages)
+  useEffect(() => {
+    if (messages.length > 0 && !isLoadingMore && shouldScrollToBottom) {
+      const container = containerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+        setShouldScrollToBottom(false);
+      }
+    }
+  }, [messages.length, isLoadingMore, shouldScrollToBottom]);
+
+  // Detect when new messages are added (not when loading older ones)
+  useEffect(() => {
+    if (messages.length > 0 && !isLoadingMore) {
+      setShouldScrollToBottom(true);
+    }
+  }, [messages.length, isLoadingMore]);
+
+  // Handle scroll to detect when user reaches top to load older messages
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const isAtTop = container.scrollTop === 0;
+    
+    if (isAtTop && hasMore && !isLoadingMore) {
+      onLoadOlder();
+    }
+  };
   
   if (isLoading) {
     return (
@@ -48,8 +75,19 @@ export function VirtualMessageList({
 
   return (
     <div className={`${className}`}>
-      {/* Simple fallback without Virtuoso for debugging */}
-      <div className="flex flex-col min-h-full">
+      <div 
+        ref={containerRef}
+        className="flex flex-col h-full overflow-y-auto"
+        onScroll={handleScroll}
+      >
+        {/* Load more indicator at the top */}
+        {isLoadingMore && (
+          <div className="flex justify-center py-4">
+            <LoadingSpinner size="sm" />
+          </div>
+        )}
+        
+        {/* Messages */}
         {messages.map((message, index) => (
           <div key={message.id} className="px-4 py-2">
             <MessageBubble 
@@ -59,9 +97,13 @@ export function VirtualMessageList({
             />
           </div>
         ))}
-        {isLoadingMore && (
-          <div className="flex justify-center py-4">
-            <LoadingSpinner size="sm" />
+        
+        {/* Scroll to bottom indicator */}
+        {hasMore && (
+          <div className="flex justify-center py-2">
+            <div className="text-xs text-muted-foreground">
+              Scroll up to load older messages
+            </div>
           </div>
         )}
       </div>

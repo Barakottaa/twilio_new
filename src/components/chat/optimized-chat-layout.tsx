@@ -163,17 +163,16 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
               onRefresh={refreshMessages}
             />
 
-            {/* Messages Area - Isolated Scroll */}
-            <div className="flex-1 overflow-hidden">
-              <div className="h-full overflow-y-auto">
-                <VirtualMessageList
-                  messages={messages}
-                  isLoading={messagesLoading}
-                  isLoadingMore={isLoadingMore}
-                  hasMore={hasMore}
-                  onLoadOlder={loadOlder}
-                />
-              </div>
+            {/* Messages Area - Scroll handled by VirtualMessageList */}
+            <div className="flex-1">
+              <VirtualMessageList
+                messages={messages}
+                isLoading={messagesLoading}
+                isLoadingMore={isLoadingMore}
+                hasMore={hasMore}
+                onLoadOlder={loadOlder}
+                className="h-full"
+              />
             </div>
 
             {/* Message Input */}
