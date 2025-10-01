@@ -9,15 +9,15 @@ export async function DELETE() {
     const allContacts = await db.getAllContacts();
     console.log('🗑️ Clearing all contacts:', allContacts.length, 'contacts found');
     
-    // Clear all contacts by setting is_active = 0 (soft delete)
+    // Clear all contacts by actually deleting them (hard delete)
     // Note: This uses a direct SQL query since we don't have a clearAllContacts method
     if (db.constructor.name === 'SQLiteDatabaseService') {
       // For SQLite, we can access the db directly
       const sqliteDb = db as any;
       if (sqliteDb.db) {
         const run = require('util').promisify(sqliteDb.db.run.bind(sqliteDb.db));
-        await run('UPDATE contacts SET is_active = 0, updated_at = ?', [new Date().toISOString()]);
-        console.log('✅ All contacts cleared (soft delete)');
+        await run('DELETE FROM contacts');
+        console.log('✅ All contacts cleared (hard delete)');
       }
     } else {
       // For in-memory database, clear the contacts map
