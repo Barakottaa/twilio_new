@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useChatStore } from '@/store/chat-store';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +34,8 @@ interface ConversationItem {
 }
 
 interface OptimizedChatHeaderProps {
-  conversation?: ConversationItem;
+  conversationId?: string;            // NEW
+  conversation?: ConversationItem;    // still supported
   onRefresh?: () => void;
   onAssignAgent?: (conversationId: string) => void;
   onToggleStatus?: (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => void;
@@ -41,17 +43,37 @@ interface OptimizedChatHeaderProps {
 }
 
 export function OptimizedChatHeader({ 
+  conversationId,
   conversation, 
   onRefresh, 
   onAssignAgent, 
   onToggleStatus, 
   onChangePriority 
 }: OptimizedChatHeaderProps) {
+  // Pull fallbacks from the store if props are missing
+  const convFromStore = useChatStore(s => 
+    conversationId ? s.conversations.find(c => c.id === conversationId) ?? null : null
+  );
+  const assigned = useChatStore(s => (conversationId ? s.assignments[conversationId] ?? null : null));
+  const statusFromStore = useChatStore(s => (conversationId ? s.statuses[conversationId] ?? 'open' : 'open'));
+
+  // Compose a safe "view model" with fallbacks
+  const id = conversation?.id ?? conversationId ?? convFromStore?.id ?? '';
+  const title = (conversation?.title ?? convFromStore?.title ?? 'Unknown Contact').trim();
+  const status = (conversation?.status ?? statusFromStore ?? 'open') as 'open'|'closed'|'pending';
+  const priority = conversation?.priority ?? convFromStore?.priority;
+  const agentName = conversation?.agentName ?? assigned?.name ?? 'Unassigned';
+  const customerPhone = conversation?.customerPhone ?? convFromStore?.customerPhone;
+  const lastMessagePreview = conversation?.lastMessagePreview ?? convFromStore?.lastMessagePreview ?? '';
+  const unreadCount = conversation?.unreadCount ?? convFromStore?.unreadCount ?? 0;
+
+  // If we still have no id and no store data, show skeleton
+  const hasAnyData = id || title !== 'Unknown Contact';
   console.log('🔍 OptimizedChatHeader - conversation:', conversation);
   console.log('🔍 OptimizedChatHeader - conversation type:', typeof conversation);
   console.log('🔍 OptimizedChatHeader - conversation keys:', conversation ? Object.keys(conversation) : 'null');
   
-  if (!conversation) {
+  if (!hasAnyData) {
     return (
       <div className="border-b bg-card p-4">
         <div className="flex items-center justify-between">
@@ -73,49 +95,49 @@ export function OptimizedChatHeader({
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
             <AvatarImage 
-              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.title)}&background=random`}
-              alt={conversation.title}
+              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(title || 'U')}&background=random`}
+              alt={title}
               width={40}
               height={40}
             />
             <AvatarFallback>
-              {conversation.title.charAt(0).toUpperCase()}
+              {(title || 'U').charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-sm truncate">{conversation.title}</h3>
-              {conversation.status && (
-                <StatusBadge status={conversation.status} />
+              <h3 className="font-semibold text-sm truncate">{title}</h3>
+              {status && (
+                <StatusBadge status={status} />
               )}
-              {conversation.priority && (
-                <PriorityBadge priority={conversation.priority} />
+              {priority && (
+                <PriorityBadge priority={priority} />
               )}
             </div>
             
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              {conversation.customerPhone && (
-                <span>📞 {conversation.customerPhone}</span>
+              {customerPhone && (
+                <span>📞 {customerPhone}</span>
               )}
-              {conversation.agentName && conversation.agentName !== 'Unassigned' && (
-                <span>👤 {conversation.agentName}</span>
+              {agentName && agentName !== 'Unassigned' && (
+                <span>👤 {agentName}</span>
               )}
-              {conversation.agentName === 'Unassigned' && (
+              {agentName === 'Unassigned' && (
                 <span className="text-orange-600">⚠️ Unassigned</span>
               )}
             </div>
             
-            {conversation.lastMessagePreview && (
+            {lastMessagePreview && (
               <p className="text-xs text-gray-500 truncate max-w-xs mt-1">
-                {conversation.lastMessagePreview}
+                {lastMessagePreview}
               </p>
             )}
           </div>
           
-          {conversation.unreadCount > 0 && (
+          {unreadCount > 0 && (
             <Badge variant="destructive" className="text-xs">
-              {conversation.unreadCount}
+              {unreadCount}
             </Badge>
           )}
         </div>
@@ -140,7 +162,7 @@ export function OptimizedChatHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               {onAssignAgent && (
-                <DropdownMenuItem onClick={() => onAssignAgent(conversation.id)}>
+                <DropdownMenuItem onClick={() => onAssignAgent(id)}>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Assign Agent
                 </DropdownMenuItem>
@@ -148,13 +170,13 @@ export function OptimizedChatHeader({
               
               {onToggleStatus && (
                 <>
-                  {conversation.status === 'open' ? (
-                    <DropdownMenuItem onClick={() => onToggleStatus(conversation.id, 'closed')}>
+                  {status === 'open' ? (
+                    <DropdownMenuItem onClick={() => onToggleStatus(id, 'closed')}>
                       <Lock className="h-4 w-4 mr-2" />
                       Close Conversation
                     </DropdownMenuItem>
                   ) : (
-                    <DropdownMenuItem onClick={() => onToggleStatus(conversation.id, 'open')}>
+                    <DropdownMenuItem onClick={() => onToggleStatus(id, 'open')}>
                       <Unlock className="h-4 w-4 mr-2" />
                       Reopen Conversation
                     </DropdownMenuItem>
@@ -163,7 +185,7 @@ export function OptimizedChatHeader({
               )}
               
               {onChangePriority && (
-                <DropdownMenuItem onClick={() => onChangePriority(conversation.id, 'high')}>
+                <DropdownMenuItem onClick={() => onChangePriority(id, 'high')}>
                   <AlertCircle className="h-4 w-4 mr-2" />
                   Set High Priority
                 </DropdownMenuItem>

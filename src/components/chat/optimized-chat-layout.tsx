@@ -40,7 +40,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     loadOlder,
     refresh: refreshMessages,
     error: messagesError
-  } = useMessages(selectedConversationId);
+  } = useMessages(selectedConversationId || undefined);
 
   console.log('🔍 OptimizedChatLayout - selectedConversationId:', selectedConversationId);
   console.log('🔍 OptimizedChatLayout - messages:', messages);
@@ -236,7 +236,8 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
           <>
             {/* Chat Header */}
             <OptimizedChatHeader 
-              conversation={selectedConversation}
+              conversationId={selectedConversationId || undefined}
+              conversation={selectedConversation ?? undefined}
               onRefresh={refreshMessages}
               onAssignAgent={handleAssignAgent}
               onToggleStatus={handleToggleStatus}
