@@ -106,15 +106,17 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     });
   }, [toast]);
 
-  // Initialize real-time messages
-  useRealtimeMessages({
-    chats: [], // Not needed with new store
-    setChats: () => {}, // Not needed with new store
-    setSelectedChat: () => {}, // Not needed with new store
-    loggedInAgentId: loggedInAgent.id
-  });
+  // Initialize real-time messages - temporarily disabled to test page refresh issue
+  // useRealtimeMessages({
+  //   chats: [], // Not needed with new store
+  //   setChats: () => {}, // Not needed with new store
+  //   setSelectedChat: () => {}, // Not needed with new store
+  //   loggedInAgentId: loggedInAgent.id
+  // });
 
   const handleSendMessage = async (text: string) => {
+    console.log('🔍 handleSendMessage called with:', { text, selectedConversationId });
+    
     if (!selectedConversationId || !text.trim()) {
       console.log('🔍 Cannot send message - missing conversationId or text:', { selectedConversationId, text });
       return;
@@ -167,9 +169,6 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         title: "Message sent",
         description: "Your message has been sent successfully.",
       });
-      
-      // Refresh messages to show the new message
-      refreshMessages();
       
       // Update the conversation list with the new last message
       const { setConversations } = useChatStore.getState();
