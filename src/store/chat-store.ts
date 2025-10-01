@@ -10,6 +10,13 @@ interface ConversationItem {
   updatedAt: string;
   customerId: string;
   agentId: string;
+  // Additional information for enhanced display
+  customerPhone?: string;
+  customerEmail?: string;
+  agentName?: string;
+  agentStatus?: string;
+  status?: 'open' | 'closed' | 'pending';
+  priority?: 'low' | 'medium' | 'high';
 }
 
 interface ChatState {

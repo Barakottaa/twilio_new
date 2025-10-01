@@ -61,8 +61,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         .conversations(c.sid)
         .participants.list();
       
-      // Find customer participant (not agent)
-      // Look for participants that are not agents/admins, including those with null identity
+      // Find customer and agent participants
       const customerParticipant = participants.find(p => {
         if (!p.identity) {
           // If identity is null, check if it's a WhatsApp participant (customer)
@@ -71,7 +70,14 @@ export async function listConversationsLite(limit = 30, after?: string) {
         return !p.identity.startsWith('agent-') && !p.identity.startsWith('admin-');
       });
       
+      const agentParticipant = participants.find(p => 
+        p.identity && (p.identity.startsWith('agent-') || p.identity.startsWith('admin-'))
+      );
+      
       let customerName = 'Unknown Customer';
+      let customerPhone = '';
+      let customerEmail = '';
+      
       if (customerParticipant) {
         // Try to get display name from attributes
         try {
@@ -80,8 +86,27 @@ export async function listConversationsLite(limit = 30, after?: string) {
           customerName = attributes.display_name || 
                         customerParticipant.identity || 
                         'Unknown Customer';
+          customerPhone = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '') || '';
+          customerEmail = attributes.email || '';
         } catch {
           customerName = customerParticipant.identity || 'Unknown Customer';
+          customerPhone = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '') || '';
+        }
+      }
+      
+      let agentName = 'Unassigned';
+      let agentId = 'unassigned';
+      let agentStatus = 'offline';
+      
+      if (agentParticipant) {
+        agentId = agentParticipant.identity || 'unassigned';
+        try {
+          const attributes = agentParticipant.attributes ? 
+            JSON.parse(agentParticipant.attributes) : {};
+          agentName = attributes.display_name || agentParticipant.identity || 'Unassigned';
+          agentStatus = attributes.status || 'offline';
+        } catch {
+          agentName = agentParticipant.identity || 'Unassigned';
         }
       }
       
@@ -93,7 +118,14 @@ export async function listConversationsLite(limit = 30, after?: string) {
         createdAt: c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         customerId: customerParticipant?.identity || 'unknown',
-        agentId: 'unknown', // Will be populated when conversation is selected
+        agentId: agentId,
+        // Additional information for enhanced display
+        customerPhone: customerPhone,
+        customerEmail: customerEmail,
+        agentName: agentName,
+        agentStatus: agentStatus,
+        status: 'open' as const, // Default status
+        priority: 'medium' as const, // Default priority
       };
       console.log('🔍 Created conversation item:', conversationItem);
       return conversationItem;

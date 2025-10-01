@@ -7,6 +7,25 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { formatDistanceToNow } from 'date-fns';
+import { 
+  Phone, 
+  Mail, 
+  User, 
+  MoreVertical, 
+  MessageSquare,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  XCircle
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { StatusBadge } from '@/components/ui/status-badge';
+import { PriorityBadge } from '@/components/ui/priority-badge';
 
 interface ConversationItem {
   id: string;
@@ -172,48 +191,107 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
         {localConversations.map((conversation) => (
-          <Button
+          <div
             key={conversation.id}
-            variant={selectedConversationId === conversation.id ? "secondary" : "ghost"}
-            className="w-full justify-start gap-3 h-auto p-3 mb-1"
+            className={`w-full p-3 mb-1 rounded-lg border transition-colors cursor-pointer ${
+              selectedConversationId === conversation.id 
+                ? "bg-secondary border-primary" 
+                : "bg-card hover:bg-muted/50"
+            }`}
             onClick={() => {
               console.log('Selecting conversation:', conversation.id);
               setSelectedConversation(conversation.id);
             }}
           >
-            <Avatar className="h-10 w-10 flex-shrink-0">
-              <AvatarImage 
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.title)}&background=random`}
-                alt={conversation.title}
-                width={40}
-                height={40}
-              />
-              <AvatarFallback>
-                {conversation.title.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1 min-w-0 text-left">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-sm truncate">
-                  {conversation.title}
-                </h3>
-                <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                  {conversation.updatedAt ? formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true }) : 'Just now'}
-                </span>
+            <div className="flex items-start gap-3">
+              <Avatar className="h-10 w-10 flex-shrink-0">
+                <AvatarImage 
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.title)}&background=random`}
+                  alt={conversation.title}
+                  width={40}
+                  height={40}
+                />
+                <AvatarFallback>
+                  {conversation.title.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="font-medium text-sm truncate">
+                    {conversation.title}
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    {conversation.status && <StatusBadge status={conversation.status} />}
+                    {conversation.priority && <PriorityBadge priority={conversation.priority} />}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                          <MoreVertical className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <User className="h-4 w-4 mr-2" />
+                          Assign Agent
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Mark as Closed
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                          Change Priority
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                
+                {/* Contact info */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  {conversation.customerPhone && (
+                    <div className="flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      <span>{conversation.customerPhone}</span>
+                    </div>
+                  )}
+                  {conversation.customerEmail && (
+                    <div className="flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      <span className="truncate">{conversation.customerEmail}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Agent info */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <User className="h-3 w-3" />
+                  <span>{conversation.agentName || 'Unassigned'}</span>
+                  {conversation.agentStatus && (
+                    <Badge variant="outline" className="text-xs">
+                      {conversation.agentStatus}
+                    </Badge>
+                  )}
+                </div>
+                
+                <p className="text-xs text-muted-foreground truncate mb-1">
+                  {conversation.lastMessagePreview || 'No messages yet'}
+                </p>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">
+                    {conversation.updatedAt ? formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true }) : 'Just now'}
+                  </span>
+                  {conversation.unreadCount > 0 && (
+                    <Badge variant="destructive" className="text-xs">
+                      {conversation.unreadCount}
+                    </Badge>
+                  )}
+                </div>
               </div>
-              
-              <p className="text-xs text-gray-600 truncate mt-1">
-                {conversation.lastMessagePreview}
-              </p>
-              
-              {conversation.unreadCount > 0 && (
-                <Badge variant="destructive" className="mt-1 text-xs">
-                  {conversation.unreadCount}
-                </Badge>
-              )}
             </div>
-          </Button>
+          </div>
         ))}
         
         {hasMore && localConversations.length > 0 && (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Message } from '@/types';
+import { useChatStore } from '@/store/chat-store';
 
 interface UseMessagesResult {
   messages: Message[];
@@ -18,6 +19,9 @@ export function useMessages(conversationId?: string): UseMessagesResult {
   const [hasMore, setHasMore] = useState(true);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Get real-time messages from the store
+  const storeMessages = useChatStore(state => conversationId ? state.messages[conversationId] || [] : []);
 
   const fetchMessages = useCallback(async (before?: string, append = false) => {
     if (!conversationId) return;
@@ -48,10 +52,20 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       console.log('🔍 Messages API data:', data);
       
       console.log('🔍 Setting messages:', { count: data.messages.length, append, firstMessage: data.messages[0] });
+      
+      // Merge with real-time messages from store
+      const mergedMessages = [...data.messages];
+      if (storeMessages.length > 0) {
+        // Add real-time messages that aren't already in the fetched messages
+        const fetchedMessageIds = new Set(data.messages.map(m => m.id));
+        const newRealtimeMessages = storeMessages.filter(m => !fetchedMessageIds.has(m.id));
+        mergedMessages.push(...newRealtimeMessages);
+      }
+      
       if (append) {
-        setMessages(prev => [...data.messages, ...prev]);
+        setMessages(prev => [...mergedMessages, ...prev]);
       } else {
-        setMessages(data.messages);
+        setMessages(mergedMessages);
       }
       
       setNextBefore(data.nextBefore);
@@ -85,6 +99,19 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       setHasMore(true);
     }
   }, [conversationId, fetchMessages]);
+
+  // Listen for real-time message updates
+  useEffect(() => {
+    if (conversationId && storeMessages.length > 0) {
+      console.log('🔍 Real-time messages updated:', storeMessages.length);
+      setMessages(prev => {
+        // Merge real-time messages with existing messages
+        const existingMessageIds = new Set(prev.map(m => m.id));
+        const newRealtimeMessages = storeMessages.filter(m => !existingMessageIds.has(m.id));
+        return [...prev, ...newRealtimeMessages];
+      });
+    }
+  }, [conversationId, storeMessages]);
 
   return {
     messages,
