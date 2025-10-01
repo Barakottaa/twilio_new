@@ -47,9 +47,10 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   console.log('🔍 OptimizedChatLayout - messagesLoading:', messagesLoading);
 
   // Get the selected conversation from the store
-  const selectedConversation = useChatStore(state => 
-    state.conversations.find(conv => conv.id === selectedConversationId)
-  );
+  const selectedConversation = useChatStore(state => {
+    if (!selectedConversationId) return null;
+    return state.conversations.find(conv => conv.id === selectedConversationId) || null;
+  });
 
   // Check if the conversation is assigned to the current user
   const isAssignedToCurrentUser = selectedConversation?.agentId === loggedInAgent.id;
