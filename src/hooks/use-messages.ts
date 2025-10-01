@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Message } from '@/types';
 import { useChatStore } from '@/store/chat-store';
 
@@ -18,17 +18,19 @@ export function useMessages(conversationId?: string): UseMessagesResult {
   const [hasMore, setHasMore] = useState(true);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const conversationIdRef = useRef(conversationId);
   
-  // Get messages directly from store
-  const messages = useChatStore(
-    useCallback(
-      (state) => {
-        if (!conversationId) return [];
-        return state.messages[conversationId] || [];
-      },
-      [conversationId]
-    )
-  );
+  // Update ref when conversationId changes
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+  
+  // Get messages directly from store with stable reference
+  const messages = useChatStore((state) => {
+    const currentId = conversationIdRef.current;
+    if (!currentId) return [];
+    return state.messages[currentId] || [];
+  });
 
   const fetchMessages = useCallback(async (before?: string, append = false) => {
     if (!conversationId) return;
@@ -98,7 +100,6 @@ export function useMessages(conversationId?: string): UseMessagesResult {
     if (conversationId) {
       fetchMessages();
     } else {
-      setMessages([]);
       setNextBefore(null);
       setHasMore(true);
     }
