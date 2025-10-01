@@ -131,30 +131,26 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
 
   return (
     <div className="flex h-full bg-background">
-      {/* Chat List Sidebar - Collapsible */}
-      <div className={`${selectedConversationId ? 'w-16' : 'w-80'} border-r bg-card flex flex-col transition-all duration-300 ease-in-out`}>
-        {!selectedConversationId && (
-          <>
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold">Conversations</h2>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <OptimizedChatList agentId={loggedInAgent.id} />
-            </div>
-          </>
-        )}
-        {selectedConversationId && (
-          <div className="p-4 border-b">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedConversation(null)}
-              className="w-full"
-            >
-              ← Back
-            </Button>
+      {/* Chat List Sidebar - Always visible */}
+      <div className="w-80 border-r bg-card flex flex-col">
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Conversations</h2>
+            {selectedConversationId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedConversation(null)}
+                className="text-xs"
+              >
+                ← Back
+              </Button>
+            )}
           </div>
-        )}
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <OptimizedChatList agentId={loggedInAgent.id} />
+        </div>
       </div>
 
       {/* Main Chat Area */}

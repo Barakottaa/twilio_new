@@ -65,7 +65,8 @@ const navigationItems = [
 ];
 
 export function Sidebar({ loggedInAgent, className }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true); // Start collapsed
+  const [isHovered, setIsHovered] = useState(false);
   const [clickedItem, setClickedItem] = useState<string | null>(null);
   const pathname = usePathname();
 
@@ -83,14 +84,18 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
   };
 
   return (
-    <div className={cn(
-      "flex flex-col h-full bg-card border-r transition-all duration-150 ease-out",
-      isCollapsed ? "w-16" : "w-64",
-      className
-    )}>
+    <div 
+      className={cn(
+        "flex flex-col h-full bg-card border-r transition-all duration-300 ease-out",
+        (isCollapsed && !isHovered) ? "w-16" : "w-64",
+        className
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
-        {!isCollapsed && (
+        {(isHovered || !isCollapsed) && (
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <MessageSquare className="w-5 h-5 text-primary-foreground" />
@@ -128,10 +133,10 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
                   "w-full justify-start gap-3 h-10 transition-all duration-100",
-                  isCollapsed && "justify-center px-2",
+                  (isCollapsed && !isHovered) && "justify-center px-2",
                   isClicked && "scale-95 bg-primary/10"
                 )}
-                title={isCollapsed ? item.name : undefined}
+                title={(isCollapsed && !isHovered) ? item.name : undefined}
                 onClick={() => {
                   setClickedItem(item.href);
                   // Reset clicked state after a short delay
@@ -142,7 +147,7 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
                   "h-4 w-4 flex-shrink-0 transition-transform duration-100",
                   isClicked && "scale-110"
                 )} />
-                {!isCollapsed && (
+                {(isHovered || !isCollapsed) && (
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-medium">{item.name}</span>
                     <span className="text-xs text-muted-foreground">{item.description}</span>
@@ -158,12 +163,12 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
       <div className="p-4 border-t">
         <div className={cn(
           "flex items-center gap-3",
-          isCollapsed && "justify-center"
+          (isCollapsed && !isHovered) && "justify-center"
         )}>
           <Avatar className="h-8 w-8">
             <AvatarFallback>{loggedInAgent.username.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
-          {!isCollapsed && (
+          {(isHovered || !isCollapsed) && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{loggedInAgent.username}</p>
               <p className="text-xs text-muted-foreground truncate capitalize">{loggedInAgent.role}</p>
@@ -178,7 +183,7 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
             </div>
           )}
         </div>
-        {!isCollapsed && (
+        {(isHovered || !isCollapsed) && (
           <Button
             variant="ghost"
             size="sm"
