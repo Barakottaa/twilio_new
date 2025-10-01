@@ -46,6 +46,15 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   console.log('🔍 OptimizedChatLayout - messages:', messages);
   console.log('🔍 OptimizedChatLayout - messagesLoading:', messagesLoading);
 
+  // Check if the conversation is assigned to the current user
+  const isAssignedToCurrentUser = selectedConversation?.agentId === loggedInAgent.id;
+  const isUnassigned = selectedConversation?.agentName === 'Unassigned' || !selectedConversation?.agentId;
+  
+  const messageInputDisabled = !isAssignedToCurrentUser;
+  const messageInputDisabledReason = isUnassigned 
+    ? "This conversation is not assigned to any agent. Please assign it to yourself first."
+    : `This conversation is assigned to ${selectedConversation?.agentName}. Only the assigned agent can send messages.`;
+
   // Management functions
   const handleAssignAgent = useCallback((conversationId: string) => {
     // TODO: Implement agent assignment
@@ -82,6 +91,20 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   const handleSendMessage = async (text: string) => {
     if (!selectedConversationId || !text.trim()) {
       console.log('🔍 Cannot send message - missing conversationId or text:', { selectedConversationId, text });
+      return;
+    }
+    
+    if (messageInputDisabled) {
+      console.log('🔍 Cannot send message - conversation not assigned to current user:', { 
+        selectedConversationId, 
+        agentId: selectedConversation?.agentId, 
+        loggedInAgentId: loggedInAgent.id 
+      });
+      toast({
+        title: "Cannot send message",
+        description: messageInputDisabledReason,
+        variant: "destructive"
+      });
       return;
     }
     
@@ -212,11 +235,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
             </div>
 
             {/* Message Input */}
-            <div className="border-t bg-card p-4">
-              <MessageInput
-                onSendMessage={handleSendMessage}
-              />
-            </div>
+            <MessageInput
+              onSendMessage={handleSendMessage}
+              disabled={messageInputDisabled}
+              disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
+            />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
