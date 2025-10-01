@@ -62,7 +62,14 @@ export function AgentAssignmentDialog({
       const response = await fetch('/api/agents');
       if (response.ok) {
         const data = await response.json();
-        setAvailableAgents(data.agents || []);
+        // Map the full Agent objects to the simplified format needed by the dialog
+        const simplifiedAgents = (data || []).map((agent: any) => ({
+          id: agent.id,
+          username: agent.username,
+          role: agent.role,
+          permissions: agent.permissions
+        }));
+        setAvailableAgents(simplifiedAgents);
       } else {
         throw new Error('Failed to fetch agents');
       }

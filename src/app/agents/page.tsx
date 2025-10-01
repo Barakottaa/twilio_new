@@ -63,7 +63,7 @@ export default function AgentsPage() {
         const response = await fetch('/api/agents');
         if (response.ok) {
           const data = await response.json();
-          setAgents(data);
+          setAgents(data || []);
         } else {
           toast({
             title: "Error",
@@ -85,7 +85,7 @@ export default function AgentsPage() {
     fetchAgents();
   }, [toast]);
 
-  const filteredAgents = agents.filter(agent => {
+  const filteredAgents = (agents || []).filter(agent => {
     const matchesSearch = agent.username.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
