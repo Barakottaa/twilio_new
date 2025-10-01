@@ -10,7 +10,9 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, RefreshCw, User, MessageSquare } from 'lucide-react';
+import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { PriorityBadge } from '@/components/ui/priority-badge';
 
 interface ConversationItem {
   id: string;
@@ -21,14 +23,30 @@ interface ConversationItem {
   updatedAt: string;
   customerId: string;
   agentId: string;
+  // Additional information for enhanced display
+  customerPhone?: string;
+  customerEmail?: string;
+  agentName?: string;
+  agentStatus?: string;
+  status?: 'open' | 'closed' | 'pending';
+  priority?: 'low' | 'medium' | 'high';
 }
 
 interface OptimizedChatHeaderProps {
   conversation?: ConversationItem;
   onRefresh?: () => void;
+  onAssignAgent?: (conversationId: string) => void;
+  onToggleStatus?: (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => void;
+  onChangePriority?: (conversationId: string, newPriority: 'low' | 'medium' | 'high') => void;
 }
 
-export function OptimizedChatHeader({ conversation, onRefresh }: OptimizedChatHeaderProps) {
+export function OptimizedChatHeader({ 
+  conversation, 
+  onRefresh, 
+  onAssignAgent, 
+  onToggleStatus, 
+  onChangePriority 
+}: OptimizedChatHeaderProps) {
   if (!conversation) {
     return (
       <div className="border-b bg-card p-4">
@@ -61,11 +79,34 @@ export function OptimizedChatHeader({ conversation, onRefresh }: OptimizedChatHe
             </AvatarFallback>
           </Avatar>
           
-          <div>
-            <h3 className="font-semibold text-sm">{conversation.title}</h3>
-            <p className="text-xs text-gray-500 truncate max-w-xs">
-              {conversation.lastMessagePreview || 'No messages yet'}
-            </p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-sm truncate">{conversation.title}</h3>
+              {conversation.status && (
+                <StatusBadge status={conversation.status} />
+              )}
+              {conversation.priority && (
+                <PriorityBadge priority={conversation.priority} />
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              {conversation.customerPhone && (
+                <span>📞 {conversation.customerPhone}</span>
+              )}
+              {conversation.agentName && conversation.agentName !== 'Unassigned' && (
+                <span>👤 {conversation.agentName}</span>
+              )}
+              {conversation.agentName === 'Unassigned' && (
+                <span className="text-orange-600">⚠️ Unassigned</span>
+              )}
+            </div>
+            
+            {conversation.lastMessagePreview && (
+              <p className="text-xs text-gray-500 truncate max-w-xs mt-1">
+                {conversation.lastMessagePreview}
+              </p>
+            )}
           </div>
           
           {conversation.unreadCount > 0 && (
@@ -93,14 +134,45 @@ export function OptimizedChatHeader({ conversation, onRefresh }: OptimizedChatHe
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-48">
+              {onAssignAgent && (
+                <DropdownMenuItem onClick={() => onAssignAgent(conversation.id)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Assign Agent
+                </DropdownMenuItem>
+              )}
+              
+              {onToggleStatus && (
+                <>
+                  {conversation.status === 'open' ? (
+                    <DropdownMenuItem onClick={() => onToggleStatus(conversation.id, 'closed')}>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Close Conversation
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={() => onToggleStatus(conversation.id, 'open')}>
+                      <Unlock className="h-4 w-4 mr-2" />
+                      Reopen Conversation
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
+              
+              {onChangePriority && (
+                <DropdownMenuItem onClick={() => onChangePriority(conversation.id, 'high')}>
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Set High Priority
+                </DropdownMenuItem>
+              )}
+              
               <DropdownMenuItem>
                 <User className="h-4 w-4 mr-2" />
-                View Contact
+                View Contact Details
               </DropdownMenuItem>
+              
               <DropdownMenuItem>
                 <MessageSquare className="h-4 w-4 mr-2" />
-                Clear Chat
+                Clear Chat History
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

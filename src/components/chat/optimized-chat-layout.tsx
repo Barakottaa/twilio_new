@@ -46,6 +46,31 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   console.log('🔍 OptimizedChatLayout - messages:', messages);
   console.log('🔍 OptimizedChatLayout - messagesLoading:', messagesLoading);
 
+  // Management functions
+  const handleAssignAgent = useCallback((conversationId: string) => {
+    // TODO: Implement agent assignment
+    toast({
+      title: "Assign Agent",
+      description: `Agent assignment for conversation ${conversationId} - Coming soon!`,
+    });
+  }, [toast]);
+
+  const handleToggleStatus = useCallback((conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
+    // TODO: Implement status toggle
+    toast({
+      title: "Status Updated",
+      description: `Conversation status changed to ${newStatus} - Coming soon!`,
+    });
+  }, [toast]);
+
+  const handleChangePriority = useCallback((conversationId: string, newPriority: 'low' | 'medium' | 'high') => {
+    // TODO: Implement priority change
+    toast({
+      title: "Priority Updated",
+      description: `Conversation priority changed to ${newPriority} - Coming soon!`,
+    });
+  }, [toast]);
+
   // Initialize real-time messages
   useRealtimeMessages({
     chats: [], // Not needed with new store
@@ -161,6 +186,9 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
             <OptimizedChatHeader 
               conversation={selectedConversation}
               onRefresh={refreshMessages}
+              onAssignAgent={handleAssignAgent}
+              onToggleStatus={handleToggleStatus}
+              onChangePriority={handleChangePriority}
             />
 
             {/* Messages Area - Scroll handled by VirtualMessageList */}
