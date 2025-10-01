@@ -52,23 +52,28 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     return state.conversations.find(conv => conv.id === selectedConversationId) || null;
   });
 
+  // Check assignment status from the store
+  const assignedAgent = useChatStore(state => 
+    selectedConversationId ? state.assignments[selectedConversationId] : null
+  );
+  
   // Check if the conversation is assigned to the current user
-  const isAssignedToCurrentUser = selectedConversation?.agentId === loggedInAgent.id;
-  const isUnassigned = selectedConversation?.agentName === 'Unassigned' || !selectedConversation?.agentId;
-  const isAssignedToOtherAgent = selectedConversation?.agentId && selectedConversation?.agentId !== loggedInAgent.id;
+  const isAssignedToCurrentUser = assignedAgent?.id === loggedInAgent.id;
+  const isUnassigned = !assignedAgent;
+  const isAssignedToOtherAgent = assignedAgent && assignedAgent.id !== loggedInAgent.id;
   
   const messageInputDisabled = !isAssignedToCurrentUser;
   const messageInputDisabledReason = isUnassigned 
     ? "This conversation is not assigned to any agent. Please assign it to yourself first."
     : isAssignedToOtherAgent 
-    ? `This conversation is assigned to ${selectedConversation?.agentName}. Only the assigned agent can send messages.`
+    ? `This conversation is assigned to ${assignedAgent?.name}. Only the assigned agent can send messages.`
     : "You cannot send messages to this conversation.";
 
   // Debug assignment status
   console.log('🔍 Assignment Status:', {
     selectedConversationId,
-    agentId: selectedConversation?.agentId,
-    agentName: selectedConversation?.agentName,
+    assignedAgent,
+    loggedInAgent: loggedInAgent,
     loggedInAgentId: loggedInAgent.id,
     isAssignedToCurrentUser,
     isUnassigned,
@@ -118,8 +123,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     if (messageInputDisabled) {
       console.log('🔍 Cannot send message - conversation not assigned to current user:', { 
         selectedConversationId, 
-        agentId: selectedConversation?.agentId, 
-        agentName: selectedConversation?.agentName,
+        assignedAgent,
         loggedInAgentId: loggedInAgent.id,
         isUnassigned,
         isAssignedToOtherAgent,

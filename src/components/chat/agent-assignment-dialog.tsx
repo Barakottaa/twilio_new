@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useChatStore } from '@/store/chat-store';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface AgentAssignmentDialogProps {
   open: boolean;
@@ -25,6 +26,13 @@ interface AgentAssignmentDialogProps {
   conversationId: string;
   currentAgentId?: string;
   onAgentAssigned?: (conversationId: string, agentId: string) => void;
+}
+
+interface Agent {
+  id: string;
+  username: string;
+  role: string;
+  permissions: any;
 }
 
 export function AgentAssignmentDialog({
@@ -36,15 +44,39 @@ export function AgentAssignmentDialog({
 }: AgentAssignmentDialogProps) {
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
+  const [loadingAgents, setLoadingAgents] = useState(false);
   const { toast } = useToast();
   const { setAssignment } = useChatStore();
 
-  // Available agents (you can expand this to fetch from an API)
-  const availableAgents = [
-    { id: 'admin_001', name: 'Admin' },
-    { id: 'agent_001', name: 'Agent 1' },
-    { id: 'agent_002', name: 'Agent 2' },
-  ];
+  // Fetch agents from database when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchAgents();
+    }
+  }, [open]);
+
+  const fetchAgents = async () => {
+    setLoadingAgents(true);
+    try {
+      const response = await fetch('/api/agents');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableAgents(data.agents || []);
+      } else {
+        throw new Error('Failed to fetch agents');
+      }
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load agents",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingAgents(false);
+    }
+  };
 
   const handleAssign = async () => {
     if (!selectedAgentId) {
@@ -61,7 +93,12 @@ export function AgentAssignmentDialog({
       // Update the store optimistically
       const selectedAgent = availableAgents.find(a => a.id === selectedAgentId);
       if (selectedAgent) {
-        setAssignment(conversationId, selectedAgent);
+        console.log('🔍 Assigning agent:', { 
+          conversationId, 
+          selectedAgent, 
+          assignment: { id: selectedAgent.id, name: selectedAgent.username } 
+        });
+        setAssignment(conversationId, { id: selectedAgent.id, name: selectedAgent.username });
       }
 
       // Call the API to assign the agent
@@ -152,18 +189,25 @@ export function AgentAssignmentDialog({
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium">Select Agent</label>
-            <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Choose an agent..." />
-              </SelectTrigger>
-              <SelectContent>
-                {availableAgents.map((agent) => (
-                  <SelectItem key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {loadingAgents ? (
+              <div className="flex items-center justify-center p-4">
+                <LoadingSpinner size="sm" />
+                <span className="ml-2 text-sm text-gray-600">Loading agents...</span>
+              </div>
+            ) : (
+              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Choose an agent..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableAgents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.username} ({agent.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
