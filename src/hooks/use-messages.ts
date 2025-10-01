@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Message } from '@/types';
 import { useChatStore } from '@/store/chat-store';
 
@@ -20,8 +20,17 @@ export function useMessages(conversationId?: string): UseMessagesResult {
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // Create a stable selector to avoid infinite loops
+  const selector = useMemo(
+    () => (state: any) => {
+      if (!conversationId) return [];
+      return state.messages[conversationId] || [];
+    },
+    [conversationId]
+  );
+  
   // Get real-time messages from the store
-  const storeMessages = useChatStore(state => conversationId ? state.messages[conversationId] || [] : []);
+  const storeMessages = useChatStore(selector);
 
   const fetchMessages = useCallback(async (before?: string, append = false) => {
     if (!conversationId) return;
@@ -108,10 +117,15 @@ export function useMessages(conversationId?: string): UseMessagesResult {
         // Merge real-time messages with existing messages
         const existingMessageIds = new Set(prev.map(m => m.id));
         const newRealtimeMessages = storeMessages.filter(m => !existingMessageIds.has(m.id));
-        return [...prev, ...newRealtimeMessages];
+        
+        // Only update if there are actually new messages
+        if (newRealtimeMessages.length > 0) {
+          return [...prev, ...newRealtimeMessages];
+        }
+        return prev;
       });
     }
-  }, [conversationId, storeMessages]);
+  }, [conversationId, storeMessages.length]); // Only depend on length to avoid infinite loops
 
   return {
     messages,

@@ -59,6 +59,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   
   appendMessage: (conversationId, message) => set((state) => {
     const currentMessages = state.messages[conversationId] || [];
+    
+    // Check if message already exists to prevent duplicates
+    const messageExists = currentMessages.some(m => m.id === message.id);
+    if (messageExists) {
+      return state; // No change needed
+    }
+    
     const updatedMessages = [...currentMessages, message];
     
     // Update last message preview for the conversation
@@ -76,10 +83,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   
   appendManyMessages: (conversationId, newMessages) => set((state) => {
     const currentMessages = state.messages[conversationId] || [];
-    const updatedMessages = [...currentMessages, ...newMessages];
+    
+    // Filter out messages that already exist
+    const existingMessageIds = new Set(currentMessages.map(m => m.id));
+    const uniqueNewMessages = newMessages.filter(m => !existingMessageIds.has(m.id));
+    
+    if (uniqueNewMessages.length === 0) {
+      return state; // No new messages to add
+    }
+    
+    const updatedMessages = [...currentMessages, ...uniqueNewMessages];
     
     // Update last message preview with the newest message
-    const lastMessage = newMessages[newMessages.length - 1];
+    const lastMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
     const updatedConversations = state.conversations.map(conv => 
       conv.id === conversationId && lastMessage
         ? { ...conv, lastMessagePreview: lastMessage.text || '[Media]', updatedAt: lastMessage.timestamp }
