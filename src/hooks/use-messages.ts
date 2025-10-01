@@ -23,7 +23,7 @@ export function useMessages(conversationId?: string): UseMessagesResult {
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // Select store actions
+  // Select store actions - bring them into scope
   const setMessages = useChatStore((s) => s.setMessages);
   const clearConversation = useChatStore((s) => s.clearConversation);
   
@@ -66,7 +66,7 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       
       console.log('🔍 Setting messages:', { count: data.messages.length, append, firstMessage: data.messages[0] });
       
-      // Update the store with fetched messages
+      // Update the store with fetched messages - REPLACE array reference, don't mutate
       if (append) {
         // For loading older messages, prepend to existing messages
         const existingMessages = messages;
@@ -86,7 +86,7 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [conversationId]);
+  }, [conversationId, setMessages]);
 
   const loadOlder = useCallback(() => {
     if (hasMore && nextBefore && !isLoadingMore) {
@@ -106,7 +106,7 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       setNextBefore(null);
       setHasMore(true);
     }
-  }, [conversationId, fetchMessages, setMessages, clearConversation]);
+  }, [conversationId, fetchMessages, setMessages]);
 
   // Real-time messages are now handled by the chat store directly
   // This hook only manages fetched messages from the API
