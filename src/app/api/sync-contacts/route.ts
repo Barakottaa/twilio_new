@@ -38,12 +38,22 @@ export async function POST() {
         });
         
         if (customerParticipant) {
-          // Extract phone number from messaging binding
-          let phoneNumber = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '');
+          // Extract phone number from multiple sources
+          let phoneNumber = '';
+          let waId = '';
           
-          // If no phone from messaging binding, try to extract from identity
+          // Try messagingBinding.address first
+          if (customerParticipant.messagingBinding?.address) {
+            phoneNumber = customerParticipant.messagingBinding.address.replace('whatsapp:', '');
+          }
+          
+          // Try messagingBinding.proxy_address
+          if (!phoneNumber && customerParticipant.messagingBinding?.proxy_address) {
+            phoneNumber = customerParticipant.messagingBinding.proxy_address.replace('whatsapp:', '');
+          }
+          
+          // Try identity
           if (!phoneNumber && customerParticipant.identity) {
-            // Identity might be in format like "whatsapp:+1234567890"
             if (customerParticipant.identity.startsWith('whatsapp:')) {
               phoneNumber = customerParticipant.identity.replace('whatsapp:', '');
             } else if (customerParticipant.identity.startsWith('+')) {
@@ -52,18 +62,25 @@ export async function POST() {
           }
           
           // Extract WhatsApp ID (without country code)
-          let waId = customerParticipant.messagingBinding?.proxy_address?.replace('whatsapp:', '');
-          if (!waId && customerParticipant.identity) {
-            // Try to extract from identity
+          if (customerParticipant.messagingBinding?.proxy_address) {
+            waId = customerParticipant.messagingBinding.proxy_address.replace('whatsapp:', '');
+          } else if (customerParticipant.identity) {
             const identityPhone = customerParticipant.identity.replace('whatsapp:', '').replace('+', '');
             waId = identityPhone;
           }
           
-          console.log('🔍 Processing conversation:', conv.sid, 'Participant:', {
+          console.log('🔍 Processing conversation:', conv.sid);
+          console.log('📱 Participant data:', {
             identity: customerParticipant.identity,
             messagingBinding: customerParticipant.messagingBinding,
-            extractedPhone: phoneNumber,
-            waId: waId
+            attributes: customerParticipant.attributes
+          });
+          console.log('📞 Extracted data:', {
+            phoneNumber,
+            waId,
+            phoneFromAddress: customerParticipant.messagingBinding?.address?.replace('whatsapp:', ''),
+            phoneFromProxy: customerParticipant.messagingBinding?.proxy_address?.replace('whatsapp:', ''),
+            phoneFromIdentity: customerParticipant.identity?.replace('whatsapp:', '')
           });
           
           if (phoneNumber || waId) {

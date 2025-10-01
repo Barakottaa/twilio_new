@@ -239,6 +239,40 @@ export default function ContactsPage() {
     }
   };
 
+  const handleDebugParticipants = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/debug-participants');
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Show debug info in console and toast
+        console.log('🔍 Debug Participants Result:', result);
+        
+        toast({
+          title: "Debug Participants",
+          description: `Found ${result.totalConversations} conversations. Check console for details.`,
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Debug Failed",
+          description: error.error || "Failed to debug participants",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to debug participants",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditContact = (contact: Customer) => {
     setEditingContact(contact);
     setNewContact({
@@ -435,6 +469,14 @@ export default function ContactsPage() {
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Clear All Contacts
+          </Button>
+          <Button 
+            variant="secondary" 
+            onClick={handleDebugParticipants}
+            disabled={isLoading}
+          >
+            <Search className="w-4 h-4 mr-2" />
+            Debug Participants
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
