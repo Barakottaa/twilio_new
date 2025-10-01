@@ -46,6 +46,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   console.log('🔍 OptimizedChatLayout - messages:', messages);
   console.log('🔍 OptimizedChatLayout - messagesLoading:', messagesLoading);
 
+  // Get the selected conversation from the store
+  const selectedConversation = useChatStore(state => 
+    state.conversations.find(conv => conv.id === selectedConversationId)
+  );
+
   // Check if the conversation is assigned to the current user
   const isAssignedToCurrentUser = selectedConversation?.agentId === loggedInAgent.id;
   const isUnassigned = selectedConversation?.agentName === 'Unassigned' || !selectedConversation?.agentId;
@@ -151,10 +156,6 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       });
     }
   };
-
-  const selectedConversation = useChatStore(state => 
-    state.conversations.find(conv => conv.id === selectedConversationId)
-  );
 
   // Debug logging
   useEffect(() => {
