@@ -43,6 +43,9 @@ export async function GET() {
             phoneFromAddress: customerParticipant.messagingBinding?.address?.replace('whatsapp:', ''),
             phoneFromProxy: customerParticipant.messagingBinding?.proxy_address?.replace('whatsapp:', ''),
             phoneFromIdentity: customerParticipant.identity?.replace('whatsapp:', ''),
+            // Raw data for debugging
+            rawMessagingBinding: customerParticipant.messagingBinding,
+            rawAttributes: customerParticipant.attributes
           } : null,
           agentParticipant: agentParticipant ? {
             identity: agentParticipant.identity,
@@ -51,7 +54,10 @@ export async function GET() {
           allParticipants: participants.map(p => ({
             identity: p.identity,
             messagingBinding: p.messagingBinding,
-            attributes: p.attributes
+            attributes: p.attributes,
+            // Show all messagingBinding properties
+            messagingBindingKeys: p.messagingBinding ? Object.keys(p.messagingBinding) : [],
+            messagingBindingValues: p.messagingBinding ? Object.values(p.messagingBinding) : []
           }))
         });
       } catch (error) {
