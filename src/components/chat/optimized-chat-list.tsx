@@ -43,8 +43,8 @@ interface OptimizedChatListProps {
 }
 
 export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
-  const { 
-    conversations, 
+  const {
+    conversations,
     selectedConversationId, 
     setSelectedConversation,
     setConversations,
@@ -52,7 +52,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     error 
   } = useChatStore();
   
-  const [localConversations, setLocalConversations] = useState<ConversationItem[]>([]);
+  // Use conversations from store instead of local state
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -94,11 +94,9 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           console.log('🔍 Lite API data:', data);
           
           if (cursor) {
-            const newConversations = [...localConversations, ...data.items];
-            setLocalConversations(newConversations);
+            const newConversations = [...conversations, ...data.items];
             setConversations(newConversations);
           } else {
-            setLocalConversations(data.items);
             setConversations(data.items);
             // Auto-select the first conversation if none is selected
             if (data.items.length > 0 && !selectedConversationId) {
@@ -144,11 +142,9 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         }));
         
         if (cursor) {
-          const newConversations = [...localConversations, ...convertedItems];
-          setLocalConversations(newConversations);
+          const newConversations = [...conversations, ...convertedItems];
           setConversations(newConversations);
         } else {
-          setLocalConversations(convertedItems);
           setConversations(convertedItems);
           // Auto-select the first conversation if none is selected
           if (convertedItems.length > 0 && !selectedConversationId) {
@@ -175,7 +171,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
   };
 
-  if ((isLoading || isInitialLoad) && localConversations.length === 0) {
+  if ((isLoading || isInitialLoad) && conversations.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center space-y-2">
@@ -197,7 +193,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto">
-        {(conversations.length > 0 ? conversations : localConversations).map((conversation) => (
+        {conversations.map((conversation) => (
           <div
             key={conversation.id}
             className={`w-full p-3 mb-1 rounded-lg border transition-colors cursor-pointer ${
@@ -301,7 +297,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           </div>
         ))}
         
-        {hasMore && (conversations.length > 0 ? conversations : localConversations).length > 0 && (
+        {hasMore && conversations.length > 0 && (
           <div className="p-4 text-center">
             <Button 
               variant="outline" 
