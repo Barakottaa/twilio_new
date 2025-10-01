@@ -47,6 +47,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     conversations, 
     selectedConversationId, 
     setSelectedConversation,
+    setConversations,
     isLoading,
     error 
   } = useChatStore();
@@ -93,9 +94,12 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           console.log('🔍 Lite API data:', data);
           
           if (cursor) {
-            setLocalConversations(prev => [...prev, ...data.items]);
+            const newConversations = [...localConversations, ...data.items];
+            setLocalConversations(newConversations);
+            setConversations(newConversations);
           } else {
             setLocalConversations(data.items);
+            setConversations(data.items);
             // Auto-select the first conversation if none is selected
             if (data.items.length > 0 && !selectedConversationId) {
               console.log('🔍 Auto-selecting first conversation:', data.items[0].id);
@@ -140,9 +144,12 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         }));
         
         if (cursor) {
-          setLocalConversations(prev => [...prev, ...convertedItems]);
+          const newConversations = [...localConversations, ...convertedItems];
+          setLocalConversations(newConversations);
+          setConversations(newConversations);
         } else {
           setLocalConversations(convertedItems);
+          setConversations(convertedItems);
           // Auto-select the first conversation if none is selected
           if (convertedItems.length > 0 && !selectedConversationId) {
             console.log('🔍 Auto-selecting first conversation (fallback):', convertedItems[0].id);

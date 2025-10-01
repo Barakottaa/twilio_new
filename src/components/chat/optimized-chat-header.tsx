@@ -74,8 +74,11 @@ export function OptimizedChatHeader({
   // If we still have no id and no store data, show skeleton
   const hasAnyData = id || title !== 'Unknown Contact';
   console.log('🔍 OptimizedChatHeader - conversation:', conversation);
-  console.log('🔍 OptimizedChatHeader - conversation type:', typeof conversation);
-  console.log('🔍 OptimizedChatHeader - conversation keys:', conversation ? Object.keys(conversation) : 'null');
+  console.log('🔍 OptimizedChatHeader - conversationId:', conversationId);
+  console.log('🔍 OptimizedChatHeader - convFromStore:', convFromStore);
+  console.log('🔍 OptimizedChatHeader - title:', title);
+  console.log('🔍 OptimizedChatHeader - hasAnyData:', hasAnyData);
+  console.log('🔍 OptimizedChatHeader - all store conversations:', useChatStore.getState().conversations);
   
   if (!hasAnyData) {
     return (
