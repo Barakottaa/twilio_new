@@ -21,8 +21,7 @@ import {
   Edit,
   Trash2,
   Send,
-  RefreshCw,
-  UserPlus
+  RefreshCw
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -239,105 +238,6 @@ export default function ContactsPage() {
   };
 
 
-  const handleTestNewContact = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Generate a random phone number for testing
-      const randomPhone = `+201${Math.floor(Math.random() * 1000000000)}`;
-      const testName = `Test User ${Math.floor(Math.random() * 1000)}`;
-      const testMessage = `Hello! This is a test message from ${testName}`;
-      
-      const response = await fetch('/api/test-new-contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phoneNumber: randomPhone,
-          name: testName,
-          message: testMessage
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        toast({
-          title: "Test Contact Created",
-          description: `Created test conversation with ${testName} (${randomPhone})`,
-        });
-        
-        // Refresh contacts after a short delay to see the new contact
-        setTimeout(() => {
-          fetchContacts();
-        }, 2000);
-        
-      } else {
-        const error = await response.json();
-        toast({
-          title: "Test Failed",
-          description: error.error || "Failed to create test contact",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error creating test contact:', error);
-      toast({
-        title: "Test Failed",
-        description: "Failed to create test contact",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCleanupTestData = async () => {
-    try {
-      setIsLoading(true);
-      
-      const response = await fetch('/api/cleanup-test-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        toast({
-          title: "Test Data Cleaned",
-          description: result.summary,
-        });
-        
-        // Refresh contacts and conversations after cleanup
-        setTimeout(() => {
-          fetchContacts();
-          // Also refresh the page to update conversation list
-          window.location.reload();
-        }, 1000);
-        
-      } else {
-        const error = await response.json();
-        toast({
-          title: "Cleanup Failed",
-          description: error.error || "Failed to cleanup test data",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error cleaning up test data:', error);
-      toast({
-        title: "Cleanup Failed",
-        description: "Failed to cleanup test data",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleEditContact = (contact: Customer) => {
     setEditingContact(contact);
@@ -532,22 +432,6 @@ export default function ContactsPage() {
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Clear All Contacts
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleTestNewContact}
-            disabled={isLoading}
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Test New Contact
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleCleanupTestData}
-            disabled={isLoading}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Cleanup Test Data
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
