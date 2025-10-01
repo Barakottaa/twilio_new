@@ -199,13 +199,53 @@ export default function ContactsPage() {
     }
   };
 
+  const handleClearContacts = async () => {
+    if (!confirm('Are you sure you want to clear ALL contacts? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/clear-contacts', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Clear contacts list
+        setContacts([]);
+        
+        toast({
+          title: "Contacts Cleared",
+          description: result.message,
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Clear Failed",
+          description: error.error || "Failed to clear contacts",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to clear contacts",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditContact = (contact: Customer) => {
     setEditingContact(contact);
     setNewContact({
-      name: contact.name,
-      phoneNumber: contact.phoneNumber,
-      email: contact.email,
-      lastSeen: contact.lastSeen
+      name: contact.name || '',
+      phoneNumber: contact.phoneNumber || '',
+      email: contact.email || '',
+      lastSeen: contact.lastSeen || new Date().toISOString()
     });
   };
 
@@ -388,6 +428,14 @@ export default function ContactsPage() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Sync from WhatsApp
           </Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleClearContacts}
+            disabled={isLoading}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All Contacts
+          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -404,7 +452,7 @@ export default function ContactsPage() {
                   <Label htmlFor="name">Name</Label>
                   <Input
                     id="name"
-                    value={newContact.name}
+                    value={newContact.name || ''}
                     onChange={(e) => setNewContact(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Contact name"
                   />
@@ -413,7 +461,7 @@ export default function ContactsPage() {
                   <Label htmlFor="phone">Phone Number</Label>
                   <Input
                     id="phone"
-                    value={newContact.phoneNumber}
+                    value={newContact.phoneNumber || ''}
                     onChange={(e) => setNewContact(prev => ({ ...prev, phoneNumber: e.target.value }))}
                     placeholder="+1234567890"
                   />
@@ -423,7 +471,7 @@ export default function ContactsPage() {
                   <Input
                     id="email"
                     type="email"
-                    value={newContact.email}
+                    value={newContact.email || ''}
                     onChange={(e) => setNewContact(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="contact@example.com"
                   />
@@ -577,7 +625,7 @@ export default function ContactsPage() {
               <Label htmlFor="edit-name">Name</Label>
               <Input
                 id="edit-name"
-                value={newContact.name}
+                value={newContact.name || ''}
                 onChange={(e) => setNewContact(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Contact name"
               />
@@ -586,7 +634,7 @@ export default function ContactsPage() {
               <Label htmlFor="edit-phone">Phone Number</Label>
               <Input
                 id="edit-phone"
-                value={newContact.phoneNumber}
+                value={newContact.phoneNumber || ''}
                 onChange={(e) => setNewContact(prev => ({ ...prev, phoneNumber: e.target.value }))}
                 placeholder="+1234567890"
               />
@@ -596,7 +644,7 @@ export default function ContactsPage() {
               <Input
                 id="edit-email"
                 type="email"
-                value={newContact.email}
+                value={newContact.email || ''}
                 onChange={(e) => setNewContact(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="contact@example.com"
               />

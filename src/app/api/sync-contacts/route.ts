@@ -38,14 +38,51 @@ export async function POST() {
         });
         
         if (customerParticipant) {
-          // Extract phone number
-          const phoneNumber = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '');
+          // Extract phone number from messaging binding
+          let phoneNumber = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '');
           
-          if (phoneNumber) {
-            console.log('🔍 Processing conversation:', conv.sid, 'Phone:', phoneNumber);
+          // If no phone from messaging binding, try to extract from identity
+          if (!phoneNumber && customerParticipant.identity) {
+            // Identity might be in format like "whatsapp:+1234567890"
+            if (customerParticipant.identity.startsWith('whatsapp:')) {
+              phoneNumber = customerParticipant.identity.replace('whatsapp:', '');
+            } else if (customerParticipant.identity.startsWith('+')) {
+              phoneNumber = customerParticipant.identity;
+            }
+          }
+          
+          // Extract WhatsApp ID (without country code)
+          let waId = customerParticipant.messagingBinding?.proxy_address?.replace('whatsapp:', '');
+          if (!waId && customerParticipant.identity) {
+            // Try to extract from identity
+            const identityPhone = customerParticipant.identity.replace('whatsapp:', '').replace('+', '');
+            waId = identityPhone;
+          }
+          
+          console.log('🔍 Processing conversation:', conv.sid, 'Participant:', {
+            identity: customerParticipant.identity,
+            messagingBinding: customerParticipant.messagingBinding,
+            extractedPhone: phoneNumber,
+            waId: waId
+          });
+          
+          if (phoneNumber || waId) {
             
-            // Check if contact already exists
-            const existingContact = await db.findContactByPhone(phoneNumber);
+            // Check if contact already exists by phone number or WhatsApp ID
+            let existingContact = null;
+            if (phoneNumber) {
+              existingContact = await db.findContactByPhone(phoneNumber);
+            }
+            
+            // If not found by phone, try to find by WhatsApp ID in notes or tags
+            if (!existingContact && waId) {
+              const allContacts = await db.getAllContacts();
+              existingContact = allContacts.find(contact => 
+                contact.notes?.includes(waId) || 
+                contact.tags?.includes(waId) ||
+                contact.phoneNumber?.includes(waId)
+              );
+            }
             
             if (!existingContact) {
               // Create new contact
@@ -64,27 +101,52 @@ export async function POST() {
                 console.log('Could not parse participant attributes:', error);
               }
               
-              // Create contact
+              // Use phone number if available, otherwise use WhatsApp ID
+              const contactPhone = phoneNumber || (waId ? `+${waId}` : '');
+              
+              // Create contact with WhatsApp ID in notes for tracking
               const newContact = await autoCreateOrUpdateContact({
-                phoneNumber,
+                phoneNumber: contactPhone,
                 name: contactName,
-                waId: phoneNumber.replace('+', ''),
+                waId: waId || contactPhone.replace('+', ''),
                 profileName: profileName || contactName
               });
               
               if (newContact) {
+                // Add WhatsApp ID to notes for future reference
+                if (waId && newContact.id) {
+                  await db.updateContact(newContact.id, {
+                    notes: `WhatsApp ID: ${waId}`,
+                    tags: ['whatsapp', 'auto-created']
+                  });
+                }
+                
                 results.contactsCreated++;
-                console.log('✅ Created contact:', newContact.name, 'for phone:', phoneNumber);
+                console.log('✅ Created contact:', newContact.name, 'for phone:', contactPhone, 'waId:', waId);
               } else {
-                results.errors.push(`Failed to create contact for phone: ${phoneNumber}`);
+                results.errors.push(`Failed to create contact for phone: ${contactPhone}, waId: ${waId}`);
               }
             } else {
-              // Update existing contact's last seen
-              await db.updateContact(existingContact.id, {
+              // Update existing contact's last seen and phone number if missing
+              const updateData: any = {
                 lastSeen: new Date().toISOString()
-              });
+              };
+              
+              // Update phone number if it was missing
+              if (!existingContact.phoneNumber && phoneNumber) {
+                updateData.phoneNumber = phoneNumber;
+              }
+              
+              // Add WhatsApp ID to notes if not already there
+              if (waId && (!existingContact.notes || !existingContact.notes.includes(waId))) {
+                updateData.notes = existingContact.notes ? 
+                  `${existingContact.notes}\nWhatsApp ID: ${waId}` : 
+                  `WhatsApp ID: ${waId}`;
+              }
+              
+              await db.updateContact(existingContact.id, updateData);
               results.contactsUpdated++;
-              console.log('✅ Updated contact:', existingContact.name, 'for phone:', phoneNumber);
+              console.log('✅ Updated contact:', existingContact.name, 'for phone:', phoneNumber, 'waId:', waId);
             }
           } else {
             results.errors.push(`No phone number found for conversation: ${conv.sid}`);
