@@ -112,6 +112,46 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     });
   }, [toast]);
 
+  const handleDeleteConversation = useCallback(async (conversationId: string) => {
+    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/twilio/conversations/${conversationId}/delete`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete conversation');
+      }
+
+      // Remove from store
+      const { setConversations, setSelectedConversation } = useChatStore.getState();
+      const currentConversations = useChatStore.getState().conversations;
+      const updatedConversations = currentConversations.filter(conv => conv.id !== conversationId);
+      setConversations(updatedConversations);
+
+      // Clear selection if this was the selected conversation
+      if (selectedConversationId === conversationId) {
+        setSelectedConversation(null);
+      }
+
+      toast({
+        title: "Conversation Deleted",
+        description: "The conversation has been deleted successfully.",
+      });
+
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete conversation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [toast, selectedConversationId]);
+
   // Initialize real-time messages
   useRealtimeMessages({
     chats: [], // Not needed with new store
@@ -266,14 +306,15 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         {selectedConversationId ? (
           <>
             {/* Chat Header */}
-            <OptimizedChatHeader 
-              conversationId={selectedConversationId || undefined}
-              conversation={selectedConversation ?? undefined}
-              onRefresh={refreshMessages}
-              onAssignAgent={handleAssignAgent}
-              onToggleStatus={handleToggleStatus}
-              onChangePriority={handleChangePriority}
-            />
+                   <OptimizedChatHeader
+                     conversationId={selectedConversationId || undefined}
+                     conversation={selectedConversation ?? undefined}
+                     onRefresh={refreshMessages}
+                     onAssignAgent={handleAssignAgent}
+                     onToggleStatus={handleToggleStatus}
+                     onChangePriority={handleChangePriority}
+                     onDeleteConversation={handleDeleteConversation}
+                   />
 
             {/* Messages Area - Scroll handled by VirtualMessageList */}
             <div className="flex-1">

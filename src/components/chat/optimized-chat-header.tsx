@@ -11,7 +11,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle } from 'lucide-react';
+import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle, Trash2 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ContactDialog } from './contact-dialog';
@@ -42,6 +42,7 @@ interface OptimizedChatHeaderProps {
   onAssignAgent?: (conversationId: string) => void;
   onToggleStatus?: (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => void;
   onChangePriority?: (conversationId: string, newPriority: 'low' | 'medium' | 'high') => void;
+  onDeleteConversation?: (conversationId: string) => void;
 }
 
 export function OptimizedChatHeader({ 
@@ -50,7 +51,8 @@ export function OptimizedChatHeader({
   onRefresh, 
   onAssignAgent, 
   onToggleStatus, 
-  onChangePriority 
+  onChangePriority,
+  onDeleteConversation
 }: OptimizedChatHeaderProps) {
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [showAgentDialog, setShowAgentDialog] = useState(false);
@@ -203,12 +205,22 @@ export function OptimizedChatHeader({
                 View Contact Details
               </DropdownMenuItem>
               
-              <DropdownMenuItem>
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Clear Chat History
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                     <DropdownMenuItem>
+                       <MessageSquare className="h-4 w-4 mr-2" />
+                       Clear Chat History
+                     </DropdownMenuItem>
+                     
+                     {onDeleteConversation && (
+                       <DropdownMenuItem 
+                         onClick={() => onDeleteConversation(id)}
+                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                       >
+                         <Trash2 className="h-4 w-4 mr-2" />
+                         Delete Conversation
+                       </DropdownMenuItem>
+                     )}
+                   </DropdownMenuContent>
+                 </DropdownMenu>
         </div>
       </div>
       
