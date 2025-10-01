@@ -45,7 +45,8 @@ export function useMessages(conversationId?: string): UseMessagesResult {
         setIsLoadingMore(true);
       } else {
         setIsLoading(true);
-        setMessages([]);
+        // Clear just this conversation before fetching
+        setMessages(conversationId, []);
       }
       setError(null);
       
@@ -70,8 +71,9 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       // Update the store with fetched messages - REPLACE array reference, don't mutate
       if (append) {
         // For loading older messages, prepend to existing messages
-        const existingMessages = messages;
-        const mergedMessages = [...data.messages, ...existingMessages];
+        // Read from store directly to avoid stale closure
+        const current = useChatStore.getState().messages[conversationId] ?? [];
+        const mergedMessages = [...data.messages, ...current];
         setMessages(conversationId, mergedMessages);
       } else {
         // For initial load, set messages directly
