@@ -154,9 +154,6 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
 
   // Initialize real-time messages
   useRealtimeMessages({
-    chats: [], // Not needed with new store
-    setChats: () => {}, // Not needed with new store
-    setSelectedChat: () => {}, // Not needed with new store
     loggedInAgentId: loggedInAgent.id
   });
 

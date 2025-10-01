@@ -36,13 +36,10 @@ interface RealtimeConversationData {
 }
 
 interface UseRealtimeMessagesProps {
-  chats: Chat[];
-  setChats: React.Dispatch<React.SetStateAction<Chat[]>>;
-  setSelectedChat: (chat: Chat | null) => void;
   loggedInAgentId?: string;
 }
 
-export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedInAgentId }: UseRealtimeMessagesProps) {
+export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProps) {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -179,6 +176,29 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
         addContact(phoneNumber, messageData.profileName, avatar);
         console.log('✅ New contact added to memory mapping');
       });
+      
+      // Also create contact in database
+      try {
+        const response = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: messageData.profileName,
+            phoneNumber: phoneNumber
+          }),
+        });
+        
+        if (response.ok) {
+          const contact = await response.json();
+          console.log('✅ New contact created in database:', contact.id);
+        } else {
+          console.log('⚠️ Failed to create contact in database:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error creating contact in database:', error);
+      }
     }
     
     const newMessage: Message = {
@@ -228,30 +248,30 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
     }
 
     try {
-      // Fetch the full conversation details from the API
-      const response = await fetch(`/api/twilio/conversations?agentId=${loggedInAgentId}&limit=1&conversationId=${conversationData.conversationSid}`);
+      // Fetch the full conversation details from the API using the lite endpoint
+      const response = await fetch(`/api/twilio/conversations?lite=1&limit=1&conversationId=${conversationData.conversationSid}`);
       const data = await response.json();
       
-      if (data.success && data.conversations && data.conversations.length > 0) {
-        const newConversation = data.conversations[0];
+      if (data.success && data.items && data.items.length > 0) {
+        const newConversation = data.items[0];
         
-        // Check if conversation already exists to avoid duplicates
-        const conversationExists = chats.some(chat => chat.id === newConversation.id);
-        
-        if (!conversationExists) {
-          console.log('✅ Adding new conversation to store:', newConversation.id);
+        // Add the new conversation to the store
+        import('@/store/chat-store').then(({ useChatStore }) => {
+          const store = useChatStore.getState();
+          const currentConversations = store.conversations;
           
-          // Add the new conversation to the store
-          import('@/store/chat-store').then(({ useChatStore }) => {
-            const store = useChatStore.getState();
-            const currentConversations = store.conversations;
+          // Check if conversation already exists to avoid duplicates
+          const conversationExists = currentConversations.some(conv => conv.id === newConversation.id);
+          
+          if (!conversationExists) {
+            console.log('✅ Adding new conversation to store:', newConversation.id);
             const updatedConversations = [newConversation, ...currentConversations];
             store.setConversations(updatedConversations);
             console.log('✅ New conversation added to store');
-          });
-        } else {
-          console.log('ℹ️ Conversation already exists in store:', newConversation.id);
-        }
+          } else {
+            console.log('ℹ️ Conversation already exists in store:', newConversation.id);
+          }
+        });
       } else {
         console.log('⚠️ Failed to fetch new conversation details:', data.error);
       }
