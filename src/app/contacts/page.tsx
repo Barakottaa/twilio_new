@@ -61,35 +61,36 @@ export default function ContactsPage() {
     lastSeen: new Date().toISOString()
   });
 
-  // Fetch contacts from API with a small delay to show loading state
-  useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        // Add a small delay to ensure loading state is visible
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const response = await fetch('/api/contacts');
-        if (response.ok) {
-          const data = await response.json();
-          setContacts(data);
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to fetch contacts",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
+  // Fetch contacts function
+  const fetchContacts = async () => {
+    try {
+      // Add a small delay to ensure loading state is visible
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const response = await fetch('/api/contacts');
+      if (response.ok) {
+        const data = await response.json();
+        setContacts(data);
+      } else {
         toast({
           title: "Error",
           description: "Failed to fetch contacts",
           variant: "destructive",
         });
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch contacts",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Fetch contacts from API with a small delay to show loading state
+  useEffect(() => {
     fetchContacts();
   }, [toast]);
 
