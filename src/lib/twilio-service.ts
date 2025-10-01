@@ -118,18 +118,21 @@ export async function listConversationsLite(limit = 30, after?: string) {
       
       // First, check if there's an assignment in our database
       try {
-        const { getDatabase } = await import('@/lib/database-config');
-        const db = await getDatabase();
-        const dbConversation = await db.getConversation(c.sid);
-        
-        if (dbConversation && dbConversation.agent_id) {
-          // Get agent details from database
-          const agent = await db.getAgent(dbConversation.agent_id);
-          if (agent) {
-            agentId = agent.id;
-            agentName = agent.username;
-            agentStatus = 'online';
-            console.log('🔍 Found database assignment:', { conversationId: c.sid, agentId, agentName });
+        // Only import database on server side
+        if (typeof window === 'undefined') {
+          const { getDatabase } = await import('@/lib/database-config');
+          const db = await getDatabase();
+          const dbConversation = await db.getConversation(c.sid);
+          
+          if (dbConversation && dbConversation.agent_id) {
+            // Get agent details from database
+            const agent = await db.getAgent(dbConversation.agent_id);
+            if (agent) {
+              agentId = agent.id;
+              agentName = agent.username;
+              agentStatus = 'online';
+              console.log('🔍 Found database assignment:', { conversationId: c.sid, agentId, agentName });
+            }
           }
         }
       } catch (error) {

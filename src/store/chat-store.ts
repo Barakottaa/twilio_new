@@ -165,31 +165,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   
         setMe: (agent) => set({ me: agent }),
 
-        // Load assignments from database
+        // Load assignments from database via API
         loadAssignmentsFromDatabase: async () => {
           try {
-            const { getDatabase } = await import('@/lib/database-config');
-            const db = await getDatabase();
-            const conversations = await db.getAllConversations();
-            
-            const assignments: Record<string, { id: string; name: string } | null> = {};
-            const statuses: Record<string, "open" | "closed"> = {};
-            
-            for (const conv of conversations) {
-              if (conv.agent_id) {
-                const agent = await db.getAgent(conv.agent_id);
-                if (agent) {
-                  assignments[conv.id] = { id: agent.id, name: agent.username };
-                }
-              } else {
-                assignments[conv.id] = null;
-              }
-              
-              statuses[conv.id] = conv.status === 'closed' ? 'closed' : 'open';
+            const response = await fetch('/api/assignments');
+            if (response.ok) {
+              const data = await response.json();
+              set({ assignments: data.assignments, statuses: data.statuses });
+              console.log('🔍 Loaded assignments from database:', { assignments: data.assignments, statuses: data.statuses });
+            } else {
+              console.error('Failed to load assignments from database');
             }
-            
-            set({ assignments, statuses });
-            console.log('🔍 Loaded assignments from database:', { assignments, statuses });
           } catch (error) {
             console.error('Error loading assignments from database:', error);
           }
