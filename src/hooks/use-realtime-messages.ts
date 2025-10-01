@@ -143,7 +143,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     };
   }, []);
 
-  const handleNewMessage = (messageData: RealtimeMessageData) => {
+  const handleNewMessage = async (messageData: RealtimeMessageData) => {
     console.log('🔄 Processing new message:', messageData);
     
     // Fix message direction logic to match the main service
