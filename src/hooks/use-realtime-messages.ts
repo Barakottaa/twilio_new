@@ -211,10 +211,12 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
       mediaCaption: newMessage.mediaCaption
     });
 
-    // Use batched updates for better performance
-    messageBatcher.enqueue(messageData.conversationSid, newMessage);
-    
-    console.log('📝 Message queued for batched update:', newMessage.id);
+    // Use the new store system for message updates
+    import('@/store/chat-store').then(({ useChatStore }) => {
+      const store = useChatStore.getState();
+      store.appendMessage(messageData.conversationSid, newMessage);
+      console.log('📝 Message added to store:', newMessage.id);
+    });
   };
 
   const handleNewConversation = async (conversationData: RealtimeConversationData) => {
@@ -237,15 +239,18 @@ export function useRealtimeMessages({ chats, setChats, setSelectedChat, loggedIn
         const conversationExists = chats.some(chat => chat.id === newConversation.id);
         
         if (!conversationExists) {
-          console.log('✅ Adding new conversation to UI:', newConversation.id);
+          console.log('✅ Adding new conversation to store:', newConversation.id);
           
-          // Add the new conversation to the beginning of the chats list
-          setChats(prevChats => [newConversation, ...prevChats]);
-          
-          // Optionally auto-select the new conversation
-          setSelectedChat(newConversation);
+          // Add the new conversation to the store
+          import('@/store/chat-store').then(({ useChatStore }) => {
+            const store = useChatStore.getState();
+            const currentConversations = store.conversations;
+            const updatedConversations = [newConversation, ...currentConversations];
+            store.setConversations(updatedConversations);
+            console.log('✅ New conversation added to store');
+          });
         } else {
-          console.log('ℹ️ Conversation already exists in UI:', newConversation.id);
+          console.log('ℹ️ Conversation already exists in store:', newConversation.id);
         }
       } else {
         console.log('⚠️ Failed to fetch new conversation details:', data.error);

@@ -112,13 +112,13 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     });
   }, [toast]);
 
-  // Initialize real-time messages - temporarily disabled to test page refresh issue
-  // useRealtimeMessages({
-  //   chats: [], // Not needed with new store
-  //   setChats: () => {}, // Not needed with new store
-  //   setSelectedChat: () => {}, // Not needed with new store
-  //   loggedInAgentId: loggedInAgent.id
-  // });
+  // Initialize real-time messages
+  useRealtimeMessages({
+    chats: [], // Not needed with new store
+    setChats: () => {}, // Not needed with new store
+    setSelectedChat: () => {}, // Not needed with new store
+    loggedInAgentId: loggedInAgent.id
+  });
 
   const handleSendMessage = async (text: string) => {
     console.log('🔍 handleSendMessage called with:', { text, selectedConversationId });
@@ -171,13 +171,20 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       const result = await response.json();
       console.log('🔍 Message sent successfully:', result);
       
-      toast({
-        title: "Message sent",
-        description: "Your message has been sent successfully.",
-      });
+      // Add the message to the store immediately for instant UI update
+      const { appendMessage, setConversations } = useChatStore.getState();
+      const newMessage = {
+        id: result.messageId || `temp-${Date.now()}`,
+        text: text.trim(),
+        timestamp: new Date().toISOString(),
+        sender: 'agent' as const,
+        senderId: loggedInAgent.id,
+        conversationId: selectedConversationId
+      };
+      
+      appendMessage(selectedConversationId, newMessage);
       
       // Update the conversation list with the new last message
-      const { setConversations } = useChatStore.getState();
       const currentConversations = useChatStore.getState().conversations;
       const updatedConversations = currentConversations.map(conv => 
         conv.id === selectedConversationId 
@@ -185,6 +192,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
           : conv
       );
       setConversations(updatedConversations);
+      
+      toast({
+        title: "Message sent",
+        description: "Your message has been sent successfully.",
+      });
       
     } catch (error) {
       console.error('Error sending message:', error);
