@@ -31,6 +31,7 @@ export function useMessages(conversationId?: string): UseMessagesResult {
   const messages = useChatStore(
     (state) => {
       if (!conversationId) return EMPTY_MESSAGES;
+      // assuming you store messages under a per-conversation map
       return state.messages[conversationId] ?? EMPTY_MESSAGES;
     },
     shallow
@@ -103,10 +104,11 @@ export function useMessages(conversationId?: string): UseMessagesResult {
     if (conversationId) {
       fetchMessages();
     } else {
+      // safest: just reset paging flags and skip resetting messages list
       setNextBefore(null);
       setHasMore(true);
     }
-  }, [conversationId, fetchMessages, setMessages]);
+  }, [conversationId, fetchMessages]);
 
   // Real-time messages are now handled by the chat store directly
   // This hook only manages fetched messages from the API

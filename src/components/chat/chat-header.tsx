@@ -1,173 +1,160 @@
-'use client';
-import { useState } from 'react';
-import type { Agent, Chat } from '@/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { MoreVertical, Users, Phone, Mail, Clock, Settings, Tag } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { ReassignAgentDialog } from './reassign-agent-dialog';
-import { ContactDialog } from './contact-dialog';
-import { ConversationManagementDialog } from './conversation-management-dialog';
-import { ConnectionStatus } from '@/components/connection-status';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { PriorityBadge } from '@/components/ui/priority-badge';
-import { AgentStatus } from '@/components/ui/agent-status';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+"use client";
 
-interface ChatHeaderProps {
-      chat: Chat;
-      agents: Agent[];
-      onReassignAgent: (newAgentId: string) => void;
-      onUpdateChat: (updatedChat: Chat) => void;
+import { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { useChatStore } from "@/store/chat-store";
+
+type Agent = { id: string; name: string };
+
+type ChatHeaderProps = {
+  conversationId: string;
+  contactName: string | null | undefined;
+  assignedTo?: Agent | null;
+  status: "open" | "closed";
+  agents?: Agent[]; // optional list for menu
+};
+
+export default function ChatHeader({
+  conversationId,
+  contactName,
+  assignedTo,
+  status,
+  agents = [],
+}: ChatHeaderProps) {
+  const me = useChatStore((s) => s.me);
+  const setAssignment = useChatStore((s) => s.setAssignment);
+  const setStatus = useChatStore((s) => s.setStatus);
+
+  const [busy, setBusy] = useState<null | "assign" | "status">(null);
+  const isOpen = status === "open";
+
+  const assignMenu: Agent[] = useMemo(() => {
+    const base: Agent[] = [];
+    if (me) base.push({ id: me.id, name: `${me.name} (me)` });
+    for (const a of agents) {
+      if (!me || a.id !== me.id) base.push(a);
     }
+    base.push({ id: "", name: "Unassign" } as Agent);
+    return base;
+  }, [agents, me]);
 
-// Helper function to get initials from any name format
-function getInitials(name: string): string {
-  console.log('🔤 Getting initials for name:', name);
-  
-  if (!name || name === "Anonymous") {
-    console.log('🔤 Returning AN for anonymous/empty name');
-    return "AN";
+  async function assign(agent: Agent | null) {
+    if (busy) return;
+    setBusy("assign");
+    const prev = assignedTo ?? null;
+
+    // optimistic
+    setAssignment(conversationId, agent);
+
+    try {
+      const res = await fetch(`/api/chats/${conversationId}/assign`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId: agent?.id ?? null }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    } catch (err) {
+      setAssignment(conversationId, prev); // rollback
+      console.error(err);
+      // TODO replace alert with your toast
+      alert("Failed to change assignment");
+    } finally {
+      setBusy(null);
+    }
   }
-  
-  // If it's a phone number format like "+20 15 5700 0970", extract numbers
-  if (name.match(/^\+\d/)) {
-    const numbers = name.replace(/\D/g, ''); // Remove all non-digits
-    const result = numbers.slice(-2); // Take last 2 digits
-    console.log('🔤 Phone number detected, returning:', result);
-    return result;
+
+  async function toggleStatus() {
+    if (busy) return;
+    setBusy("status");
+    const prev = status;
+    const next = isOpen ? "closed" : "open";
+
+    // optimistic
+    setStatus(conversationId, next as "open" | "closed");
+
+    try {
+      const res = await fetch(`/api/chats/${conversationId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    } catch (err) {
+      setStatus(conversationId, prev); // rollback
+      console.error(err);
+      alert("Failed to change status");
+    } finally {
+      setBusy(null);
+    }
   }
-  
-  // For regular names, take first 2 characters
-  const result = name.substring(0, 2).toUpperCase();
-  console.log('🔤 Regular name detected, returning:', result);
-  return result;
-}
 
-    export function ChatHeader({ chat, agents, onReassignAgent, onUpdateChat }: ChatHeaderProps) {
-      const [isReassignDialogOpen, setReassignDialogOpen] = useState(false);
-      const [isContactDialogOpen, setContactDialogOpen] = useState(false);
-      const [isManagementDialogOpen, setManagementDialogOpen] = useState(false);
-      const customerName = chat.customer?.name || "Anonymous";
-  
-  console.log('👤 ChatHeader - customerName:', customerName);
-  console.log('👤 ChatHeader - chat.customer:', chat.customer);
-
-  const handleViewContact = () => {
-    setContactDialogOpen(true);
-  };
-
-  const handleClearChat = () => {
-    // TODO: Implement clear chat functionality
-    console.log('Clear chat for:', chat.id);
-  };
-
-      const handleBlockContact = () => {
-        // TODO: Implement block contact functionality
-        console.log('Block contact:', chat.customer.id);
-      };
-
-      const handleManageConversation = () => {
-        setManagementDialogOpen(true);
-      };
+  const displayName = (contactName ?? "").trim() || "Unknown Contact";
 
   return (
-    <>
-      <div className="flex items-center justify-between p-3 border-b bg-card">
+    <div className="border-b bg-card p-4">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              {/* Temporarily disabled avatar image to force fallback */}
-              {/* <AvatarImage src={chat.customer?.avatar} alt={customerName} data-ai-hint="person face"/> */}
-              <AvatarFallback>{getInitials(customerName)}</AvatarFallback>
-            </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-semibold">{customerName}</p>
-                  <div className="flex items-center gap-1">
-                    <StatusBadge status={chat.status} />
-                    <PriorityBadge priority={chat.priority} />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>Assigned to: {chat.agent.name}</span>
-                  <AgentStatus status={chat.agent.status} />
-                  <ConnectionStatus />
-                </div>
-            {/* Contact Information */}
-            <div className="flex items-center gap-3 mt-1">
-              {chat.customer.phoneNumber && (
-                <div className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  <span className="text-xs">{chat.customer.phoneNumber}</span>
-                </div>
-              )}
-              {chat.customer.email && (
-                <div className="flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  <span className="text-xs">{chat.customer.email}</span>
-                </div>
-              )}
-              {chat.customer.lastSeen && (
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span className="text-xs">Last seen: {formatDistanceToNow(new Date(chat.customer.lastSeen), { addSuffix: true })}</span>
-                </div>
-              )}
+          <div className="h-10 w-10 rounded-full bg-gray-200" />
+          <div>
+            <div className="text-sm font-medium text-gray-900">{displayName}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {assignedTo ? `Assigned to ${assignedTo.name}` : "Unassigned"} ·{" "}
+              <span className={isOpen ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                {status}
+              </span>
             </div>
           </div>
         </div>
-            <div className="flex items-center gap-2">
-               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => setReassignDialogOpen(true)}>
-                 <Users className="h-5 w-5" />
-                 <span className="sr-only">Reassign Agent</span>
-               </Button>
-               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={handleManageConversation}>
-                 <Settings className="h-5 w-5" />
-                 <span className="sr-only">Manage Conversation</span>
-               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                    <MoreVertical className="h-5 w-5" />
-                    <span className="sr-only">More options</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleViewContact}>View contact</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleManageConversation}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Manage conversation
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleClearChat}>Clear chat</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleBlockContact} className="text-destructive focus:text-destructive">Block contact</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+
+        <div className="flex items-center gap-2">
+          {/* Assignment menu */}
+          <div className="relative">
+            <button
+              type="button"
+              disabled={busy === "assign" || assignMenu.length === 0}
+              className="inline-flex items-center rounded-xl border px-3 py-1.5 text-sm shadow-sm disabled:opacity-50"
+              onClick={(e) => {
+                const el = (e.currentTarget.nextSibling as HTMLDivElement) || null;
+                if (el) el.classList.toggle("hidden");
+              }}
+            >
+              {assignedTo ? `Assigned: ${assignedTo.name}` : "Assign"}
+              <ChevronDown className="ml-1 h-4 w-4" />
+            </button>
+            <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border bg-white shadow-lg hidden">
+              <ul className="max-h-64 overflow-auto py-1 text-sm">
+                {assignMenu.map((a) => (
+                  <li key={a.id || "unassign"}>
+                    <button
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                      onClick={async (e) => {
+                        (e.currentTarget.closest("div") as HTMLDivElement)?.classList.add("hidden");
+                        await assign(a.id ? { id: a.id, name: a.name.replace(" (me)", "") } : null);
+                      }}
+                    >
+                      {a.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
+          </div>
+
+          {/* Status toggle */}
+          <button
+            type="button"
+            disabled={busy === "status"}
+            onClick={toggleStatus}
+            className={`rounded-xl px-3 py-1.5 text-sm shadow-sm border disabled:opacity-50 ${
+              isOpen
+                ? "bg-green-50 border-green-200 hover:bg-green-100"
+                : "bg-red-50 border-red-200 hover:bg-red-100"
+            }`}
+          >
+            {isOpen ? "Mark Closed" : "Reopen"}
+          </button>
+        </div>
       </div>
-      <ReassignAgentDialog
-        open={isReassignDialogOpen}
-        onOpenChange={setReassignDialogOpen}
-        chat={chat}
-        agents={agents}
-        onReassign={onReassignAgent}
-      />
-          <ContactDialog
-            open={isContactDialogOpen}
-            onOpenChange={setContactDialogOpen}
-            chat={chat}
-          />
-          <ConversationManagementDialog
-            open={isManagementDialogOpen}
-            onOpenChange={setManagementDialogOpen}
-            chat={chat}
-            agents={agents}
-            onUpdate={onUpdateChat}
-          />
-        </>
-      );
-    }
+    </div>
+  );
+}

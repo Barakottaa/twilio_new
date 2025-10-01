@@ -25,6 +25,13 @@ interface ChatState {
   selectedConversationId: string | null;
   isLoading: boolean;
   error: string | null;
+  
+  // assignment & status for the header
+  assignments: Record<string, { id: string; name: string } | null>;
+  statuses: Record<string, "open" | "closed">;
+  
+  // Optional: current logged-in agent
+  me: { id: string; name: string } | null;
 }
 
 interface ChatActions {
@@ -38,6 +45,11 @@ interface ChatActions {
   setError: (error: string | null) => void;
   clearMessages: (conversationId: string) => void;
   clearConversation: (conversationId: string) => void;
+  
+  // assignment & status actions
+  setAssignment: (conversationId: string, agent: { id: string; name: string } | null) => void;
+  setStatus: (conversationId: string, status: "open" | "closed") => void;
+  setMe: (agent: { id: string; name: string } | null) => void;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -49,6 +61,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   selectedConversationId: null,
   isLoading: false,
   error: null,
+  
+  // assignment & status initial state
+  assignments: {},
+  statuses: {},
+  me: null,
 
   // Actions
   setConversations: (conversations) => set({ conversations }),
@@ -134,7 +151,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   
   clearConversation: (conversationId) => set((state) => ({
     messages: { ...state.messages, [conversationId]: [] }
-  }))
+  })),
+  
+  // assignment & status actions
+  setAssignment: (conversationId, agent) => set((state) => ({
+    assignments: { ...state.assignments, [conversationId]: agent }
+  })),
+  
+  setStatus: (conversationId, status) => set((state) => ({
+    statuses: { ...state.statuses, [conversationId]: status }
+  })),
+  
+  setMe: (agent) => set({ me: agent })
 }));
 
 // Batched update utility
