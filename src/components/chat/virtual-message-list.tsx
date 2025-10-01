@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { Message } from '@/types';
 import { MessageBubble } from './message-bubble';
@@ -23,8 +24,17 @@ export function VirtualMessageList({
   className = ''
 }: VirtualMessageListProps) {
   
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
   console.log('🔍 VirtualMessageList render:', { messagesCount: messages.length, isLoading, firstMessage: messages[0] });
   console.log('🔍 VirtualMessageList - all messages:', messages);
+  
+  // Auto-scroll to bottom when messages change (but not when loading more)
+  useEffect(() => {
+    if (messages.length > 0 && !isLoadingMore) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length, isLoadingMore]);
   
   if (isLoading) {
     return (
@@ -60,6 +70,8 @@ export function VirtualMessageList({
             <LoadingSpinner size="sm" />
           </div>
         )}
+        {/* Auto-scroll target */}
+        <div ref={messagesEndRef} />
       </div>
     </div>
   );

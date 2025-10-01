@@ -58,12 +58,35 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     if (!selectedConversationId || !text.trim()) return;
     
     try {
-      // TODO: Implement message sending
       console.log('Sending message:', text, 'to conversation:', selectedConversationId);
+      
+      // Call the send message API
+      const response = await fetch(`/api/twilio/conversations/${selectedConversationId}/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: text.trim(),
+          author: loggedInAgent.id
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+      
+      const result = await response.json();
+      console.log('Message sent successfully:', result);
+      
       toast({
         title: "Message sent",
         description: "Your message has been sent successfully.",
       });
+      
+      // Refresh messages to show the new message
+      refreshMessages();
+      
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -161,7 +184,6 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
             <div className="border-t bg-card p-4">
               <MessageInput
                 onSendMessage={handleSendMessage}
-                disabled={messagesLoading}
               />
             </div>
           </>

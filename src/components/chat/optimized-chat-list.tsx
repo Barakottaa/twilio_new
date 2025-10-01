@@ -33,9 +33,10 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   } = useChatStore();
   
   const [localConversations, setLocalConversations] = useState<ConversationItem[]>([]);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load initial conversations
   useEffect(() => {
@@ -52,6 +53,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     try {
       if (cursor) {
         setIsLoadingMore(true);
+      } else {
+        setIsInitialLoad(true);
       }
       
       // Try the new optimized API first
@@ -74,10 +77,15 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
             setLocalConversations(prev => [...prev, ...data.items]);
           } else {
             setLocalConversations(data.items);
+            // Auto-select the first conversation if none is selected
+            if (data.items.length > 0 && !selectedConversationId) {
+              console.log('🔍 Auto-selecting first conversation:', data.items[0].id);
+              setSelectedConversation(data.items[0].id);
+            }
           }
           
           setNextCursor(data.nextCursor);
-          setHasMore(data.hasMore);
+          setHasMore(!!data.nextCursor);
           return;
         }
       } catch (apiError) {
@@ -116,6 +124,11 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           setLocalConversations(prev => [...prev, ...convertedItems]);
         } else {
           setLocalConversations(convertedItems);
+          // Auto-select the first conversation if none is selected
+          if (convertedItems.length > 0 && !selectedConversationId) {
+            console.log('🔍 Auto-selecting first conversation (fallback):', convertedItems[0].id);
+            setSelectedConversation(convertedItems[0].id);
+          }
         }
         
         setNextCursor(null); // Old API doesn't support pagination
@@ -126,6 +139,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       console.error('Error loading conversations:', err);
     } finally {
       setIsLoadingMore(false);
+      setIsInitialLoad(false);
     }
   };
 
@@ -135,10 +149,13 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
   };
 
-  if (isLoading && localConversations.length === 0) {
+  if ((isLoading || isInitialLoad) && localConversations.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <LoadingSpinner size="lg" />
+        <div className="flex flex-col items-center space-y-2">
+          <LoadingSpinner size="lg" />
+          <p className="text-sm text-gray-600">Loading conversations...</p>
+        </div>
       </div>
     );
   }
@@ -199,7 +216,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           </Button>
         ))}
         
-        {hasMore && (
+        {hasMore && localConversations.length > 0 && (
           <div className="p-4 text-center">
             <Button 
               variant="outline" 
