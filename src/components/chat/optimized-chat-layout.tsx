@@ -31,7 +31,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   
   const { toast } = useToast();
   
-  // Use the new messages hook for the selected conversation
+  // Use the messages hook for both fetching and real-time updates
   const {
     messages,
     isLoading: messagesLoading,
