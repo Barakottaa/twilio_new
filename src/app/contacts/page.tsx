@@ -20,7 +20,8 @@ import {
   MessageSquare,
   Edit,
   Trash2,
-  Send
+  Send,
+  RefreshCw
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -155,6 +156,46 @@ export default function ContactsPage() {
           variant: "destructive",
         });
       }
+    }
+  };
+
+  const handleSyncContacts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/sync-contacts', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Refresh contacts list
+        const contactsResponse = await fetch('/api/contacts');
+        if (contactsResponse.ok) {
+          const updatedContacts = await contactsResponse.json();
+          setContacts(updatedContacts);
+        }
+        
+        toast({
+          title: "Sync Completed",
+          description: result.message,
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Sync Failed",
+          description: error.error || "Failed to sync contacts",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sync contacts",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -339,6 +380,14 @@ export default function ContactsPage() {
           <Badge variant="secondary" className="text-sm">
             {filteredAndSortedContacts.length} contacts
           </Badge>
+          <Button 
+            variant="outline" 
+            onClick={handleSyncContacts}
+            disabled={isLoading}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Sync from WhatsApp
+          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
