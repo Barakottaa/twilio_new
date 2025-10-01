@@ -80,10 +80,13 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   });
 
   const handleSendMessage = async (text: string) => {
-    if (!selectedConversationId || !text.trim()) return;
+    if (!selectedConversationId || !text.trim()) {
+      console.log('🔍 Cannot send message - missing conversationId or text:', { selectedConversationId, text });
+      return;
+    }
     
     try {
-      console.log('Sending message:', text, 'to conversation:', selectedConversationId);
+      console.log('🔍 Sending message:', text, 'to conversation:', selectedConversationId);
       
       // Call the send message API
       const response = await fetch(`/api/twilio/conversations/${selectedConversationId}/message`, {
@@ -97,12 +100,16 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         })
       });
       
+      console.log('🔍 Message API response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        const errorText = await response.text();
+        console.error('🔍 Message API error:', errorText);
+        throw new Error(`Failed to send message: ${response.status} ${errorText}`);
       }
       
       const result = await response.json();
-      console.log('Message sent successfully:', result);
+      console.log('🔍 Message sent successfully:', result);
       
       toast({
         title: "Message sent",
@@ -128,8 +135,9 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
 
   // Debug logging
   useEffect(() => {
-    console.log('OptimizedChatLayout - selectedConversationId:', selectedConversationId);
-    console.log('OptimizedChatLayout - selectedConversation:', selectedConversation);
+    console.log('🔍 OptimizedChatLayout - selectedConversationId:', selectedConversationId);
+    console.log('🔍 OptimizedChatLayout - selectedConversation:', selectedConversation);
+    console.log('🔍 OptimizedChatLayout - all conversations:', useChatStore.getState().conversations);
   }, [selectedConversationId, selectedConversation]);
 
   if (isLoading) {

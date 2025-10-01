@@ -47,6 +47,10 @@ export function OptimizedChatHeader({
   onToggleStatus, 
   onChangePriority 
 }: OptimizedChatHeaderProps) {
+  console.log('🔍 OptimizedChatHeader - conversation:', conversation);
+  console.log('🔍 OptimizedChatHeader - conversation type:', typeof conversation);
+  console.log('🔍 OptimizedChatHeader - conversation keys:', conversation ? Object.keys(conversation) : 'null');
+  
   if (!conversation) {
     return (
       <div className="border-b bg-card p-4">
