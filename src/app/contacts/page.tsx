@@ -39,6 +39,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Customer[]>([]);
@@ -59,10 +60,13 @@ export default function ContactsPage() {
     lastSeen: new Date().toISOString()
   });
 
-  // Fetch contacts from API
+  // Fetch contacts from API with a small delay to show loading state
   useEffect(() => {
     const fetchContacts = async () => {
       try {
+        // Add a small delay to ensure loading state is visible
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const response = await fetch('/api/contacts');
         if (response.ok) {
           const data = await response.json();
@@ -295,6 +299,33 @@ export default function ContactsPage() {
     if (diffInMinutes < 1440) return { text: `${Math.floor(diffInMinutes / 60)}h ago`, color: 'text-yellow-500' };
     return { text: `${Math.floor(diffInMinutes / 1440)}d ago`, color: 'text-gray-500' };
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Contacts</h1>
+            <p className="text-muted-foreground">Manage customer contact information</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              Loading...
+            </Badge>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center space-y-4">
+            <LoadingSpinner size="lg" />
+            <p className="text-sm text-muted-foreground">Loading contacts...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">

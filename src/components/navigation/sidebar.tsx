@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   Home,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import type { Agent } from '@/types';
 
@@ -68,6 +69,7 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(true); // Start collapsed
   const [isHovered, setIsHovered] = useState(false);
   const [clickedItem, setClickedItem] = useState<string | null>(null);
+  const [loadingItem, setLoadingItem] = useState<string | null>(null);
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -139,14 +141,21 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
                 title={(isCollapsed && !isHovered) ? item.name : undefined}
                 onClick={() => {
                   setClickedItem(item.href);
+                  setLoadingItem(item.href);
                   // Reset clicked state after a short delay
                   setTimeout(() => setClickedItem(null), 150);
+                  // Reset loading state after navigation
+                  setTimeout(() => setLoadingItem(null), 1000);
                 }}
               >
-                <Icon className={cn(
-                  "h-4 w-4 flex-shrink-0 transition-transform duration-100",
-                  isClicked && "scale-110"
-                )} />
+                {loadingItem === item.href ? (
+                  <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+                ) : (
+                  <Icon className={cn(
+                    "h-4 w-4 flex-shrink-0 transition-transform duration-100",
+                    isClicked && "scale-110"
+                  )} />
+                )}
                 {(isHovered || !isCollapsed) && (
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-medium">{item.name}</span>

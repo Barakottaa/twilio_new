@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import type { Agent } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -52,10 +53,13 @@ export default function AgentsPage() {
     }
   });
 
-  // Fetch agents from API
+  // Fetch agents from API with a small delay to show loading state
   useEffect(() => {
     const fetchAgents = async () => {
       try {
+        // Add a small delay to ensure loading state is visible
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const response = await fetch('/api/agents');
         if (response.ok) {
           const data = await response.json();
@@ -171,6 +175,33 @@ export default function AgentsPage() {
       }
     }));
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Agents</h1>
+            <p className="text-muted-foreground">Manage your support team</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              Loading...
+            </Badge>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center space-y-4">
+            <LoadingSpinner size="lg" />
+            <p className="text-sm text-muted-foreground">Loading agents...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
