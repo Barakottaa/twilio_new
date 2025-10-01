@@ -293,6 +293,52 @@ export default function ContactsPage() {
     }
   };
 
+  const handleCleanupTestData = async () => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch('/api/cleanup-test-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        toast({
+          title: "Test Data Cleaned",
+          description: result.summary,
+        });
+        
+        // Refresh contacts and conversations after cleanup
+        setTimeout(() => {
+          fetchContacts();
+          // Also refresh the page to update conversation list
+          window.location.reload();
+        }, 1000);
+        
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Cleanup Failed",
+          description: error.error || "Failed to cleanup test data",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error cleaning up test data:', error);
+      toast({
+        title: "Cleanup Failed",
+        description: "Failed to cleanup test data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditContact = (contact: Customer) => {
     setEditingContact(contact);
     setNewContact({
@@ -494,6 +540,14 @@ export default function ContactsPage() {
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Test New Contact
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleCleanupTestData}
+            disabled={isLoading}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Cleanup Test Data
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
