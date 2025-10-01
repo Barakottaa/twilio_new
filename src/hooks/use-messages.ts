@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Message } from '@/types';
 import { useChatStore } from '@/store/chat-store';
+import { shallow } from 'zustand/shallow';
 
 interface UseMessagesResult {
   messages: Message[];
@@ -12,25 +13,28 @@ interface UseMessagesResult {
   error: string | null;
 }
 
+// Stable empty reference to avoid new snapshots every render
+const EMPTY_MESSAGES: Message[] = Object.freeze([]);
+
 export function useMessages(conversationId?: string): UseMessagesResult {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const conversationIdRef = useRef(conversationId);
   
-  // Update ref when conversationId changes
-  useEffect(() => {
-    conversationIdRef.current = conversationId;
-  }, [conversationId]);
+  // Select store actions
+  const setMessages = useChatStore((s) => s.setMessages);
+  const clearConversation = useChatStore((s) => s.clearConversation);
   
-  // Get messages directly from store with stable reference
-  const messages = useChatStore((state) => {
-    const currentId = conversationIdRef.current;
-    if (!currentId) return [];
-    return state.messages[currentId] || [];
-  });
+  // Messages selector that returns stable references
+  const messages = useChatStore(
+    (state) => {
+      if (!conversationId) return EMPTY_MESSAGES;
+      return state.messages[conversationId] ?? EMPTY_MESSAGES;
+    },
+    shallow
+  );
 
   const fetchMessages = useCallback(async (before?: string, append = false) => {
     if (!conversationId) return;
@@ -63,15 +67,14 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       console.log('🔍 Setting messages:', { count: data.messages.length, append, firstMessage: data.messages[0] });
       
       // Update the store with fetched messages
-      const store = useChatStore.getState();
       if (append) {
         // For loading older messages, prepend to existing messages
-        const existingMessages = store.messages[conversationId] || [];
+        const existingMessages = messages;
         const mergedMessages = [...data.messages, ...existingMessages];
-        store.setMessages(conversationId, mergedMessages);
+        setMessages(conversationId, mergedMessages);
       } else {
         // For initial load, set messages directly
-        store.setMessages(conversationId, data.messages);
+        setMessages(conversationId, data.messages);
       }
       
       setNextBefore(data.nextBefore);
@@ -103,7 +106,7 @@ export function useMessages(conversationId?: string): UseMessagesResult {
       setNextBefore(null);
       setHasMore(true);
     }
-  }, [conversationId, fetchMessages]);
+  }, [conversationId, fetchMessages, setMessages, clearConversation]);
 
   // Real-time messages are now handled by the chat store directly
   // This hook only manages fetched messages from the API

@@ -37,6 +37,7 @@ interface ChatActions {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearMessages: (conversationId: string) => void;
+  clearConversation: (conversationId: string) => void;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -129,7 +130,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   clearMessages: (conversationId) => set((state) => {
     const { [conversationId]: _, ...remainingMessages } = state.messages;
     return { messages: remainingMessages };
-  })
+  }),
+  
+  clearConversation: (conversationId) => set((state) => ({
+    messages: { ...state.messages, [conversationId]: [] }
+  }))
 }));
 
 // Batched update utility
