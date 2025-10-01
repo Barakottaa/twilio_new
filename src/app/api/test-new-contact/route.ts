@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { twilio } from 'twilio';
+import { createContact } from '@/lib/contacts-service';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,71 +12,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create a test conversation with a new contact
-    const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
-    
-    // Create a new conversation
-    const conversation = await client.conversations.v1.conversations.create({
-      friendlyName: `Test conversation with ${name}`,
-      attributes: JSON.stringify({
-        test: true,
-        created_by: 'test_endpoint'
-      })
+    console.log('🧪 Creating test contact:', { phoneNumber, name, message });
+
+    // Create contact directly in database (simpler approach)
+    const contact = await createContact({
+      name: name,
+      phoneNumber: phoneNumber,
+      notes: `Test contact created via test endpoint. Message: ${message}`
     });
 
-    console.log('✅ Created test conversation:', conversation.sid);
+    if (!contact) {
+      return NextResponse.json(
+        { error: 'Failed to create contact in database' },
+        { status: 500 }
+      );
+    }
 
-    // Add the customer participant
-    const customerParticipant = await client.conversations.v1
-      .conversations(conversation.sid)
-      .participants
-      .create({
-        'messagingBinding.address': `whatsapp:${phoneNumber}`,
-        'messagingBinding.proxyAddress': process.env.TWILIO_WHATSAPP_NUMBER,
-        attributes: JSON.stringify({
-          display_name: name,
-          phone_number: phoneNumber
-        })
-      });
-
-    console.log('✅ Added customer participant:', customerParticipant.sid);
-
-    // Add admin participant
-    const adminParticipant = await client.conversations.v1
-      .conversations(conversation.sid)
-      .participants
-      .create({
-        identity: 'admin_001',
-        attributes: JSON.stringify({
-          display_name: 'Admin',
-          role: 'agent'
-        })
-      });
-
-    console.log('✅ Added admin participant:', adminParticipant.sid);
-
-    // Send a message from the customer
-    const messageResponse = await client.conversations.v1
-      .conversations(conversation.sid)
-      .messages
-      .create({
-        author: customerParticipant.sid,
-        body: message,
-        attributes: JSON.stringify({
-          display_name: name,
-          phone_number: phoneNumber
-        })
-      });
-
-    console.log('✅ Sent test message:', messageResponse.sid);
+    console.log('✅ Created test contact:', contact.id);
 
     return NextResponse.json({
       success: true,
-      conversationSid: conversation.sid,
-      customerParticipantSid: customerParticipant.sid,
-      adminParticipantSid: adminParticipant.sid,
-      messageSid: messageResponse.sid,
-      message: `Test conversation created with ${name} (${phoneNumber})`
+      contact: contact,
+      message: `Test contact created: ${name} (${phoneNumber})`
     });
 
   } catch (error) {
