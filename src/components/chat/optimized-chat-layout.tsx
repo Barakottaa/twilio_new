@@ -54,11 +54,26 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   // Check if the conversation is assigned to the current user
   const isAssignedToCurrentUser = selectedConversation?.agentId === loggedInAgent.id;
   const isUnassigned = selectedConversation?.agentName === 'Unassigned' || !selectedConversation?.agentId;
+  const isAssignedToOtherAgent = selectedConversation?.agentId && selectedConversation?.agentId !== loggedInAgent.id;
   
   const messageInputDisabled = !isAssignedToCurrentUser;
   const messageInputDisabledReason = isUnassigned 
     ? "This conversation is not assigned to any agent. Please assign it to yourself first."
-    : `This conversation is assigned to ${selectedConversation?.agentName}. Only the assigned agent can send messages.`;
+    : isAssignedToOtherAgent 
+    ? `This conversation is assigned to ${selectedConversation?.agentName}. Only the assigned agent can send messages.`
+    : "You cannot send messages to this conversation.";
+
+  // Debug assignment status
+  console.log('🔍 Assignment Status:', {
+    selectedConversationId,
+    agentId: selectedConversation?.agentId,
+    agentName: selectedConversation?.agentName,
+    loggedInAgentId: loggedInAgent.id,
+    isAssignedToCurrentUser,
+    isUnassigned,
+    isAssignedToOtherAgent,
+    messageInputDisabled
+  });
 
   // Management functions
   const handleAssignAgent = useCallback((conversationId: string) => {
@@ -103,7 +118,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       console.log('🔍 Cannot send message - conversation not assigned to current user:', { 
         selectedConversationId, 
         agentId: selectedConversation?.agentId, 
-        loggedInAgentId: loggedInAgent.id 
+        agentName: selectedConversation?.agentName,
+        loggedInAgentId: loggedInAgent.id,
+        isUnassigned,
+        isAssignedToOtherAgent,
+        isAssignedToCurrentUser
       });
       toast({
         title: "Cannot send message",
