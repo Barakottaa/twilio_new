@@ -181,7 +181,7 @@ class SQLiteDatabaseService {
       avatar: result.avatar,
       lastSeen: result.last_seen,
       notes: result.notes,
-      tags: result.tags ? JSON.parse(result.tags) : [],
+      tags: result.tags && result.tags !== '[object Object]' ? JSON.parse(result.tags) : [],
       isActive: result.is_active === 1,
       createdAt: result.created_at,
       updatedAt: result.updated_at
@@ -206,7 +206,7 @@ class SQLiteDatabaseService {
       avatar: result.avatar,
       lastSeen: result.last_seen,
       notes: result.notes,
-      tags: result.tags ? JSON.parse(result.tags) : [],
+      tags: result.tags && result.tags !== '[object Object]' ? JSON.parse(result.tags) : [],
       isActive: result.is_active === 1,
       createdAt: result.created_at,
       updatedAt: result.updated_at
@@ -229,7 +229,7 @@ class SQLiteDatabaseService {
       avatar: row.avatar,
       lastSeen: row.last_seen,
       notes: row.notes,
-      tags: row.tags ? JSON.parse(row.tags) : [],
+      tags: row.tags && row.tags !== '[object Object]' ? JSON.parse(row.tags) : [],
       isActive: row.is_active === 1,
       createdAt: row.created_at,
       updatedAt: row.updated_at

@@ -12,7 +12,6 @@ export async function getAllContacts(): Promise<Customer[]> {
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
       phoneNumber: contact.phoneNumber,
-      email: contact.email,
       lastSeen: contact.lastSeen
     }));
   } catch (error) {
@@ -32,7 +31,6 @@ export async function getContactById(id: string): Promise<Customer | null> {
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
       phoneNumber: contact.phoneNumber,
-      email: contact.email,
       lastSeen: contact.lastSeen
     };
   } catch (error) {
@@ -44,7 +42,6 @@ export async function getContactById(id: string): Promise<Customer | null> {
 export async function createContact(data: {
   name: string;
   phoneNumber?: string;
-  email?: string;
   notes?: string;
   tags?: string[];
 }): Promise<Customer | null> {
@@ -53,7 +50,6 @@ export async function createContact(data: {
     const contact = await db.createContact({
       name: data.name,
       phoneNumber: data.phoneNumber,
-      email: data.email,
       notes: data.notes,
       tags: data.tags,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=10b981&color=ffffff&size=150`
@@ -64,7 +60,6 @@ export async function createContact(data: {
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
       phoneNumber: contact.phoneNumber,
-      email: contact.email,
       lastSeen: contact.lastSeen
     };
   } catch (error) {
@@ -76,7 +71,6 @@ export async function createContact(data: {
 export async function updateContact(id: string, data: {
   name?: string;
   phoneNumber?: string;
-  email?: string;
   notes?: string;
   tags?: string[];
 }): Promise<Customer | null> {
@@ -85,7 +79,6 @@ export async function updateContact(id: string, data: {
     const contact = await db.updateContact(id, {
       name: data.name,
       phoneNumber: data.phoneNumber,
-      email: data.email,
       notes: data.notes,
       tags: data.tags,
       avatar: data.name ? `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=10b981&color=ffffff&size=150` : undefined
@@ -98,7 +91,6 @@ export async function updateContact(id: string, data: {
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
       phoneNumber: contact.phoneNumber,
-      email: contact.email,
       lastSeen: contact.lastSeen
     };
   } catch (error) {
@@ -128,7 +120,6 @@ export async function findContactByPhone(phoneNumber: string): Promise<Customer 
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
       phoneNumber: contact.phoneNumber,
-      email: contact.email,
       lastSeen: contact.lastSeen
     };
   } catch (error) {

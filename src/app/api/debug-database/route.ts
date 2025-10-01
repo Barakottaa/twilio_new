@@ -29,7 +29,7 @@ export async function GET() {
       allContacts: allContacts.map(contact => ({
         id: contact.id,
         name: contact.name,
-        phoneNumber: contact.phoneNumber,
+        phoneNumber: contact.phone_number,
         email: contact.email,
         isActive: contact.is_active,
         createdAt: contact.created_at,
@@ -38,15 +38,14 @@ export async function GET() {
       activeContactsList: activeContacts.map(contact => ({
         id: contact.id,
         name: contact.name,
-        phoneNumber: contact.phoneNumber,
-        email: contact.email
+        phoneNumber: contact.phoneNumber
       }))
     });
     
   } catch (error) {
     console.error('Error debugging database:', error);
     return NextResponse.json(
-      { error: 'Failed to debug database', details: error.message },
+      { error: 'Failed to debug database', details: String(error) },
       { status: 500 }
     );
   }
