@@ -159,13 +159,13 @@ class SQLiteDatabaseService {
     `, [
       id,
       data.name,
-      data.phone_number || null,
+      data.phoneNumber || null,
       data.email || null,
       data.avatar || null,
-      data.last_seen || null,
+      data.lastSeen || null,
       data.notes || null,
       data.tags || null,
-      data.is_active || 1,
+      data.isActive !== false ? 1 : 0,
       now,
       now
     ]);
@@ -206,9 +206,9 @@ class SQLiteDatabaseService {
       updateFields.push('name = ?');
       values.push(data.name);
     }
-    if (data.phone_number !== undefined) {
+    if (data.phoneNumber !== undefined) {
       updateFields.push('phone_number = ?');
-      values.push(data.phone_number);
+      values.push(data.phoneNumber);
     }
     if (data.email !== undefined) {
       updateFields.push('email = ?');
@@ -218,9 +218,9 @@ class SQLiteDatabaseService {
       updateFields.push('avatar = ?');
       values.push(data.avatar);
     }
-    if (data.last_seen !== undefined) {
+    if (data.lastSeen !== undefined) {
       updateFields.push('last_seen = ?');
-      values.push(data.last_seen);
+      values.push(data.lastSeen);
     }
     if (data.notes !== undefined) {
       updateFields.push('notes = ?');
@@ -230,9 +230,9 @@ class SQLiteDatabaseService {
       updateFields.push('tags = ?');
       values.push(data.tags);
     }
-    if (data.is_active !== undefined) {
+    if (data.isActive !== undefined) {
       updateFields.push('is_active = ?');
-      values.push(data.is_active);
+      values.push(data.isActive ? 1 : 0);
     }
 
     if (updateFields.length === 0) {

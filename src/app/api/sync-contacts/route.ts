@@ -101,12 +101,21 @@ export async function POST() {
               }
               
               // Create contact with customer's phone number
+              console.log('🔍 Creating contact with data:', {
+                phoneNumber,
+                name: contactName,
+                waId,
+                profileName: profileName || contactName
+              });
+              
               const newContact = await autoCreateOrUpdateContact({
                 phoneNumber: phoneNumber,
                 name: contactName,
                 waId: waId,
                 profileName: profileName || contactName
               });
+              
+              console.log('🔍 Contact creation result:', newContact);
               
               if (newContact) {
                 // Add WhatsApp ID to notes for future reference
