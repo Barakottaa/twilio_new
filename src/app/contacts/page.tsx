@@ -21,7 +21,8 @@ import {
   Edit,
   Trash2,
   Send,
-  RefreshCw
+  RefreshCw,
+  UserPlus
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -270,6 +271,60 @@ export default function ContactsPage() {
     }
   };
 
+  const handleTestNewContact = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Generate a random phone number for testing
+      const randomPhone = `+201${Math.floor(Math.random() * 1000000000)}`;
+      const testName = `Test User ${Math.floor(Math.random() * 1000)}`;
+      const testMessage = `Hello! This is a test message from ${testName}`;
+      
+      const response = await fetch('/api/test-new-contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: randomPhone,
+          name: testName,
+          message: testMessage
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        toast({
+          title: "Test Contact Created",
+          description: `Created test conversation with ${testName} (${randomPhone})`,
+        });
+        
+        // Refresh contacts after a short delay to see the new contact
+        setTimeout(() => {
+          fetchContacts();
+        }, 2000);
+        
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Test Failed",
+          description: error.error || "Failed to create test contact",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating test contact:', error);
+      toast({
+        title: "Test Failed",
+        description: "Failed to create test contact",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEditContact = (contact: Customer) => {
     setEditingContact(contact);
     setNewContact({
@@ -464,13 +519,21 @@ export default function ContactsPage() {
             <Trash2 className="w-4 h-4 mr-2" />
             Clear All Contacts
           </Button>
-          <Button 
+          <Button
             variant="secondary" 
             onClick={handleDebugParticipants}
             disabled={isLoading}
           >
             <Search className="w-4 h-4 mr-2" />
             Debug Participants
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleTestNewContact}
+            disabled={isLoading}
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Test New Contact
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
