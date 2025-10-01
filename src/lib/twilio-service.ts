@@ -79,18 +79,36 @@ export async function listConversationsLite(limit = 30, after?: string) {
       let customerEmail = '';
       
       if (customerParticipant) {
-        // Try to get display name from attributes
-        try {
-          const attributes = customerParticipant.attributes ? 
-            JSON.parse(customerParticipant.attributes) : {};
-          customerName = attributes.display_name || 
-                        customerParticipant.identity || 
-                        'Unknown Customer';
-          customerPhone = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '') || '';
-          customerEmail = attributes.email || '';
-        } catch {
-          customerName = customerParticipant.identity || 'Unknown Customer';
-          customerPhone = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '') || '';
+        // Get phone number from messaging binding
+        customerPhone = customerParticipant.messagingBinding?.address?.replace('whatsapp:', '') || '';
+        
+        // Try to get contact from our database first
+        if (customerPhone) {
+          try {
+            const { findContactByPhone } = await import('@/lib/contacts-service');
+            const dbContact = await findContactByPhone(customerPhone);
+            if (dbContact) {
+              customerName = dbContact.name;
+              customerEmail = dbContact.email || '';
+              console.log('🔍 Found contact in database:', { phone: customerPhone, name: customerName });
+            }
+          } catch (error) {
+            console.log('🔍 Error looking up contact in database:', error);
+          }
+        }
+        
+        // Fallback to Twilio participant data if no database contact found
+        if (customerName === 'Unknown Customer') {
+          try {
+            const attributes = customerParticipant.attributes ? 
+              JSON.parse(customerParticipant.attributes) : {};
+            customerName = attributes.display_name || 
+                          customerParticipant.identity || 
+                          'Unknown Customer';
+            customerEmail = attributes.email || '';
+          } catch {
+            customerName = customerParticipant.identity || 'Unknown Customer';
+          }
         }
       }
       

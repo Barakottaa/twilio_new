@@ -14,6 +14,7 @@ import {
 import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PriorityBadge } from '@/components/ui/priority-badge';
+import { ContactDialog } from './contact-dialog';
 
 interface ConversationItem {
   id: string;
@@ -50,6 +51,8 @@ export function OptimizedChatHeader({
   onToggleStatus, 
   onChangePriority 
 }: OptimizedChatHeaderProps) {
+  const [showContactDialog, setShowContactDialog] = useState(false);
+  
   // Pull fallbacks from the store if props are missing
   const convFromStore = useChatStore(s => 
     conversationId ? s.conversations.find(c => c.id === conversationId) ?? null : null
@@ -64,6 +67,7 @@ export function OptimizedChatHeader({
   const priority = conversation?.priority ?? convFromStore?.priority;
   const agentName = conversation?.agentName ?? assigned?.name ?? 'Unassigned';
   const customerPhone = conversation?.customerPhone ?? convFromStore?.customerPhone;
+  const customerEmail = conversation?.customerEmail ?? convFromStore?.customerEmail;
   const lastMessagePreview = conversation?.lastMessagePreview ?? convFromStore?.lastMessagePreview ?? '';
   const unreadCount = conversation?.unreadCount ?? convFromStore?.unreadCount ?? 0;
 
@@ -191,7 +195,7 @@ export function OptimizedChatHeader({
                 </DropdownMenuItem>
               )}
               
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowContactDialog(true)}>
                 <User className="h-4 w-4 mr-2" />
                 View Contact Details
               </DropdownMenuItem>
@@ -204,6 +208,47 @@ export function OptimizedChatHeader({
           </DropdownMenu>
         </div>
       </div>
+      
+      {/* Contact Dialog */}
+      {showContactDialog && (
+        <ContactDialog
+          open={showContactDialog}
+          onOpenChange={setShowContactDialog}
+          chat={{
+            id: id,
+            customer: {
+              id: id,
+              name: title,
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random`,
+              phoneNumber: customerPhone,
+              email: customerEmail || '',
+              lastSeen: new Date().toISOString()
+            },
+            agent: {
+              id: assigned?.id || 'unassigned',
+              username: assigned?.name || 'Unassigned',
+              name: assigned?.name || 'Unassigned',
+              avatar: '',
+              role: 'agent' as const,
+              status: 'offline' as const,
+              permissions: {
+                dashboard: true,
+                agents: false,
+                contacts: true,
+                analytics: true,
+                settings: false
+              }
+            },
+            messages: [],
+            unreadCount: unreadCount,
+            status: status,
+            priority: priority || 'medium',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            notes: ''
+          }}
+        />
+      )}
     </div>
   );
 }

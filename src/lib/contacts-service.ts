@@ -11,9 +11,9 @@ export async function getAllContacts(): Promise<Customer[]> {
       id: contact.id,
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
-      phoneNumber: contact.phone_number,
+      phoneNumber: contact.phoneNumber,
       email: contact.email,
-      lastSeen: contact.last_seen
+      lastSeen: contact.lastSeen
     }));
   } catch (error) {
     console.error('Error fetching contacts:', error);
@@ -31,9 +31,9 @@ export async function getContactById(id: string): Promise<Customer | null> {
       id: contact.id,
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
-      phoneNumber: contact.phone_number,
+      phoneNumber: contact.phoneNumber,
       email: contact.email,
-      lastSeen: contact.last_seen
+      lastSeen: contact.lastSeen
     };
   } catch (error) {
     console.error('Error fetching contact:', error);
@@ -52,10 +52,10 @@ export async function createContact(data: {
     const db = await getDatabase();
     const contact = await db.createContact({
       name: data.name,
-      phone_number: data.phoneNumber,
+      phoneNumber: data.phoneNumber,
       email: data.email,
       notes: data.notes,
-      tags: data.tags ? data.tags.join(',') : undefined,
+      tags: data.tags,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=10b981&color=ffffff&size=150`
     });
 
@@ -63,9 +63,9 @@ export async function createContact(data: {
       id: contact.id,
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
-      phoneNumber: contact.phone_number,
+      phoneNumber: contact.phoneNumber,
       email: contact.email,
-      lastSeen: contact.last_seen
+      lastSeen: contact.lastSeen
     };
   } catch (error) {
     console.error('Error creating contact:', error);
@@ -84,10 +84,10 @@ export async function updateContact(id: string, data: {
     const db = await getDatabase();
     const contact = await db.updateContact(id, {
       name: data.name,
-      phone_number: data.phoneNumber,
+      phoneNumber: data.phoneNumber,
       email: data.email,
       notes: data.notes,
-      tags: data.tags ? data.tags.join(',') : undefined,
+      tags: data.tags,
       avatar: data.name ? `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=10b981&color=ffffff&size=150` : undefined
     });
 
@@ -97,9 +97,9 @@ export async function updateContact(id: string, data: {
       id: contact.id,
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
-      phoneNumber: contact.phone_number,
+      phoneNumber: contact.phoneNumber,
       email: contact.email,
-      lastSeen: contact.last_seen
+      lastSeen: contact.lastSeen
     };
   } catch (error) {
     console.error('Error updating contact:', error);
@@ -127,9 +127,9 @@ export async function findContactByPhone(phoneNumber: string): Promise<Customer 
       id: contact.id,
       name: contact.name,
       avatar: contact.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=10b981&color=ffffff&size=150`,
-      phoneNumber: contact.phone_number,
+      phoneNumber: contact.phoneNumber,
       email: contact.email,
-      lastSeen: contact.last_seen
+      lastSeen: contact.lastSeen
     };
   } catch (error) {
     console.error('Error finding contact by phone:', error);
@@ -154,7 +154,7 @@ export async function autoCreateOrUpdateContact(data: {
       // Update existing contact with new information
       const updatedContact = await db.updateContact(existingContact.id, {
         name: data.name || data.profileName || existingContact.name,
-        last_seen: new Date().toISOString(),
+        lastSeen: new Date().toISOString(),
         avatar: data.name || data.profileName ? 
           `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.profileName || '')}&background=10b981&color=ffffff&size=150` : 
           existingContact.avatar
@@ -176,9 +176,9 @@ export async function autoCreateOrUpdateContact(data: {
       const contactName = data.name || data.profileName || `WhatsApp ${data.phoneNumber}`;
       const newContact = await db.createContact({
         name: contactName,
-        phone_number: data.phoneNumber,
+        phoneNumber: data.phoneNumber,
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(contactName)}&background=10b981&color=ffffff&size=150`,
-        last_seen: new Date().toISOString(),
+        lastSeen: new Date().toISOString(),
         tags: ['auto-created', 'whatsapp']
       });
       
