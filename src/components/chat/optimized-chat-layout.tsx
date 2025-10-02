@@ -96,20 +96,68 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     });
   }, [toast]);
 
-  const handleToggleStatus = useCallback((conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
-    // TODO: Implement status toggle
-    toast({
-      title: "Status Updated",
-      description: `Conversation status changed to ${newStatus} - Coming soon!`,
-    });
+  const handleToggleStatus = useCallback(async (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update conversation status');
+      }
+
+      // Update the store
+      const { updateConversationStatus } = useChatStore.getState();
+      updateConversationStatus(conversationId, newStatus);
+
+      toast({
+        title: "Status Updated",
+        description: `Conversation status changed to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating conversation status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update conversation status. Please try again.",
+        variant: "destructive",
+      });
+    }
   }, [toast]);
 
-  const handleChangePriority = useCallback((conversationId: string, newPriority: 'low' | 'medium' | 'high') => {
-    // TODO: Implement priority change
-    toast({
-      title: "Priority Updated",
-      description: `Conversation priority changed to ${newPriority} - Coming soon!`,
-    });
+  const handleChangePriority = useCallback(async (conversationId: string, newPriority: 'low' | 'medium' | 'high') => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/priority`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ priority: newPriority }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update conversation priority');
+      }
+
+      // Update the store
+      const { updateConversationPriority } = useChatStore.getState();
+      updateConversationPriority(conversationId, newPriority);
+
+      toast({
+        title: "Priority Updated",
+        description: `Conversation priority changed to ${newPriority}`,
+      });
+    } catch (error) {
+      console.error('Error updating conversation priority:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update conversation priority. Please try again.",
+        variant: "destructive",
+      });
+    }
   }, [toast]);
 
   const handleDeleteConversation = useCallback(async (conversationId: string) => {

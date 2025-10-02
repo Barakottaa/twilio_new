@@ -51,6 +51,10 @@ interface ChatActions {
   setStatus: (conversationId: string, status: "open" | "closed") => void;
   setMe: (agent: { id: string; name: string } | null) => void;
   loadAssignmentsFromDatabase: () => Promise<void>;
+  
+  // conversation property updates
+  updateConversationStatus: (conversationId: string, status: 'open' | 'closed' | 'pending') => void;
+  updateConversationPriority: (conversationId: string, priority: 'low' | 'medium' | 'high') => void;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -179,7 +183,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           } catch (error) {
             console.error('Error loading assignments from database:', error);
           }
-        }
+        },
+
+        // Update conversation status
+        updateConversationStatus: (conversationId, status) => set((state) => ({
+          conversations: state.conversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, status, updatedAt: new Date().toISOString() }
+              : conv
+          ),
+          statuses: { ...state.statuses, [conversationId]: status }
+        })),
+
+        // Update conversation priority
+        updateConversationPriority: (conversationId, priority) => set((state) => ({
+          conversations: state.conversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, priority, updatedAt: new Date().toISOString() }
+              : conv
+          )
+        }))
       }));
 
 // Batched update utility

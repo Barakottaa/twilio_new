@@ -119,11 +119,40 @@ export function OptimizedChatHeader({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-sm truncate">{title}</h3>
-              {status && (
-                <StatusBadge status={status} />
+              {status && onToggleStatus && (
+                <button
+                  onClick={() => onToggleStatus(id, status === 'open' ? 'closed' : 'open')}
+                  className="transition-all hover:scale-105"
+                  title={`Click to ${status === 'open' ? 'close' : 'reopen'} conversation`}
+                >
+                  <StatusBadge status={status} />
+                </button>
               )}
-              {priority && (
-                <PriorityBadge priority={priority} />
+              {priority && onChangePriority && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="transition-all hover:scale-105"
+                      title="Click to change priority"
+                    >
+                      <PriorityBadge priority={priority} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-40">
+                    <DropdownMenuItem onClick={() => onChangePriority(id, 'high')}>
+                      <AlertCircle className="h-4 w-4 mr-2 text-red-600" />
+                      High Priority
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onChangePriority(id, 'medium')}>
+                      <AlertCircle className="h-4 w-4 mr-2 text-yellow-600" />
+                      Medium Priority
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onChangePriority(id, 'low')}>
+                      <AlertCircle className="h-4 w-4 mr-2 text-green-600" />
+                      Low Priority
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
             
@@ -194,10 +223,20 @@ export function OptimizedChatHeader({
               )}
               
               {onChangePriority && (
-                <DropdownMenuItem onClick={() => onChangePriority(id, 'high')}>
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Set High Priority
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={() => onChangePriority(id, 'high')}>
+                    <AlertCircle className="h-4 w-4 mr-2 text-red-600" />
+                    Set High Priority
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChangePriority(id, 'medium')}>
+                    <AlertCircle className="h-4 w-4 mr-2 text-yellow-600" />
+                    Set Medium Priority
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChangePriority(id, 'low')}>
+                    <AlertCircle className="h-4 w-4 mr-2 text-green-600" />
+                    Set Low Priority
+                  </DropdownMenuItem>
+                </>
               )}
               
               <DropdownMenuItem onClick={() => setShowContactDialog(true)}>
