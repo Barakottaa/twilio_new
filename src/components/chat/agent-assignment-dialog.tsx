@@ -52,6 +52,7 @@ export function AgentAssignmentDialog({
   // Fetch agents from database when dialog opens
   useEffect(() => {
     if (open) {
+      console.log('🔍 Agent assignment dialog opened, fetching agents...');
       fetchAgents();
     }
   }, [open]);
@@ -59,9 +60,14 @@ export function AgentAssignmentDialog({
   const fetchAgents = async () => {
     setLoadingAgents(true);
     try {
+      console.log('🔍 Fetching agents from /api/agents...');
       const response = await fetch('/api/agents');
+      console.log('🔍 Agents API response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 Agents API data:', data);
+        
         // Map the full Agent objects to the simplified format needed by the dialog
         const simplifiedAgents = (data || []).map((agent: any) => ({
           id: agent.id,
@@ -69,9 +75,12 @@ export function AgentAssignmentDialog({
           role: agent.role,
           permissions: agent.permissions
         }));
+        console.log('🔍 Simplified agents:', simplifiedAgents);
         setAvailableAgents(simplifiedAgents);
       } else {
-        throw new Error('Failed to fetch agents');
+        const errorText = await response.text();
+        console.error('🔍 Failed to fetch agents:', response.status, errorText);
+        throw new Error(`Failed to fetch agents: ${response.status} ${errorText}`);
       }
     } catch (error) {
       console.error('Error fetching agents:', error);

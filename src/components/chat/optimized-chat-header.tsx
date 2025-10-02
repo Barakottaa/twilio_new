@@ -195,7 +195,10 @@ export function OptimizedChatHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setShowAgentDialog(true)}>
+              <DropdownMenuItem onClick={() => {
+                console.log('🔍 Assign Agent clicked, opening dialog...');
+                setShowAgentDialog(true);
+              }}>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Assign Agent
               </DropdownMenuItem>
