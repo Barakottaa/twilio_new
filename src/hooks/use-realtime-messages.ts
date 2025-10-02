@@ -115,8 +115,10 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
             profileName: data.data.profileName,
             from: data.data.from,
             numMedia: data.data.numMedia,
-            mediaMessages: data.data.mediaMessages
+            mediaMessages: data.data.mediaMessages,
+            media: data.data.media
           });
+          console.log('📨 Calling handleNewMessage...');
           handleNewMessage(data.data as RealtimeMessageData);
         } else if (data.type === 'newConversation') {
           console.log('💬 New conversation via SSE:', data.data);
@@ -232,9 +234,17 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     }
     
     // Process media data properly
-    const hasMedia = messageData.numMedia > 0 || messageData.mediaMessages?.length > 0;
+    const hasMedia = messageData.numMedia > 0 || messageData.mediaMessages?.length > 0 || messageData.media?.length > 0;
     const mediaMessages = messageData.mediaMessages || [];
     const mediaArray = messageData.media || [];
+    
+    console.log('🔍 Media detection debug:', {
+      numMedia: messageData.numMedia,
+      mediaMessages: mediaMessages,
+      mediaArray: mediaArray,
+      hasMedia: hasMedia,
+      body: messageData.body
+    });
     
     // Determine text content - use body if available, otherwise use media caption
     let messageText = messageData.body || '';
@@ -244,6 +254,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       if (firstMedia) {
         const mediaType = firstMedia.mediaType || getMediaTypeFromContentType(firstMedia.contentType);
         messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        console.log('🔍 Generated media text:', messageText);
       }
     }
     
@@ -284,7 +295,20 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     // Use the new store system for message updates
     import('@/store/chat-store').then(({ useChatStore }) => {
       const store = useChatStore.getState();
+      console.log('🔍 Before appendMessage - Store state:', {
+        selectedConversationId: store.selectedConversationId,
+        conversationSid: messageData.conversationSid,
+        currentMessages: store.messages[messageData.conversationSid]?.length || 0
+      });
+      
       store.appendMessage(messageData.conversationSid, newMessage);
+      
+      console.log('🔍 After appendMessage - Store state:', {
+        selectedConversationId: store.selectedConversationId,
+        conversationSid: messageData.conversationSid,
+        currentMessages: store.messages[messageData.conversationSid]?.length || 0
+      });
+      
       console.log('📝 Message added to store:', newMessage.id);
     });
   };

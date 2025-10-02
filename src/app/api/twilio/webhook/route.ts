@@ -324,7 +324,9 @@ export async function POST(req: NextRequest) {
       };
       
       console.log('📡 Broadcasting message data:', broadcastData);
+      console.log('📡 About to call broadcastMessage...');
       broadcastMessage('newMessage', broadcastData);
+      console.log('📡 broadcastMessage called successfully');
       
     } else if (eventType === 'onConversationAdded') {
       console.log('💬 New conversation started via webhook:', params.ConversationSid);
