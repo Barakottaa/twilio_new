@@ -90,7 +90,7 @@ export function VirtualMessageList({
     <div className={`${className}`}>
       <div 
         ref={containerRef}
-        className="flex flex-col h-full overflow-y-auto scrollbar-fixed"
+        className="flex flex-col h-full max-h-[600px] overflow-y-auto scrollbar-fixed"
         onScroll={handleScroll}
       >
         {/* Load more indicator at the top */}
@@ -119,6 +119,9 @@ export function VirtualMessageList({
             </div>
           </div>
         )}
+        
+        {/* Bottom padding to account for fixed message input */}
+        <div className="h-24"></div>
       </div>
     </div>
   );

@@ -361,8 +361,8 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                      onDeleteConversation={handleDeleteConversation}
                    />
 
-            {/* Messages Area - Takes remaining space */}
-            <div className="flex-1 overflow-hidden">
+            {/* Messages Area - Fixed height with scrollbar */}
+            <div className="h-[600px] flex-shrink-0">
               <VirtualMessageList
                 messages={messages}
                 isLoading={messagesLoading}
@@ -373,14 +373,6 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
               />
             </div>
 
-            {/* Message Input - Fixed at bottom */}
-            <div className="flex-shrink-0">
-              <MessageInput
-                onSendMessage={handleSendMessage}
-                disabled={messageInputDisabled}
-                disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
-              />
-            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
