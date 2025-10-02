@@ -166,8 +166,8 @@ export async function listConversationsLite(limit = 30, after?: string) {
         customerEmail: customerEmail,
         agentName: agentName,
         agentStatus: agentStatus,
-        status: 'open' as const, // Default status
-        priority: 'medium' as const, // Default priority
+        status: (['open', 'closed'][Math.floor(Math.random() * 2)]) as 'open' | 'closed', // Random status for testing
+        priority: (['high', 'medium', 'low'][Math.floor(Math.random() * 3)]) as 'high' | 'medium' | 'low', // Random priority for testing
       };
       console.log('🔍 Created conversation item:', conversationItem);
       return conversationItem;
@@ -183,6 +183,8 @@ export async function listConversationsLite(limit = 30, after?: string) {
         updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         customerId: 'unknown',
         agentId: 'unknown',
+        status: 'open' as const,
+        priority: 'medium' as const,
       };
     }
   }));

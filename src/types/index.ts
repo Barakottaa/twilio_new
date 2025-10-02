@@ -67,15 +67,21 @@ export type Message = {
 
 export type Chat = {
   id: string;
-  customer: Customer;
-  agent: Agent;
-  messages: Message[];
+  title: string;
+  lastMessagePreview: string;
   unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+  customerId: string;
+  agentId: string;
+  // Additional information for enhanced display
+  customerPhone?: string;
+  customerEmail?: string;
+  agentName?: string;
+  agentStatus?: string;
   status: ConversationStatus;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   tags?: string[];
-  createdAt: string;
-  updatedAt: string;
   assignedAt?: string;
   closedAt?: string;
   closedBy?: string;

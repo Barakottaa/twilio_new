@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Users, UserCheck, UserX, Search, X } from 'lucide-react';
+import { ConversationStatusPriorityFilter, type StatusFilter, type PriorityFilter } from './conversation-status-priority-filter';
 
 export type TabFilterType = 'all' | 'assigned' | 'unassigned';
 
@@ -12,20 +13,39 @@ interface ConversationTabFilterProps {
   activeTab: TabFilterType;
   onTabChange: (tab: TabFilterType) => void;
   onSearchChange: (searchQuery: string) => void;
+  onStatusChange: (status: StatusFilter) => void;
+  onPriorityChange: (priority: PriorityFilter) => void;
   counts: {
     all: number;
     assigned: number;
     unassigned: number;
+    status: {
+      all: number;
+      open: number;
+      closed: number;
+    };
+    priority: {
+      all: number;
+      high: number;
+      medium: number;
+      low: number;
+    };
   };
   currentAgentId?: string;
+  statusFilter: StatusFilter;
+  priorityFilter: PriorityFilter;
 }
 
 export function ConversationTabFilter({ 
   activeTab, 
   onTabChange, 
   onSearchChange,
+  onStatusChange,
+  onPriorityChange,
   counts, 
-  currentAgentId 
+  currentAgentId,
+  statusFilter,
+  priorityFilter
 }: ConversationTabFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -90,6 +110,18 @@ export function ConversationTabFilter({
           )}
         </div>
       </div>
+      
+      {/* Status and Priority Filters */}
+      <ConversationStatusPriorityFilter
+        statusFilter={statusFilter}
+        priorityFilter={priorityFilter}
+        onStatusChange={onStatusChange}
+        onPriorityChange={onPriorityChange}
+        counts={{
+          status: counts.status,
+          priority: counts.priority
+        }}
+      />
       
       {/* Tab Filter Header */}
       <div className="px-3 py-2 bg-gray-50 border-b">

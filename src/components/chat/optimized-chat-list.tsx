@@ -27,6 +27,7 @@ import {
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ConversationTabFilter, TabFilterType } from './conversation-tab-filter';
+import type { StatusFilter, PriorityFilter } from './conversation-status-priority-filter';
 
 interface ConversationItem {
   id: string;
@@ -60,6 +61,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [activeTab, setActiveTab] = useState<TabFilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
 
   // Load initial conversations
   useEffect(() => {
@@ -174,7 +177,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
   };
 
-  // Filter conversations based on active tab and search query
+  // Filter conversations based on active tab, status, priority, and search query
   const filteredConversations = useMemo(() => {
     let filtered = conversations;
 
@@ -191,6 +194,16 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
     // 'all' tab shows all conversations, no additional filtering needed
 
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(conv => conv.status === statusFilter);
+    }
+
+    // Apply priority filter
+    if (priorityFilter !== 'all') {
+      filtered = filtered.filter(conv => conv.priority === priorityFilter);
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -204,7 +217,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
 
     return filtered;
-  }, [conversations, activeTab, agentId, searchQuery]);
+  }, [conversations, activeTab, agentId, statusFilter, priorityFilter, searchQuery]);
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
@@ -217,21 +230,46 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       conv.agentName === 'Unassigned'
     ).length;
     
+    // Status counts
+    const statusCounts = {
+      all: conversations.length,
+      open: conversations.filter(conv => conv.status === 'open').length,
+      closed: conversations.filter(conv => conv.status === 'closed').length
+    };
+    
+    // Priority counts
+    const priorityCounts = {
+      all: conversations.length,
+      high: conversations.filter(conv => conv.priority === 'high').length,
+      medium: conversations.filter(conv => conv.priority === 'medium').length,
+      low: conversations.filter(conv => conv.priority === 'low').length
+    };
+    
     console.log('🔍 Tab counts calculation:', {
       totalConversations: conversations.length,
       agentId,
       all,
       assigned,
       unassigned,
+      statusCounts,
+      priorityCounts,
       conversations: conversations.map(c => ({
         id: c.id,
         title: c.title,
         agentId: c.agentId,
-        agentName: c.agentName
+        agentName: c.agentName,
+        status: c.status,
+        priority: c.priority
       }))
     });
     
-    return { all, assigned, unassigned };
+    return { 
+      all, 
+      assigned, 
+      unassigned,
+      status: statusCounts,
+      priority: priorityCounts
+    };
   }, [conversations, agentId]);
 
   if ((isLoading || isInitialLoad) && conversations.length === 0) {
@@ -260,8 +298,12 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onSearchChange={setSearchQuery}
+        onStatusChange={setStatusFilter}
+        onPriorityChange={setPriorityFilter}
         counts={tabCounts}
         currentAgentId={agentId}
+        statusFilter={statusFilter}
+        priorityFilter={priorityFilter}
       />
       
       <div className="flex-1 overflow-y-auto">
