@@ -11,7 +11,9 @@ async function getConversationStatusFromDatabase(conversationId: string): Promis
   try {
     const db = await getDatabase();
     const conversation = await db.getConversation(conversationId);
-    return (conversation?.status as 'open' | 'closed') || 'open';
+    const status = (conversation?.status as 'open' | 'closed') || 'open';
+    console.log('🔍 Loaded conversation status from database:', { conversationId, status, conversation });
+    return status;
   } catch (error) {
     console.error('Error loading conversation status from database:', error);
     return 'open'; // Default to open if error
@@ -22,7 +24,9 @@ async function getConversationPinStatusFromDatabase(conversationId: string): Pro
   try {
     const db = await getDatabase();
     const conversation = await db.getConversation(conversationId);
-    return conversation?.is_pinned === 1;
+    const isPinned = conversation?.is_pinned === 1;
+    console.log('🔍 Loaded conversation pin status from database:', { conversationId, isPinned, conversation });
+    return isPinned;
   } catch (error) {
     console.error('Error loading conversation pin status from database:', error);
     return false; // Default to not pinned if error
@@ -198,6 +202,12 @@ export async function listConversationsLite(limit = 30, after?: string) {
         lastMessagePreview = 'No messages yet';
       }
 
+      // Load status and pin status from database
+      const [status, isPinned] = await Promise.all([
+        getConversationStatusFromDatabase(c.sid),
+        getConversationPinStatusFromDatabase(c.sid)
+      ]);
+
       const conversationItem = {
         id: c.sid,
         title: customerName,
@@ -212,13 +222,20 @@ export async function listConversationsLite(limit = 30, after?: string) {
         customerEmail: customerEmail,
         agentName: agentName,
         agentStatus: agentStatus,
-        status: await getConversationStatusFromDatabase(c.sid), // Load from database
-        isPinned: await getConversationPinStatusFromDatabase(c.sid), // Load from database
+        status: status,
+        isPinned: isPinned,
       };
       console.log('🔍 Created conversation item:', conversationItem);
       return conversationItem;
     } catch (error) {
       console.error('Error fetching participants for conversation:', c.sid, error);
+      
+      // Load status and pin status from database for fallback
+      const [status, isPinned] = await Promise.all([
+        getConversationStatusFromDatabase(c.sid),
+        getConversationPinStatusFromDatabase(c.sid)
+      ]);
+      
       // Fallback to basic info
       return {
         id: c.sid,
@@ -229,8 +246,8 @@ export async function listConversationsLite(limit = 30, after?: string) {
         updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         customerId: 'unknown',
         agentId: 'unknown',
-        status: await getConversationStatusFromDatabase(c.sid),
-        isPinned: await getConversationPinStatusFromDatabase(c.sid),
+        status: status,
+        isPinned: isPinned,
       };
     }
   }));
