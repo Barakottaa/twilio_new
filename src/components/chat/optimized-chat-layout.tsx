@@ -351,17 +351,17 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         {selectedConversationId ? (
           <>
             {/* Chat Header */}
-            <OptimizedChatHeader
-              conversationId={selectedConversationId || undefined}
-              conversation={selectedConversation ?? undefined}
-              onRefresh={refreshMessages}
-              onAssignAgent={handleAssignAgent}
-              onToggleStatus={handleToggleStatus}
-              onChangePriority={handleChangePriority}
-              onDeleteConversation={handleDeleteConversation}
-            />
+                   <OptimizedChatHeader
+                     conversationId={selectedConversationId || undefined}
+                     conversation={selectedConversation ?? undefined}
+                     onRefresh={refreshMessages}
+                     onAssignAgent={handleAssignAgent}
+                     onToggleStatus={handleToggleStatus}
+                     onChangePriority={handleChangePriority}
+                     onDeleteConversation={handleDeleteConversation}
+                   />
 
-            {/* Messages Area - Fill remaining space */}
+            {/* Messages Area - Takes remaining space */}
             <div className="flex-1 overflow-hidden">
               <VirtualMessageList
                 messages={messages}
@@ -374,7 +374,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
             </div>
 
             {/* Message Input - Fixed at bottom */}
-            <div className="flex-shrink-0 border-t bg-background">
+            <div className="flex-shrink-0">
               <MessageInput
                 onSendMessage={handleSendMessage}
                 disabled={messageInputDisabled}
