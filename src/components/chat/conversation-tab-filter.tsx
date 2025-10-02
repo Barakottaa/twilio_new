@@ -100,8 +100,8 @@ export function ConversationTabFilter({
       </div>
       
       {/* Tab Filter */}
-      <div className="flex bg-white border-t-2 border-gray-200 min-h-[64px]">
-        {tabs.map((tab) => {
+      <div className="flex bg-white min-h-[64px]">
+        {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           const isUnassigned = tab.id === 'unassigned';
@@ -113,12 +113,13 @@ export function ConversationTabFilter({
               key={tab.id}
               variant={isActive ? "default" : "ghost"}
               className={`
-                flex-1 rounded-none border-0 border-b-4 transition-all duration-200 min-w-0
+                flex-1 rounded-none border-0 transition-all duration-200 min-w-0
+                ${index === 0 ? 'border-l-0' : 'border-l border-gray-200'}
                 ${isActive 
-                  ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm' 
+                  ? 'border-b-4 border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm' 
                   : isUnassigned
-                    ? 'border-orange-300 hover:border-orange-400 hover:bg-orange-50 text-orange-600'
-                    : 'border-transparent hover:border-gray-300 hover:bg-gray-50 text-gray-600'
+                    ? 'border-b-2 border-orange-300 hover:border-orange-400 hover:bg-orange-50 text-orange-600'
+                    : 'border-b-2 border-transparent hover:border-gray-300 hover:bg-gray-50 text-gray-600'
                 }
                 h-16 px-2 py-3 text-sm font-medium relative
               `}
