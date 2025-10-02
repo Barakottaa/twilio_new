@@ -121,11 +121,16 @@ export function OptimizedChatHeader({
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-sm truncate">{title}</h3>
               {status && onToggleStatus && (
-                <StatusToggle
-                  status={status}
-                  onToggle={() => onToggleStatus(id, status === 'open' ? 'closed' : 'open')}
-                  size="sm"
-                />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {status === 'open' ? 'Open' : 'Closed'}
+                  </span>
+                  <StatusToggle
+                    status={status}
+                    onToggle={() => onToggleStatus(id, status === 'open' ? 'closed' : 'open')}
+                    size="sm"
+                  />
+                </div>
               )}
               {priority && onChangePriority && (
                 <DropdownMenu>

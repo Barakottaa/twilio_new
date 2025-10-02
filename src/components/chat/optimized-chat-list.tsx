@@ -30,6 +30,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { StatusToggle } from '@/components/ui/status-toggle';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ConversationTabFilter, TabFilterType } from './conversation-tab-filter';
+import { AgentAssignmentDialog } from './agent-assignment-dialog';
 import type { StatusFilter } from './conversation-status-priority-filter';
 
 interface ConversationItem {
@@ -93,6 +94,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const [activeTab, setActiveTab] = useState<TabFilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [showAgentDialog, setShowAgentDialog] = useState(false);
+  const [selectedConversationForAssignment, setSelectedConversationForAssignment] = useState<string | null>(null);
 
   // Handle status updates from conversation list
   const handleStatusUpdate = async (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
@@ -118,6 +121,13 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     } catch (error) {
       console.error('Error updating conversation status from list:', error);
     }
+  };
+
+  // Handle opening agent assignment dialog
+  const handleOpenAgentDialog = (conversationId: string) => {
+    console.log('🔍 Opening agent assignment dialog for conversation:', conversationId);
+    setSelectedConversationForAssignment(conversationId);
+    setShowAgentDialog(true);
   };
 
   // Load initial conversations
@@ -387,7 +397,10 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenAgentDialog(conversation.id);
+                        }}>
                           <User className="h-4 w-4 mr-2" />
                           Assign Agent
                         </DropdownMenuItem>
@@ -493,6 +506,27 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           </div>
         )}
       </div>
+
+      {/* Agent Assignment Dialog */}
+      {selectedConversationForAssignment && (
+        <AgentAssignmentDialog
+          open={showAgentDialog}
+          onOpenChange={(open) => {
+            setShowAgentDialog(open);
+            if (!open) {
+              setSelectedConversationForAssignment(null);
+            }
+          }}
+          conversationId={selectedConversationForAssignment}
+          currentAgentId={conversations.find(c => c.id === selectedConversationForAssignment)?.agentId}
+          onAgentAssigned={(conversationId, agentId) => {
+            console.log('🔍 Agent assigned from conversation list:', { conversationId, agentId });
+            // The dialog already updates the store, so we just need to close it
+            setShowAgentDialog(false);
+            setSelectedConversationForAssignment(null);
+          }}
+        />
+      )}
     </div>
   );
 }
