@@ -23,17 +23,21 @@ export async function PATCH(
     
     // First, check if the conversation exists in our database
     let conversation = await db.getConversation(conversationId);
+    console.log('🔍 Current conversation in database:', conversation);
     
     if (!conversation) {
       // If conversation doesn't exist, create it with the pin status
-      conversation = await db.createConversation({
+      const newConversationData = {
         id: conversationId,
         twilio_conversation_sid: conversationId,
         is_pinned: isPinned ? 1 : 0
-      });
+      };
+      console.log('🔍 Creating new conversation with data:', newConversationData);
+      conversation = await db.createConversation(newConversationData);
       console.log('🔍 Created new conversation in database with pin status:', conversation);
     } else {
       // Update existing conversation pin status
+      console.log('🔍 Updating existing conversation pin status from', conversation.is_pinned, 'to', isPinned ? 1 : 0);
       conversation = await db.updateConversationPinStatus(conversationId, isPinned);
       console.log('🔍 Updated conversation pin status in database:', conversation);
     }

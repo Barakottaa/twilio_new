@@ -524,6 +524,7 @@ class SQLiteDatabaseService {
     agent_id?: string;
     status?: string;
     priority?: string;
+    is_pinned?: number;
     twilio_conversation_sid: string;
   }): Promise<any> {
     await this.ensureInitialized();
@@ -533,14 +534,15 @@ class SQLiteDatabaseService {
     const now = new Date().toISOString();
 
     await run(`
-      INSERT INTO conversations (id, contact_id, agent_id, status, priority, twilio_conversation_sid, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO conversations (id, contact_id, agent_id, status, priority, is_pinned, twilio_conversation_sid, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       data.id,
       data.contact_id || null,
       data.agent_id || null,
-      data.status || 'active',
+      data.status || 'open',
       data.priority || 'normal',
+      data.is_pinned || 0,
       data.twilio_conversation_sid,
       now,
       now
@@ -562,6 +564,7 @@ class SQLiteDatabaseService {
     agent_id?: string;
     status?: string;
     priority?: string;
+    is_pinned?: number;
   }): Promise<any> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
@@ -587,6 +590,10 @@ class SQLiteDatabaseService {
     if (data.priority !== undefined) {
       updates.push('priority = ?');
       values.push(data.priority);
+    }
+    if (data.is_pinned !== undefined) {
+      updates.push('is_pinned = ?');
+      values.push(data.is_pinned);
     }
 
     if (updates.length === 0) {

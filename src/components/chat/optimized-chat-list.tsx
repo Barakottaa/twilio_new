@@ -410,29 +410,18 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                             const newStatus = conversation.status === 'open' ? 'closed' : 'open';
                             handleStatusUpdate(conversation.id, newStatus);
                           }}
-                          className="flex items-center justify-between"
                         >
-                          <div className="flex items-center">
-                            {conversation.status === 'open' ? (
-                              <>
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Close Conversation
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Reopen Conversation
-                              </>
-                            )}
-                          </div>
-                          <StatusToggle
-                            status={conversation.status || 'open'}
-                            onToggle={() => {
-                              const newStatus = conversation.status === 'open' ? 'closed' : 'open';
-                              handleStatusUpdate(conversation.id, newStatus);
-                            }}
-                            size="sm"
-                          />
+                          {conversation.status === 'open' ? (
+                            <>
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Close Conversation
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Reopen Conversation
+                            </>
+                          )}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={async (e) => {
                           e.stopPropagation();
