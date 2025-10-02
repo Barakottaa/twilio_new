@@ -32,6 +32,9 @@ interface ChatState {
   
   // Optional: current logged-in agent
   me: { id: string; name: string } | null;
+  
+  // Persistent pinned conversations
+  pinnedConversations: Set<string>;
 }
 
 interface ChatActions {
@@ -56,6 +59,7 @@ interface ChatActions {
   updateConversationStatus: (conversationId: string, status: 'open' | 'closed' | 'pending') => void;
   updateConversationPriority: (conversationId: string, priority: 'low' | 'medium' | 'high') => void;
   toggleConversationPin: (conversationId: string) => void;
+  isConversationPinned: (conversationId: string) => boolean;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -72,6 +76,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   assignments: {},
   statuses: {},
   me: null,
+  
+  // Persistent pinned conversations
+  pinnedConversations: new Set<string>(),
 
   // Actions
   setConversations: (conversations) => set({ conversations }),
@@ -206,13 +213,31 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         })),
 
         // Toggle conversation pin
-        toggleConversationPin: (conversationId) => set((state) => ({
-          conversations: state.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, isPinned: !conv.isPinned, updatedAt: new Date().toISOString() }
-              : conv
-          )
-        }))
+        toggleConversationPin: (conversationId) => set((state) => {
+          const newPinnedConversations = new Set(state.pinnedConversations);
+          const isCurrentlyPinned = newPinnedConversations.has(conversationId);
+          
+          if (isCurrentlyPinned) {
+            newPinnedConversations.delete(conversationId);
+          } else {
+            newPinnedConversations.add(conversationId);
+          }
+          
+          return {
+            pinnedConversations: newPinnedConversations,
+            conversations: state.conversations.map(conv =>
+              conv.id === conversationId
+                ? { ...conv, isPinned: !isCurrentlyPinned, updatedAt: new Date().toISOString() }
+                : conv
+            )
+          };
+        }),
+
+        // Check if conversation is pinned
+        isConversationPinned: (conversationId) => {
+          const state = get();
+          return state.pinnedConversations.has(conversationId);
+        }
       }));
 
 // Batched update utility

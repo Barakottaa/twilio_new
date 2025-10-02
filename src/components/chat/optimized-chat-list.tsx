@@ -79,7 +79,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     setSelectedConversation,
     setConversations,
     isLoading,
-    error 
+    error,
+    isConversationPinned
   } = useChatStore();
   
   // Use conversations from store instead of local state
@@ -238,18 +239,25 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       );
     }
 
-    // Sort: pinned conversations first, then by updatedAt
+    // Sort: pinned conversations first, then by updatedAt, with stable secondary sort
     filtered.sort((a, b) => {
-      // Pinned conversations first
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
+      // Pinned conversations first (use store state)
+      const aPinned = isConversationPinned(a.id);
+      const bPinned = isConversationPinned(b.id);
+      
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
       
       // Then by updatedAt (most recent first)
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      const timeDiff = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      
+      // Stable secondary sort by ID to prevent random reordering
+      return a.id.localeCompare(b.id);
     });
 
     return filtered;
-  }, [conversations, activeTab, agentId, statusFilter, searchQuery]);
+  }, [conversations, activeTab, agentId, statusFilter, searchQuery, isConversationPinned]);
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
@@ -359,7 +367,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                     {conversation.title}
                   </h3>
                   <div className="flex items-center gap-1">
-                    {conversation.isPinned && (
+                    {isConversationPinned(conversation.id) && (
                       <Pin className="h-3 w-3 text-yellow-500" />
                     )}
                     {conversation.status && <StatusBadge status={conversation.status} />}
@@ -383,7 +391,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                           const { toggleConversationPin } = useChatStore.getState();
                           toggleConversationPin(conversation.id);
                         }}>
-                          {conversation.isPinned ? (
+                          {isConversationPinned(conversation.id) ? (
                             <>
                               <PinOff className="h-4 w-4 mr-2" />
                               Unpin Conversation

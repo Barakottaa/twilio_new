@@ -189,7 +189,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         agentName: agentName,
         agentStatus: agentStatus,
         status: (['open', 'closed'][Math.floor(Math.random() * 2)]) as 'open' | 'closed', // Random status for testing
-        isPinned: Math.random() > 0.7, // 30% chance of being pinned for testing
+        isPinned: false, // Start with no conversations pinned
       };
       console.log('🔍 Created conversation item:', conversationItem);
       return conversationItem;
