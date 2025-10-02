@@ -97,7 +97,10 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   }, [toast]);
 
   const handleToggleStatus = useCallback(async (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
+    console.log('🔍 handleToggleStatus called:', { conversationId, newStatus });
+    
     try {
+      console.log('🔍 Calling status API:', `/api/conversations/${conversationId}/status`);
       const response = await fetch(`/api/conversations/${conversationId}/status`, {
         method: 'PATCH',
         headers: {
@@ -106,11 +109,16 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         body: JSON.stringify({ status: newStatus }),
       });
 
+      console.log('🔍 Status API response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to update conversation status');
+        const errorText = await response.text();
+        console.error('🔍 Status API error:', errorText);
+        throw new Error(`Failed to update conversation status: ${response.status} ${errorText}`);
       }
 
       // Update the store
+      console.log('🔍 Updating store with new status:', newStatus);
       const { updateConversationStatus } = useChatStore.getState();
       updateConversationStatus(conversationId, newStatus);
 
