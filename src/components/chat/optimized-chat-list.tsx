@@ -259,17 +259,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     return filtered;
   }, [conversations, activeTab, agentId, statusFilter, searchQuery, isConversationPinned]);
 
-  // Calculate tab counts
+  // Calculate status counts
   const tabCounts = useMemo(() => {
-    const all = conversations.length;
-    const assigned = conversations.filter(conv => conv.agentId === agentId).length;
-    const unassigned = conversations.filter(conv => 
-      !conv.agentId || 
-      conv.agentId === 'unassigned' || 
-      conv.agentId === 'unknown' ||
-      conv.agentName === 'Unassigned'
-    ).length;
-    
     // Status counts
     const statusCounts = {
       all: conversations.length,
@@ -277,30 +268,20 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       closed: conversations.filter(conv => conv.status === 'closed').length
     };
     
-    console.log('🔍 Tab counts calculation:', {
+    console.log('🔍 Status counts calculation:', {
       totalConversations: conversations.length,
-      agentId,
-      all,
-      assigned,
-      unassigned,
       statusCounts,
       conversations: conversations.map(c => ({
         id: c.id,
         title: c.title,
-        agentId: c.agentId,
-        agentName: c.agentName,
-        status: c.status,
-        isPinned: c.isPinned
+        status: c.status
       }))
     });
     
     return { 
-      all, 
-      assigned, 
-      unassigned,
       status: statusCounts
     };
-  }, [conversations, agentId]);
+  }, [conversations]);
 
   if ((isLoading || isInitialLoad) && conversations.length === 0) {
     return (

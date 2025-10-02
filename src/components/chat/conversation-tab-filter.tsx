@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Users, UserCheck, UserX, Search, X } from 'lucide-react';
 import { ConversationStatusPriorityFilter, type StatusFilter } from './conversation-status-priority-filter';
@@ -15,9 +14,6 @@ interface ConversationTabFilterProps {
   onSearchChange: (searchQuery: string) => void;
   onStatusChange: (status: StatusFilter) => void;
   counts: {
-    all: number;
-    assigned: number;
-    unassigned: number;
     status: {
       all: number;
       open: number;
@@ -53,21 +49,18 @@ export function ConversationTabFilter({
       id: 'all' as TabFilterType,
       label: 'All',
       icon: Users,
-      count: counts.all,
       description: 'All conversations'
     },
     {
       id: 'assigned' as TabFilterType,
       label: 'Assigned to Me',
       icon: UserCheck,
-      count: counts.assigned,
       description: `Conversations assigned to you`
     },
     {
       id: 'unassigned' as TabFilterType,
       label: 'Unassigned',
       icon: UserX,
-      count: counts.unassigned,
       description: 'Conversations not assigned to any agent'
     }
   ];
@@ -141,23 +134,9 @@ export function ConversationTabFilter({
               }}
               title={tab.description}
             >
-              <div className="flex flex-col items-center gap-1 w-full">
-                <div className="flex items-center gap-2">
-                  <Icon className={`h-4 w-4 ${isUnassigned ? 'text-orange-500' : ''}`} />
-                  <span className="text-xs font-medium text-center leading-tight">{tab.label}</span>
-                </div>
-                <Badge 
-                  variant={isActive ? "default" : "secondary"} 
-                  className={`text-xs h-5 min-w-[20px] flex items-center justify-center font-bold ${
-                    isActive 
-                      ? 'bg-blue-600 text-white' 
-                      : isUnassigned
-                        ? 'bg-orange-200 text-orange-800'
-                        : 'bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  {tab.count}
-                </Badge>
+              <div className="flex items-center gap-2 w-full justify-center">
+                <Icon className={`h-4 w-4 ${isUnassigned ? 'text-orange-500' : ''}`} />
+                <span className="text-xs font-medium text-center leading-tight">{tab.label}</span>
               </div>
               {isUnassigned && tab.count > 0 && (
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
