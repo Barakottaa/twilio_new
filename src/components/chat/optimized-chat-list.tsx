@@ -434,10 +434,10 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                             size="sm"
                           />
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => {
+                        <DropdownMenuItem onClick={async (e) => {
                           e.stopPropagation();
                           const { toggleConversationPin } = useChatStore.getState();
-                          toggleConversationPin(conversation.id);
+                          await toggleConversationPin(conversation.id);
                         }}>
                           {isConversationPinned(conversation.id) ? (
                             <>

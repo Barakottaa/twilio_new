@@ -4,6 +4,30 @@ import type { Agent, Chat, Customer, Message } from '@/types';
 import twilio from 'twilio';
 import { PlaceHolderImages } from './placeholder-images';
 import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllContacts, addContact } from './contact-mapping';
+import { getDatabase } from './database-config';
+
+// Helper functions to load conversation data from database
+async function getConversationStatusFromDatabase(conversationId: string): Promise<'open' | 'closed'> {
+  try {
+    const db = await getDatabase();
+    const conversation = await db.getConversation(conversationId);
+    return (conversation?.status as 'open' | 'closed') || 'open';
+  } catch (error) {
+    console.error('Error loading conversation status from database:', error);
+    return 'open'; // Default to open if error
+  }
+}
+
+async function getConversationPinStatusFromDatabase(conversationId: string): Promise<boolean> {
+  try {
+    const db = await getDatabase();
+    const conversation = await db.getConversation(conversationId);
+    return conversation?.is_pinned === 1;
+  } catch (error) {
+    console.error('Error loading conversation pin status from database:', error);
+    return false; // Default to not pinned if error
+  }
+}
 
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
@@ -188,8 +212,8 @@ export async function listConversationsLite(limit = 30, after?: string) {
         customerEmail: customerEmail,
         agentName: agentName,
         agentStatus: agentStatus,
-        status: (['open', 'closed'][Math.floor(Math.random() * 2)]) as 'open' | 'closed', // Random status for testing
-        isPinned: false, // Start with no conversations pinned
+        status: await getConversationStatusFromDatabase(c.sid), // Load from database
+        isPinned: await getConversationPinStatusFromDatabase(c.sid), // Load from database
       };
       console.log('🔍 Created conversation item:', conversationItem);
       return conversationItem;
@@ -205,8 +229,8 @@ export async function listConversationsLite(limit = 30, after?: string) {
         updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         customerId: 'unknown',
         agentId: 'unknown',
-        status: 'open' as const,
-        isPinned: false,
+        status: await getConversationStatusFromDatabase(c.sid),
+        isPinned: await getConversationPinStatusFromDatabase(c.sid),
       };
     }
   }));

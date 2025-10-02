@@ -102,8 +102,9 @@ class SQLiteDatabaseService {
         id TEXT PRIMARY KEY,
         contact_id TEXT REFERENCES contacts(id),
         agent_id TEXT REFERENCES agents(id),
-        status TEXT DEFAULT 'active',
+        status TEXT DEFAULT 'open',
         priority TEXT DEFAULT 'normal',
+        is_pinned INTEGER DEFAULT 0,
         twilio_conversation_sid TEXT UNIQUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -128,6 +129,15 @@ class SQLiteDatabaseService {
         console.error('Error creating table:', error);
         throw error;
       }
+    }
+
+    // Add migration for is_pinned column if it doesn't exist
+    try {
+      await run(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
+      console.log('✅ Added is_pinned column to conversations table');
+    } catch (error) {
+      // Column already exists, ignore error
+      console.log('is_pinned column already exists or migration failed:', error);
     }
 
     // Insert default admin user if not exists
@@ -602,6 +612,10 @@ class SQLiteDatabaseService {
 
   async updateConversationStatus(conversationId: string, status: string): Promise<any> {
     return await this.updateConversation(conversationId, { status: status });
+  }
+
+  async updateConversationPinStatus(conversationId: string, isPinned: boolean): Promise<any> {
+    return await this.updateConversation(conversationId, { is_pinned: isPinned ? 1 : 0 });
   }
 
   async getAllConversations(): Promise<any[]> {

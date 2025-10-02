@@ -22,6 +22,7 @@ export interface DatabaseInterface {
   updateConversation(id: string, data: any): Promise<any>;
   assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any>;
   updateConversationStatus(conversationId: string, status: string): Promise<any>;
+  updateConversationPinStatus(conversationId: string, isPinned: boolean): Promise<any>;
 }
 
 // Database configuration

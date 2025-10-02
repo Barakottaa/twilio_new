@@ -33,8 +33,7 @@ interface ChatState {
   // Optional: current logged-in agent
   me: { id: string; name: string } | null;
   
-  // Persistent pinned conversations
-  pinnedConversations: Set<string>;
+  // Note: Pin status is now stored in database, not in local state
 }
 
 interface ChatActions {
@@ -78,8 +77,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   statuses: {},
   me: null,
   
-  // Persistent pinned conversations
-  pinnedConversations: new Set<string>(),
+  // Note: Pin status is now stored in database, not in local state
 
   // Actions
   setConversations: (conversations) => set({ conversations }),
@@ -240,30 +238,49 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         })),
 
         // Toggle conversation pin
-        toggleConversationPin: (conversationId) => set((state) => {
-          const newPinnedConversations = new Set(state.pinnedConversations);
-          const isCurrentlyPinned = newPinnedConversations.has(conversationId);
-          
-          if (isCurrentlyPinned) {
-            newPinnedConversations.delete(conversationId);
-          } else {
-            newPinnedConversations.add(conversationId);
+        toggleConversationPin: async (conversationId) => {
+          try {
+            // Find current conversation to get current pin status
+            const state = get();
+            const conversation = state.conversations.find(conv => conv.id === conversationId);
+            const isCurrentlyPinned = conversation?.isPinned || false;
+            const newPinStatus = !isCurrentlyPinned;
+
+            console.log('🔍 Toggling conversation pin:', { conversationId, isCurrentlyPinned, newPinStatus });
+
+            // Update database
+            const response = await fetch(`/api/conversations/${conversationId}/pin`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ isPinned: newPinStatus }),
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to update conversation pin status');
+            }
+
+            // Update local state
+            set((state) => ({
+              conversations: state.conversations.map(conv =>
+                conv.id === conversationId
+                  ? { ...conv, isPinned: newPinStatus, updatedAt: new Date().toISOString() }
+                  : conv
+              )
+            }));
+
+            console.log('🔍 Conversation pin status updated successfully');
+          } catch (error) {
+            console.error('Error toggling conversation pin:', error);
           }
-          
-          return {
-            pinnedConversations: newPinnedConversations,
-            conversations: state.conversations.map(conv =>
-              conv.id === conversationId
-                ? { ...conv, isPinned: !isCurrentlyPinned, updatedAt: new Date().toISOString() }
-                : conv
-            )
-          };
-        }),
+        },
 
         // Check if conversation is pinned
         isConversationPinned: (conversationId) => {
           const state = get();
-          return state.pinnedConversations.has(conversationId);
+          const conversation = state.conversations.find(conv => conv.id === conversationId);
+          return conversation?.isPinned || false;
         },
 
         // Auto-reopen closed conversation when new message is received
