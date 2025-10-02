@@ -6,33 +6,42 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Custom scrollbar styles */
+/* Custom scrollbar styles - only visible on hover */
 @layer utilities {
-  .scrollbar-thin {
-    scrollbar-width: thin;
+  .scrollbar-hover {
+    scrollbar-width: none; /* Firefox - hide by default */
   }
   
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
+  .scrollbar-hover::-webkit-scrollbar {
+    width: 0px; /* WebKit - hide by default */
+    height: 0px;
+  }
+  
+  .scrollbar-hover:hover {
+    scrollbar-width: thin; /* Firefox - show on hover */
+  }
+  
+  .scrollbar-hover:hover::-webkit-scrollbar {
+    width: 6px; /* WebKit - show on hover */
     height: 6px;
   }
   
-  .scrollbar-thin::-webkit-scrollbar-track {
+  .scrollbar-hover:hover::-webkit-scrollbar-track {
     background: #f1f5f9;
     border-radius: 3px;
   }
   
-  .scrollbar-thin::-webkit-scrollbar-thumb {
+  .scrollbar-hover:hover::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 3px;
     transition: background-color 0.2s ease;
   }
   
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  .scrollbar-hover:hover::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
   }
   
-  .scrollbar-thin::-webkit-scrollbar-corner {
+  .scrollbar-hover:hover::-webkit-scrollbar-corner {
     background: #f1f5f9;
   }
 }

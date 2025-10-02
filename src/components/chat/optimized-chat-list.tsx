@@ -326,7 +326,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         statusFilter={statusFilter}
       />
       
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
+      <div className="flex-1 overflow-y-auto scrollbar-hover">
         {filteredConversations.map((conversation) => (
           <div
             key={conversation.id}

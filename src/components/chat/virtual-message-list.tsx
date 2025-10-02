@@ -90,7 +90,7 @@ export function VirtualMessageList({
     <div className={`${className}`}>
       <div 
         ref={containerRef}
-        className="flex flex-col h-full overflow-y-auto scrollbar-thin"
+        className="flex flex-col h-full overflow-y-auto scrollbar-hover"
         onScroll={handleScroll}
       >
         {/* Load more indicator at the top */}
