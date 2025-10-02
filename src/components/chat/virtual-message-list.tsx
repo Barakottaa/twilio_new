@@ -26,43 +26,30 @@ export function VirtualMessageList({
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(false);
   
-  // Function to scroll to bottom with retry mechanism
-  const scrollToBottom = () => {
-    const container = containerRef.current;
-    if (container) {
-      const maxScrollHeight = container.scrollHeight;
-      container.scrollTop = maxScrollHeight;
-      
-      // If scroll didn't work, try again after a short delay
-      setTimeout(() => {
-        if (container.scrollTop < maxScrollHeight - 10) {
-          container.scrollTop = container.scrollHeight;
-        }
-      }, 100);
-    }
-  };
-  
   console.log('🔍 VirtualMessageList render:', { messagesCount: messages.length, isLoading, firstMessage: messages[0] });
   console.log('🔍 VirtualMessageList - all messages:', messages);
   
   // Auto-scroll to bottom when messages change or conversation is first loaded (latest messages are at bottom)
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMore) {
-      // Use multiple timeouts to ensure DOM is fully updated
-      setTimeout(() => {
-        scrollToBottom();
-      }, 50);
-      setTimeout(() => {
-        scrollToBottom();
-      }, 200);
+      const container = containerRef.current;
+      if (container) {
+        // Use setTimeout to ensure DOM is updated
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight; // Scroll to bottom where latest messages are
+        }, 100);
+      }
     }
   }, [messages.length, isLoadingMore]);
 
   // Auto-scroll to bottom when new messages arrive (latest messages are at bottom)
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMore && shouldScrollToBottom) {
-      scrollToBottom();
-      setShouldScrollToBottom(false);
+      const container = containerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight; // Scroll to bottom where latest messages are
+        setShouldScrollToBottom(false);
+      }
     }
   }, [messages.length, isLoadingMore, shouldScrollToBottom]);
 
@@ -103,7 +90,7 @@ export function VirtualMessageList({
     <div className={`${className}`}>
       <div 
         ref={containerRef}
-        className="flex flex-col h-full max-h-[600px] overflow-y-auto scrollbar-fixed"
+        className="flex flex-col h-full overflow-y-auto scrollbar-fixed"
         onScroll={handleScroll}
       >
         {/* Load more indicator at the top */}

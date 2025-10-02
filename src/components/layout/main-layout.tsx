@@ -12,10 +12,10 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, loggedInAgent }: MainLayoutProps) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background overflow-hidden">
       <ResourcePreloader />
       <Sidebar loggedInAgent={loggedInAgent} />
-      <main className="flex-1 overflow-auto relative">
+      <main className="flex-1 overflow-hidden relative">
         <PageTransition>
           {children}
         </PageTransition>
