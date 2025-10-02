@@ -361,8 +361,8 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                      onDeleteConversation={handleDeleteConversation}
                    />
 
-            {/* Messages Area - Scroll handled by VirtualMessageList */}
-            <div className="flex-1">
+            {/* Messages Area - Fixed height with scrollbar */}
+            <div className="h-[600px] flex-shrink-0">
               <VirtualMessageList
                 messages={messages}
                 isLoading={messagesLoading}

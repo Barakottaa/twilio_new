@@ -6,7 +6,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Custom scrollbar styles - only visible on hover */
+/* Custom scrollbar styles */
 @layer utilities {
   .scrollbar-hover {
     scrollbar-width: none; /* Firefox - hide by default */
@@ -42,6 +42,35 @@ body {
   }
   
   .scrollbar-hover:hover::-webkit-scrollbar-corner {
+    background: #f1f5f9;
+  }
+
+  /* Fixed scrollbar for selected conversation */
+  .scrollbar-fixed {
+    scrollbar-width: thin; /* Firefox - always visible */
+  }
+  
+  .scrollbar-fixed::-webkit-scrollbar {
+    width: 6px; /* WebKit - always visible */
+    height: 6px;
+  }
+  
+  .scrollbar-fixed::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-fixed::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+  }
+  
+  .scrollbar-fixed::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  
+  .scrollbar-fixed::-webkit-scrollbar-corner {
     background: #f1f5f9;
   }
 }
