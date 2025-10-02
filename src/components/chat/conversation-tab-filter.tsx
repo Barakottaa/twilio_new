@@ -100,7 +100,7 @@ export function ConversationTabFilter({
       </div>
       
       {/* Tab Filter */}
-      <div className="flex bg-white min-h-[64px]">
+      <div className="flex bg-white min-h-[80px]">
         {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -113,7 +113,7 @@ export function ConversationTabFilter({
               key={tab.id}
               variant={isActive ? "default" : "ghost"}
               className={`
-                flex-1 rounded-none border-0 transition-all duration-200 min-w-0
+                flex-1 rounded-none border-0 transition-all duration-200 min-w-[120px]
                 ${index === 0 ? 'border-l-0' : 'border-l border-gray-200'}
                 ${isActive 
                   ? 'border-b-4 border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm' 
@@ -121,7 +121,7 @@ export function ConversationTabFilter({
                     ? 'border-b-2 border-orange-300 hover:border-orange-400 hover:bg-orange-50 text-orange-600'
                     : 'border-b-2 border-transparent hover:border-gray-300 hover:bg-gray-50 text-gray-600'
                 }
-                h-16 px-2 py-3 text-sm font-medium relative
+                h-20 px-3 py-4 text-sm font-medium relative
               `}
               onClick={() => {
                 console.log(`🔍 Tab clicked: ${tab.id}`);
@@ -129,12 +129,14 @@ export function ConversationTabFilter({
               }}
               title={tab.description}
             >
-              <div className="flex items-center gap-2">
-                <Icon className={`h-5 w-5 ${isUnassigned ? 'text-orange-500' : ''}`} />
-                <span className="text-sm font-medium">{tab.label}</span>
+              <div className="flex flex-col items-center gap-1 w-full">
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-4 w-4 ${isUnassigned ? 'text-orange-500' : ''}`} />
+                  <span className="text-xs font-medium text-center leading-tight">{tab.label}</span>
+                </div>
                 <Badge 
                   variant={isActive ? "default" : "secondary"} 
-                  className={`ml-1 text-xs h-6 min-w-[24px] flex items-center justify-center font-bold ${
+                  className={`text-xs h-5 min-w-[20px] flex items-center justify-center font-bold ${
                     isActive 
                       ? 'bg-blue-600 text-white' 
                       : isUnassigned
