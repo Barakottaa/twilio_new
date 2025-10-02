@@ -3,6 +3,36 @@ import React, { useEffect, useRef } from 'react';
 import { Chat, Message } from '@/types';
 import { messageBatcher } from '@/store/chat-store';
 
+// Helper functions for media type detection
+function getMediaTypeFromContentType(contentType: string): 'image' | 'video' | 'audio' | 'document' {
+  if (!contentType) return 'document';
+  
+  if (contentType.startsWith('image/')) return 'image';
+  if (contentType.startsWith('video/')) return 'video';
+  if (contentType.startsWith('audio/')) return 'audio';
+  return 'document';
+}
+
+function getMediaTypeEmoji(mediaType: string): string {
+  switch (mediaType) {
+    case 'image': return '🖼️';
+    case 'video': return '🎥';
+    case 'audio': return '🎵';
+    case 'document': return '📄';
+    default: return '📎';
+  }
+}
+
+function getMediaTypeName(mediaType: string): string {
+  switch (mediaType) {
+    case 'image': return 'Image';
+    case 'video': return 'Video';
+    case 'audio': return 'Audio';
+    case 'document': return 'Document';
+    default: return 'File';
+  }
+}
+
 interface RealtimeMessageData {
   conversationSid: string;
   messageSid: string;
@@ -201,34 +231,54 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       }
     }
     
+    // Process media data properly
+    const hasMedia = messageData.numMedia > 0 || messageData.mediaMessages?.length > 0;
+    const mediaMessages = messageData.mediaMessages || [];
+    const mediaArray = messageData.media || [];
+    
+    // Determine text content - use body if available, otherwise use media caption
+    let messageText = messageData.body || '';
+    if (!messageText && hasMedia) {
+      // If no text but has media, use a descriptive message
+      const firstMedia = mediaMessages[0] || mediaArray[0];
+      if (firstMedia) {
+        const mediaType = firstMedia.mediaType || getMediaTypeFromContentType(firstMedia.contentType);
+        messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+      }
+    }
+    
     const newMessage: Message = {
       id: messageData.messageSid,
-      text: messageData.body || (messageData.mediaMessages?.[0]?.caption || ''),
+      text: messageText,
       timestamp: messageData.dateCreated,
       sender: isAgentMessage ? 'agent' : 'customer',
       senderId: messageData.author || 'customer',
       // Legacy media fields for backward compatibility
-      mediaType: messageData.mediaMessages?.[0]?.type,
-      mediaUrl: messageData.mediaMessages?.[0]?.url,
-      mediaContentType: messageData.mediaMessages?.[0]?.contentType,
-      mediaFileName: messageData.mediaMessages?.[0]?.fileName,
-      mediaCaption: messageData.mediaMessages?.[0]?.caption,
+      mediaType: mediaMessages[0]?.mediaType || getMediaTypeFromContentType(mediaMessages[0]?.mediaContentType),
+      mediaUrl: mediaMessages[0]?.mediaUrl,
+      mediaContentType: mediaMessages[0]?.mediaContentType,
+      mediaFileName: mediaMessages[0]?.mediaFileName,
+      mediaCaption: mediaMessages[0]?.mediaCaption,
       // New media array format
-      media: messageData.media || (messageData.mediaMessages?.map(msg => ({
-        url: msg.url,
-        contentType: msg.contentType,
-        filename: msg.fileName
-      }))),
+      media: mediaArray.length > 0 ? mediaArray : mediaMessages.map(msg => ({
+        url: msg.mediaUrl,
+        contentType: msg.mediaContentType,
+        filename: msg.mediaFileName
+      })),
     };
     
     console.log('📝 Created new message object:', newMessage);
     console.log('📝 Message text content:', newMessage.text);
     console.log('📝 Message media info:', {
+      hasMedia,
+      mediaMessages: mediaMessages,
+      mediaArray: mediaArray,
       mediaType: newMessage.mediaType,
       mediaUrl: newMessage.mediaUrl,
       mediaContentType: newMessage.mediaContentType,
       mediaFileName: newMessage.mediaFileName,
-      mediaCaption: newMessage.mediaCaption
+      mediaCaption: newMessage.mediaCaption,
+      media: newMessage.media
     });
 
     // Use the new store system for message updates

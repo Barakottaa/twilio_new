@@ -6,6 +6,36 @@ import { PlaceHolderImages } from './placeholder-images';
 import { getContact, getDisplayName, formatPhoneNumber, updateLastSeen, getAllContacts, addContact } from './contact-mapping';
 import { getDatabase } from './database-config';
 
+// Helper functions for media type detection
+function getMediaTypeFromContentType(contentType: string): 'image' | 'video' | 'audio' | 'document' {
+  if (!contentType) return 'document';
+  
+  if (contentType.startsWith('image/')) return 'image';
+  if (contentType.startsWith('video/')) return 'video';
+  if (contentType.startsWith('audio/')) return 'audio';
+  return 'document';
+}
+
+function getMediaTypeEmoji(mediaType: string): string {
+  switch (mediaType) {
+    case 'image': return '🖼️';
+    case 'video': return '🎥';
+    case 'audio': return '🎵';
+    case 'document': return '📄';
+    default: return '📎';
+  }
+}
+
+function getMediaTypeName(mediaType: string): string {
+  switch (mediaType) {
+    case 'image': return 'Image';
+    case 'video': return 'Video';
+    case 'audio': return 'Audio';
+    case 'document': return 'Document';
+    default: return 'File';
+  }
+}
+
 // Helper functions to load conversation data from database
 async function getConversationStatusFromDatabase(conversationId: string): Promise<'open' | 'closed'> {
   try {
@@ -279,12 +309,28 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
     // determine sender
     const senderId = msg.author ?? 'unknown';
     const sender = (senderId.startsWith('agent:') || senderId === 'admin_001') ? 'agent' : 'customer';
+    // Determine text content - use body if available, otherwise use media description
+    let messageText = msg.body ?? '';
+    if (!messageText && mediaArr.length > 0) {
+      // If no text but has media, use a descriptive message
+      const firstMedia = mediaArr[0];
+      const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
+      messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+    }
+    
     const mappedMessage = {
       id: msg.sid,
-      text: msg.body ?? '',
+      text: messageText,
       timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
       sender,
       senderId,
+      // Legacy media fields for backward compatibility
+      mediaType: mediaArr.length > 0 ? getMediaTypeFromContentType(mediaArr[0].contentType) : undefined,
+      mediaUrl: mediaArr.length > 0 ? mediaArr[0].url : undefined,
+      mediaContentType: mediaArr.length > 0 ? mediaArr[0].contentType : undefined,
+      mediaFileName: mediaArr.length > 0 ? mediaArr[0].filename : undefined,
+      mediaCaption: mediaArr.length > 0 ? messageText : undefined,
+      // New media array format
       media: mediaArr.length ? mediaArr : undefined
     };
     console.log('🔍 Mapped message:', { id: mappedMessage.id, text: mappedMessage.text, sender: mappedMessage.sender, senderId: mappedMessage.senderId });

@@ -89,6 +89,11 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
           <p className="text-sm break-words">{message.text}</p>
         )}
         
+        {/* Show media placeholder if no text and no media displayed */}
+        {!message.text && !message.mediaType && !message.mediaUrl && !message.media?.length && (
+          <p className="text-sm text-gray-500 italic">Empty message</p>
+        )}
+        
         <span className={`text-xs text-right block mt-1 ${
           isAgent ? "opacity-60" : "text-gray-500"
         }`}>
