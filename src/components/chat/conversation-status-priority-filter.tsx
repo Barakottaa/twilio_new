@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Circle, CircleDot, AlertTriangle, Clock, CheckCircle, XCircle } from 'lucide-react';
 import type { ConversationStatus } from '@/types';
@@ -31,21 +30,18 @@ export function ConversationStatusPriorityFilter({
       value: 'all' as StatusFilter,
       label: 'All Status',
       icon: Circle,
-      count: counts.status.all,
       color: 'text-gray-600'
     },
     {
       value: 'open' as StatusFilter,
       label: 'Open',
       icon: CircleDot,
-      count: counts.status.open,
       color: 'text-green-600'
     },
     {
       value: 'closed' as StatusFilter,
       label: 'Closed',
       icon: XCircle,
-      count: counts.status.closed,
       color: 'text-red-600'
     }
   ];
@@ -81,18 +77,6 @@ export function ConversationStatusPriorityFilter({
                   <div className="flex items-center gap-1">
                     <Icon className={`h-3 w-3 ${isActive ? 'text-white' : option.color}`} />
                     <span className="text-xs">{option.label}</span>
-                    <Badge 
-                      variant="secondary"
-                      className={`
-                        ml-1 text-xs h-4 min-w-[16px] flex items-center justify-center font-bold
-                        ${isActive 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-200 text-gray-700'
-                        }
-                      `}
-                    >
-                      {option.count}
-                    </Badge>
                   </div>
                 </Button>
               );
