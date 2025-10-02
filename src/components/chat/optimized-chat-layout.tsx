@@ -351,18 +351,18 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         {selectedConversationId ? (
           <>
             {/* Chat Header */}
-                   <OptimizedChatHeader
-                     conversationId={selectedConversationId || undefined}
-                     conversation={selectedConversation ?? undefined}
-                     onRefresh={refreshMessages}
-                     onAssignAgent={handleAssignAgent}
-                     onToggleStatus={handleToggleStatus}
-                     onChangePriority={handleChangePriority}
-                     onDeleteConversation={handleDeleteConversation}
-                   />
+            <OptimizedChatHeader
+              conversationId={selectedConversationId || undefined}
+              conversation={selectedConversation ?? undefined}
+              onRefresh={refreshMessages}
+              onAssignAgent={handleAssignAgent}
+              onToggleStatus={handleToggleStatus}
+              onChangePriority={handleChangePriority}
+              onDeleteConversation={handleDeleteConversation}
+            />
 
-            {/* Messages Area - Fixed height with scrollbar */}
-            <div className="h-[600px] flex-shrink-0">
+            {/* Messages Area - Fill remaining space */}
+            <div className="flex-1 overflow-hidden">
               <VirtualMessageList
                 messages={messages}
                 isLoading={messagesLoading}
@@ -373,12 +373,14 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
               />
             </div>
 
-            {/* Message Input */}
-            <MessageInput
-              onSendMessage={handleSendMessage}
-              disabled={messageInputDisabled}
-              disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
-            />
+            {/* Message Input - Fixed at bottom */}
+            <div className="flex-shrink-0 border-t bg-background">
+              <MessageInput
+                onSendMessage={handleSendMessage}
+                disabled={messageInputDisabled}
+                disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
+              />
+            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
