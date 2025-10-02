@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useChatStore } from '@/store/chat-store';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PriorityBadge } from '@/components/ui/priority-badge';
+import { ConversationTabFilter, TabFilterType } from './conversation-tab-filter';
 
 interface ConversationItem {
   id: string;
@@ -57,6 +58,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabFilterType>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load initial conversations
   useEffect(() => {
@@ -171,6 +174,52 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
   };
 
+  // Filter conversations based on active tab and search query
+  const filteredConversations = useMemo(() => {
+    let filtered = conversations;
+
+    // Apply tab filter first
+    if (activeTab === 'assigned') {
+      filtered = filtered.filter(conv => conv.agentId === agentId);
+    } else if (activeTab === 'unassigned') {
+      filtered = filtered.filter(conv => 
+        !conv.agentId || 
+        conv.agentId === 'unassigned' || 
+        conv.agentId === 'unknown' ||
+        conv.agentName === 'Unassigned'
+      );
+    }
+    // 'all' tab shows all conversations, no additional filtering needed
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(conv => 
+        conv.title.toLowerCase().includes(query) ||
+        conv.customerPhone?.includes(query) ||
+        conv.customerEmail?.toLowerCase().includes(query) ||
+        conv.agentName?.toLowerCase().includes(query) ||
+        conv.lastMessagePreview?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [conversations, activeTab, agentId, searchQuery]);
+
+  // Calculate tab counts
+  const tabCounts = useMemo(() => {
+    const all = conversations.length;
+    const assigned = conversations.filter(conv => conv.agentId === agentId).length;
+    const unassigned = conversations.filter(conv => 
+      !conv.agentId || 
+      conv.agentId === 'unassigned' || 
+      conv.agentId === 'unknown' ||
+      conv.agentName === 'Unassigned'
+    ).length;
+    
+    return { all, assigned, unassigned };
+  }, [conversations, agentId]);
+
   if ((isLoading || isInitialLoad) && conversations.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -192,8 +241,17 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Tab Filter */}
+      <ConversationTabFilter
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onSearchChange={setSearchQuery}
+        counts={tabCounts}
+        currentAgentId={agentId}
+      />
+      
       <div className="flex-1 overflow-y-auto">
-        {conversations.map((conversation) => (
+        {filteredConversations.map((conversation) => (
           <div
             key={conversation.id}
             className={`w-full p-3 mb-1 rounded-lg border transition-colors cursor-pointer ${
@@ -297,7 +355,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           </div>
         ))}
         
-        {hasMore && conversations.length > 0 && (
+        {hasMore && filteredConversations.length > 0 && (
           <div className="p-4 text-center">
             <Button 
               variant="outline" 
