@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from '@/components/ui/status-badge';
+import { StatusToggle } from '@/components/ui/status-toggle';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ConversationTabFilter, TabFilterType } from './conversation-tab-filter';
 import type { StatusFilter } from './conversation-status-priority-filter';
@@ -80,7 +81,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     setConversations,
     isLoading,
     error,
-    isConversationPinned
+    isConversationPinned,
+    updateConversationStatus
   } = useChatStore();
   
   // Use conversations from store instead of local state
@@ -91,6 +93,32 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const [activeTab, setActiveTab] = useState<TabFilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // Handle status updates from conversation list
+  const handleStatusUpdate = async (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
+    try {
+      console.log('🔍 Conversation list - updating status:', { conversationId, newStatus });
+      
+      const response = await fetch(`/api/conversations/${conversationId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update conversation status');
+      }
+
+      // Update the store
+      updateConversationStatus(conversationId, newStatus);
+      
+      console.log('🔍 Conversation list - status updated successfully');
+    } catch (error) {
+      console.error('Error updating conversation status from list:', error);
+    }
+  };
 
   // Load initial conversations
   useEffect(() => {
@@ -363,9 +391,35 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                           <User className="h-4 w-4 mr-2" />
                           Assign Agent
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Mark as Closed
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newStatus = conversation.status === 'open' ? 'closed' : 'open';
+                            handleStatusUpdate(conversation.id, newStatus);
+                          }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center">
+                            {conversation.status === 'open' ? (
+                              <>
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Close Conversation
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Reopen Conversation
+                              </>
+                            )}
+                          </div>
+                          <StatusToggle
+                            status={conversation.status || 'open'}
+                            onToggle={() => {
+                              const newStatus = conversation.status === 'open' ? 'closed' : 'open';
+                              handleStatusUpdate(conversation.id, newStatus);
+                            }}
+                            size="sm"
+                          />
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={(e) => {
                           e.stopPropagation();

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle, Trash2 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { StatusToggle } from '@/components/ui/status-toggle';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ContactDialog } from './contact-dialog';
 import { AgentAssignmentDialog } from './agent-assignment-dialog';
@@ -120,13 +121,11 @@ export function OptimizedChatHeader({
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-sm truncate">{title}</h3>
               {status && onToggleStatus && (
-                <button
-                  onClick={() => onToggleStatus(id, status === 'open' ? 'closed' : 'open')}
-                  className="transition-all hover:scale-105"
-                  title={`Click to ${status === 'open' ? 'close' : 'reopen'} conversation`}
-                >
-                  <StatusBadge status={status} />
-                </button>
+                <StatusToggle
+                  status={status}
+                  onToggle={() => onToggleStatus(id, status === 'open' ? 'closed' : 'open')}
+                  size="sm"
+                />
               )}
               {priority && onChangePriority && (
                 <DropdownMenu>

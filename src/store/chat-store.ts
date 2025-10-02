@@ -60,6 +60,7 @@ interface ChatActions {
   updateConversationPriority: (conversationId: string, priority: 'low' | 'medium' | 'high') => void;
   toggleConversationPin: (conversationId: string) => void;
   isConversationPinned: (conversationId: string) => boolean;
+  autoReopenConversation: (conversationId: string) => Promise<void>;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -99,12 +100,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     
     const updatedMessages = [...currentMessages, message];
     
-    // Update last message preview for the conversation
+    // Update last message preview for the conversation and auto-reopen if closed
     const updatedConversations = state.conversations.map(conv => 
       conv.id === conversationId 
-        ? { ...conv, lastMessagePreview: message.text || '[Media]', updatedAt: message.timestamp }
+        ? { 
+            ...conv, 
+            lastMessagePreview: message.text || '[Media]', 
+            updatedAt: message.timestamp,
+            // Auto-reopen closed conversations when new messages are received
+            status: conv.status === 'closed' ? 'open' : conv.status
+          }
         : conv
     );
+
+    // Auto-reopen in database if conversation was closed
+    const conversation = state.conversations.find(conv => conv.id === conversationId);
+    if (conversation && conversation.status === 'closed') {
+      // Call auto-reopen function asynchronously
+      get().autoReopenConversation(conversationId);
+    }
     
     return {
       messages: { ...state.messages, [conversationId]: updatedMessages },
@@ -125,13 +139,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     
     const updatedMessages = [...currentMessages, ...uniqueNewMessages];
     
-    // Update last message preview with the newest message
+    // Update last message preview with the newest message and auto-reopen if closed
     const lastMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
     const updatedConversations = state.conversations.map(conv => 
       conv.id === conversationId && lastMessage
-        ? { ...conv, lastMessagePreview: lastMessage.text || '[Media]', updatedAt: lastMessage.timestamp }
+        ? { 
+            ...conv, 
+            lastMessagePreview: lastMessage.text || '[Media]', 
+            updatedAt: lastMessage.timestamp,
+            // Auto-reopen closed conversations when new messages are received
+            status: conv.status === 'closed' ? 'open' : conv.status
+          }
         : conv
     );
+
+    // Auto-reopen in database if conversation was closed
+    const conversation = state.conversations.find(conv => conv.id === conversationId);
+    if (conversation && conversation.status === 'closed') {
+      // Call auto-reopen function asynchronously
+      get().autoReopenConversation(conversationId);
+    }
     
     return {
       messages: { ...state.messages, [conversationId]: updatedMessages },
@@ -237,6 +264,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         isConversationPinned: (conversationId) => {
           const state = get();
           return state.pinnedConversations.has(conversationId);
+        },
+
+        // Auto-reopen closed conversation when new message is received
+        autoReopenConversation: async (conversationId: string) => {
+          try {
+            const response = await fetch(`/api/conversations/${conversationId}/status`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ status: 'open' }),
+            });
+
+            if (response.ok) {
+              console.log('🔍 Auto-reopened conversation:', conversationId);
+            }
+          } catch (error) {
+            console.error('Error auto-reopening conversation:', error);
+          }
         }
       }));
 
