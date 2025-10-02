@@ -167,7 +167,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         agentName: agentName,
         agentStatus: agentStatus,
         status: (['open', 'closed'][Math.floor(Math.random() * 2)]) as 'open' | 'closed', // Random status for testing
-        priority: (['high', 'medium', 'low'][Math.floor(Math.random() * 3)]) as 'high' | 'medium' | 'low', // Random priority for testing
+        isPinned: Math.random() > 0.7, // 30% chance of being pinned for testing
       };
       console.log('🔍 Created conversation item:', conversationItem);
       return conversationItem;
@@ -184,7 +184,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         customerId: 'unknown',
         agentId: 'unknown',
         status: 'open' as const,
-        priority: 'medium' as const,
+        isPinned: false,
       };
     }
   }));

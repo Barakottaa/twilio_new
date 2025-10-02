@@ -80,7 +80,7 @@ export type Chat = {
   agentName?: string;
   agentStatus?: string;
   status: ConversationStatus;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  isPinned?: boolean;
   tags?: string[];
   assignedAt?: string;
   closedAt?: string;

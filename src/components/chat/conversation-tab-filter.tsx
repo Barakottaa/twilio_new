@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Users, UserCheck, UserX, Search, X } from 'lucide-react';
-import { ConversationStatusPriorityFilter, type StatusFilter, type PriorityFilter } from './conversation-status-priority-filter';
+import { ConversationStatusPriorityFilter, type StatusFilter } from './conversation-status-priority-filter';
 
 export type TabFilterType = 'all' | 'assigned' | 'unassigned';
 
@@ -14,7 +14,6 @@ interface ConversationTabFilterProps {
   onTabChange: (tab: TabFilterType) => void;
   onSearchChange: (searchQuery: string) => void;
   onStatusChange: (status: StatusFilter) => void;
-  onPriorityChange: (priority: PriorityFilter) => void;
   counts: {
     all: number;
     assigned: number;
@@ -24,16 +23,9 @@ interface ConversationTabFilterProps {
       open: number;
       closed: number;
     };
-    priority: {
-      all: number;
-      high: number;
-      medium: number;
-      low: number;
-    };
   };
   currentAgentId?: string;
   statusFilter: StatusFilter;
-  priorityFilter: PriorityFilter;
 }
 
 export function ConversationTabFilter({ 
@@ -41,11 +33,9 @@ export function ConversationTabFilter({
   onTabChange, 
   onSearchChange,
   onStatusChange,
-  onPriorityChange,
   counts, 
   currentAgentId,
-  statusFilter,
-  priorityFilter
+  statusFilter
 }: ConversationTabFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -111,25 +101,15 @@ export function ConversationTabFilter({
         </div>
       </div>
       
-      {/* Status and Priority Filters */}
+      {/* Status Filter */}
       <ConversationStatusPriorityFilter
         statusFilter={statusFilter}
-        priorityFilter={priorityFilter}
         onStatusChange={onStatusChange}
-        onPriorityChange={onPriorityChange}
         counts={{
-          status: counts.status,
-          priority: counts.priority
+          status: counts.status
         }}
       />
       
-      {/* Tab Filter Header */}
-      <div className="px-3 py-2 bg-gray-50 border-b">
-        <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Filter Conversations</h3>
-        <div className="text-xs text-gray-500 mt-1">
-          Tabs: All({counts.all}) | Assigned({counts.assigned}) | Unassigned({counts.unassigned})
-        </div>
-      </div>
       
       {/* Tab Filter */}
       <div className="flex bg-white min-h-[80px]">

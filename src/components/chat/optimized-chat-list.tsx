@@ -16,7 +16,9 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  XCircle
+  XCircle,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -27,7 +29,7 @@ import {
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ConversationTabFilter, TabFilterType } from './conversation-tab-filter';
-import type { StatusFilter, PriorityFilter } from './conversation-status-priority-filter';
+import type { StatusFilter } from './conversation-status-priority-filter';
 
 interface ConversationItem {
   id: string;
@@ -38,6 +40,13 @@ interface ConversationItem {
   updatedAt: string;
   customerId: string;
   agentId: string;
+  // Additional information for enhanced display
+  customerPhone?: string;
+  customerEmail?: string;
+  agentName?: string;
+  agentStatus?: string;
+  status?: 'open' | 'closed' | 'pending';
+  isPinned?: boolean;
 }
 
 interface OptimizedChatListProps {
@@ -62,7 +71,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const [activeTab, setActiveTab] = useState<TabFilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
 
   // Load initial conversations
   useEffect(() => {
@@ -177,7 +185,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
   };
 
-  // Filter conversations based on active tab, status, priority, and search query
+  // Filter conversations based on active tab, status, and search query
   const filteredConversations = useMemo(() => {
     let filtered = conversations;
 
@@ -199,11 +207,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       filtered = filtered.filter(conv => conv.status === statusFilter);
     }
 
-    // Apply priority filter
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(conv => conv.priority === priorityFilter);
-    }
-
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -216,8 +219,18 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       );
     }
 
+    // Sort: pinned conversations first, then by updatedAt
+    filtered.sort((a, b) => {
+      // Pinned conversations first
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      
+      // Then by updatedAt (most recent first)
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+
     return filtered;
-  }, [conversations, activeTab, agentId, statusFilter, priorityFilter, searchQuery]);
+  }, [conversations, activeTab, agentId, statusFilter, searchQuery]);
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
@@ -237,14 +250,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       closed: conversations.filter(conv => conv.status === 'closed').length
     };
     
-    // Priority counts
-    const priorityCounts = {
-      all: conversations.length,
-      high: conversations.filter(conv => conv.priority === 'high').length,
-      medium: conversations.filter(conv => conv.priority === 'medium').length,
-      low: conversations.filter(conv => conv.priority === 'low').length
-    };
-    
     console.log('🔍 Tab counts calculation:', {
       totalConversations: conversations.length,
       agentId,
@@ -252,14 +257,13 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       assigned,
       unassigned,
       statusCounts,
-      priorityCounts,
       conversations: conversations.map(c => ({
         id: c.id,
         title: c.title,
         agentId: c.agentId,
         agentName: c.agentName,
         status: c.status,
-        priority: c.priority
+        isPinned: c.isPinned
       }))
     });
     
@@ -267,8 +271,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       all, 
       assigned, 
       unassigned,
-      status: statusCounts,
-      priority: priorityCounts
+      status: statusCounts
     };
   }, [conversations, agentId]);
 
@@ -299,11 +302,9 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         onTabChange={setActiveTab}
         onSearchChange={setSearchQuery}
         onStatusChange={setStatusFilter}
-        onPriorityChange={setPriorityFilter}
         counts={tabCounts}
         currentAgentId={agentId}
         statusFilter={statusFilter}
-        priorityFilter={priorityFilter}
       />
       
       <div className="flex-1 overflow-y-auto">
@@ -339,8 +340,10 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                     {conversation.title}
                   </h3>
                   <div className="flex items-center gap-1">
+                    {conversation.isPinned && (
+                      <Pin className="h-3 w-3 text-yellow-500" />
+                    )}
                     {conversation.status && <StatusBadge status={conversation.status} />}
-                    {conversation.priority && <PriorityBadge priority={conversation.priority} />}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
@@ -357,8 +360,17 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                           Mark as Closed
                         </DropdownMenuItem>
                         <DropdownMenuItem>
-                          <AlertCircle className="h-4 w-4 mr-2" />
-                          Change Priority
+                          {conversation.isPinned ? (
+                            <>
+                              <PinOff className="h-4 w-4 mr-2" />
+                              Unpin Conversation
+                            </>
+                          ) : (
+                            <>
+                              <Pin className="h-4 w-4 mr-2" />
+                              Pin Conversation
+                            </>
+                          )}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -378,17 +390,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                       <Mail className="h-3 w-3" />
                       <span className="truncate">{conversation.customerEmail}</span>
                     </div>
-                  )}
-                </div>
-                
-                {/* Agent info */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                  <User className="h-3 w-3" />
-                  <span>{conversation.agentName || 'Unassigned'}</span>
-                  {conversation.agentStatus && (
-                    <Badge variant="outline" className="text-xs">
-                      {conversation.agentStatus}
-                    </Badge>
                   )}
                 </div>
                 
