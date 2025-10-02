@@ -62,6 +62,10 @@ export function ConversationTabFilter({
     }
   ];
 
+  // Debug logging
+  console.log('🔍 ConversationTabFilter render - activeTab:', activeTab, 'counts:', counts, 'searchQuery:', searchQuery);
+  console.log('🔍 Tabs array:', tabs);
+
   return (
     <div className="border-b bg-white shadow-sm">
       {/* Search Bar */}
@@ -90,43 +94,59 @@ export function ConversationTabFilter({
       {/* Tab Filter Header */}
       <div className="px-3 py-2 bg-gray-50 border-b">
         <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Filter Conversations</h3>
+        <div className="text-xs text-gray-500 mt-1">
+          Tabs: All({counts.all}) | Assigned({counts.assigned}) | Unassigned({counts.unassigned})
+        </div>
       </div>
       
       {/* Tab Filter */}
-      <div className="flex bg-white">
+      <div className="flex bg-white border-t-2 border-gray-200 min-h-[64px]">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
+          const isUnassigned = tab.id === 'unassigned';
+          
+          console.log(`🔍 Rendering tab: ${tab.id}, count: ${tab.count}, isActive: ${isActive}`);
           
           return (
             <Button
               key={tab.id}
               variant={isActive ? "default" : "ghost"}
               className={`
-                flex-1 rounded-none border-0 border-b-3 transition-all duration-200
+                flex-1 rounded-none border-0 border-b-4 transition-all duration-200 min-w-0
                 ${isActive 
                   ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm' 
-                  : 'border-transparent hover:border-gray-300 hover:bg-gray-50 text-gray-600'
+                  : isUnassigned
+                    ? 'border-orange-300 hover:border-orange-400 hover:bg-orange-50 text-orange-600'
+                    : 'border-transparent hover:border-gray-300 hover:bg-gray-50 text-gray-600'
                 }
-                h-14 px-4 py-3 text-sm font-medium
+                h-16 px-2 py-3 text-sm font-medium relative
               `}
-              onClick={() => onTabChange(tab.id)}
+              onClick={() => {
+                console.log(`🔍 Tab clicked: ${tab.id}`);
+                onTabChange(tab.id);
+              }}
               title={tab.description}
             >
               <div className="flex items-center gap-2">
-                <Icon className="h-4 w-4" />
-                <span className="text-sm">{tab.label}</span>
-                {tab.count > 0 && (
-                  <Badge 
-                    variant={isActive ? "default" : "secondary"} 
-                    className={`ml-1 text-xs h-6 min-w-[24px] flex items-center justify-center font-semibold ${
-                      isActive ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    {tab.count}
-                  </Badge>
-                )}
+                <Icon className={`h-5 w-5 ${isUnassigned ? 'text-orange-500' : ''}`} />
+                <span className="text-sm font-medium">{tab.label}</span>
+                <Badge 
+                  variant={isActive ? "default" : "secondary"} 
+                  className={`ml-1 text-xs h-6 min-w-[24px] flex items-center justify-center font-bold ${
+                    isActive 
+                      ? 'bg-blue-600 text-white' 
+                      : isUnassigned
+                        ? 'bg-orange-200 text-orange-800'
+                        : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {tab.count}
+                </Badge>
               </div>
+              {isUnassigned && tab.count > 0 && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+              )}
             </Button>
           );
         })}

@@ -217,6 +217,20 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       conv.agentName === 'Unassigned'
     ).length;
     
+    console.log('🔍 Tab counts calculation:', {
+      totalConversations: conversations.length,
+      agentId,
+      all,
+      assigned,
+      unassigned,
+      conversations: conversations.map(c => ({
+        id: c.id,
+        title: c.title,
+        agentId: c.agentId,
+        agentName: c.agentName
+      }))
+    });
+    
     return { all, assigned, unassigned };
   }, [conversations, agentId]);
 
