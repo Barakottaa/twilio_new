@@ -90,7 +90,7 @@ export function VirtualMessageList({
     <div className={`${className}`}>
       <div 
         ref={containerRef}
-        className="flex flex-col h-full overflow-y-auto"
+        className="flex flex-col h-full overflow-y-auto scrollbar-thin"
         onScroll={handleScroll}
       >
         {/* Load more indicator at the top */}
@@ -100,8 +100,8 @@ export function VirtualMessageList({
           </div>
         )}
         
-        {/* Messages - reverse order so latest appear at bottom */}
-        {messages.slice().reverse().map((message, index) => (
+        {/* Messages */}
+        {messages.map((message, index) => (
           <div key={message.id} className="px-4 py-2">
             <MessageBubble 
               message={message} 
