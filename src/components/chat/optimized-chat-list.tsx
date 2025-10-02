@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, isToday, isYesterday, differenceInDays } from 'date-fns';
 import { 
   Phone, 
   Mail, 
@@ -52,6 +52,25 @@ interface ConversationItem {
 interface OptimizedChatListProps {
   agentId?: string;
 }
+
+// Helper function to format time
+const formatMessageTime = (date: string | Date) => {
+  const messageDate = new Date(date);
+  const now = new Date();
+  
+  if (isToday(messageDate)) {
+    return format(messageDate, 'HH:mm');
+  } else if (isYesterday(messageDate)) {
+    return format(messageDate, 'HH:mm');
+  } else {
+    const daysDiff = differenceInDays(now, messageDate);
+    if (daysDiff < 7) {
+      return `${daysDiff}d`;
+    } else {
+      return format(messageDate, 'MM/dd');
+    }
+  }
+};
 
 export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const {
@@ -393,14 +412,16 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                   )}
                 </div>
                 
-                <p className="text-xs text-muted-foreground truncate mb-1">
-                  {conversation.lastMessagePreview || 'No messages yet'}
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">
-                    {conversation.updatedAt ? formatDistanceToNow(new Date(conversation.updatedAt), { addSuffix: true }) : 'Just now'}
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-muted-foreground truncate flex-1">
+                    {conversation.lastMessagePreview || 'No messages yet'}
+                  </p>
+                  <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                    {conversation.updatedAt ? formatMessageTime(conversation.updatedAt) : 'now'}
                   </span>
+                </div>
+                
+                <div className="flex items-center justify-end">
                   {conversation.unreadCount > 0 && (
                     <Badge variant="destructive" className="text-xs">
                       {conversation.unreadCount}

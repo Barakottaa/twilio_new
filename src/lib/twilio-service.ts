@@ -152,10 +152,31 @@ export async function listConversationsLite(limit = 30, after?: string) {
         }
       }
       
+      // Get the last message for preview
+      let lastMessagePreview = '';
+      try {
+        const messages = await c.messages().list({ limit: 1 });
+        if (messages.length > 0) {
+          const lastMessage = messages[0];
+          if (lastMessage.body) {
+            lastMessagePreview = lastMessage.body.length > 50 
+              ? lastMessage.body.substring(0, 50) + '...' 
+              : lastMessage.body;
+          } else if (lastMessage.media) {
+            lastMessagePreview = '[Media]';
+          } else {
+            lastMessagePreview = '[Message]';
+          }
+        }
+      } catch (error) {
+        console.log('Could not fetch last message for conversation:', c.sid);
+        lastMessagePreview = 'No messages yet';
+      }
+
       const conversationItem = {
         id: c.sid,
         title: customerName,
-        lastMessagePreview: '', // Will be populated when messages are loaded
+        lastMessagePreview: lastMessagePreview,
         unreadCount: 0, // Twilio doesn't provide this easily, defaulting to 0
         createdAt: c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
@@ -177,7 +198,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
       return {
         id: c.sid,
         title: c.friendlyName || c.sid,
-        lastMessagePreview: '',
+        lastMessagePreview: 'No messages yet',
         unreadCount: 0,
         createdAt: c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),

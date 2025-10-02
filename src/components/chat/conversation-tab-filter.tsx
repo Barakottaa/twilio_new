@@ -112,7 +112,7 @@ export function ConversationTabFilter({
       
       
       {/* Tab Filter */}
-      <div className="flex bg-white min-h-[80px]">
+      <div className="flex bg-white min-h-[60px]">
         {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -133,7 +133,7 @@ export function ConversationTabFilter({
                     ? 'border-b-2 border-orange-300 hover:border-orange-400 hover:bg-orange-50 text-orange-600'
                     : 'border-b-2 border-transparent hover:border-gray-300 hover:bg-gray-50 text-gray-600'
                 }
-                h-20 px-3 py-4 text-sm font-medium relative
+                       h-16 px-3 py-3 text-sm font-medium relative
               `}
               onClick={() => {
                 console.log(`🔍 Tab clicked: ${tab.id}`);
