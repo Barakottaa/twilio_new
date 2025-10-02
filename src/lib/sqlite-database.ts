@@ -600,6 +600,10 @@ class SQLiteDatabaseService {
     return await this.updateConversation(conversationId, { agent_id: agentId });
   }
 
+  async updateConversationStatus(conversationId: string, status: string): Promise<any> {
+    return await this.updateConversation(conversationId, { status: status });
+  }
+
   async getAllConversations(): Promise<any[]> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');

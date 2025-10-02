@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDatabase } from '@/lib/database-config';
 import type { ConversationStatus } from '@/types';
 
 export async function PATCH(
@@ -18,20 +19,34 @@ export async function PATCH(
       );
     }
 
-    // TODO: Update status in database
-    // For now, we'll just return success
-    // In a real implementation, you would:
-    // 1. Update the conversation status in your database
-    // 2. Log the status change
-    // 3. Possibly trigger notifications
-
     console.log(`🔍 Updating conversation ${conversationId} status to ${status}`);
+
+    // Update status in database
+    const db = await getDatabase();
+    
+    // First, check if the conversation exists in our database
+    let conversation = await db.getConversation(conversationId);
+    
+    if (!conversation) {
+      // If conversation doesn't exist, create it with the status
+      conversation = await db.createConversation({
+        id: conversationId,
+        twilio_conversation_sid: conversationId,
+        status: status
+      });
+      console.log('🔍 Created new conversation in database with status:', conversation);
+    } else {
+      // Update existing conversation status
+      conversation = await db.updateConversationStatus(conversationId, status);
+      console.log('🔍 Updated conversation status in database:', conversation);
+    }
 
     return NextResponse.json({
       success: true,
       conversationId,
       status,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      conversation
     });
 
   } catch (error) {

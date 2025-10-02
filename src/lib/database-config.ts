@@ -21,6 +21,7 @@ export interface DatabaseInterface {
   createConversation(data: any): Promise<any>;
   updateConversation(id: string, data: any): Promise<any>;
   assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any>;
+  updateConversationStatus(conversationId: string, status: string): Promise<any>;
 }
 
 // Database configuration

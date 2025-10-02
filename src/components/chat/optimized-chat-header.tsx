@@ -167,12 +167,6 @@ export function OptimizedChatHeader({
                 <span className="text-orange-600">⚠️ Unassigned</span>
               )}
             </div>
-            
-            {lastMessagePreview && (
-              <p className="text-xs text-gray-500 truncate max-w-xs mt-1">
-                {lastMessagePreview}
-              </p>
-            )}
           </div>
           
           {unreadCount > 0 && (
