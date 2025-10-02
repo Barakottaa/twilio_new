@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Enable standalone output for Docker
+  output: 'standalone',
   // Bundle optimization
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
