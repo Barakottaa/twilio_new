@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import { MainLayout } from "@/components/layout/main-layout";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useAuth } from "@/hooks/use-auth";
-import { MessageInput } from "@/components/chat/message-input";
-import { useChatStore } from "@/store/chat-store";
 
 // Lazy load heavy components for better initial bundle size
 const OptimizedChatLayout = lazy(() => import("@/components/chat/optimized-chat-layout").then(module => ({ default: module.OptimizedChatLayout })));
@@ -14,30 +12,6 @@ const OptimizedChatLayout = lazy(() => import("@/components/chat/optimized-chat-
 export default function Home() {
   const { agent, isLoading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const { selectedConversationId } = useChatStore();
-
-  const handleSendMessage = async (text: string) => {
-    if (!selectedConversationId || !agent) return;
-    
-    try {
-      const response = await fetch(`/api/twilio/conversations/${selectedConversationId}/message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: text.trim(),
-          author: agent.id
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
 
   useEffect(() => {
     // Add a small delay to ensure cookies are set after login
@@ -75,11 +49,6 @@ export default function Home() {
           <OptimizedChatLayout loggedInAgent={agent} />
         </Suspense>
       </div>
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        disabled={!selectedConversationId}
-        disabledReason={!selectedConversationId ? "Select a conversation to send messages" : undefined}
-      />
     </MainLayout>
   );
 }

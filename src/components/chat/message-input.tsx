@@ -31,13 +31,13 @@ export function MessageInput({ onSendMessage, disabled = false, disabledReason }
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-4 border-t bg-card z-10">
+    <div className="p-4 border-t bg-card">
       {disabled && disabledReason && (
         <div className="mb-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
           <p className="text-sm text-orange-800">{disabledReason}</p>
         </div>
       )}
-      <div className="flex items-center gap-2 max-w-4xl mx-auto">
+      <div className="flex items-center gap-2">
          <Button 
            variant="ghost" 
            size="icon" 

@@ -26,30 +26,43 @@ export function VirtualMessageList({
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(false);
   
+  // Function to scroll to bottom with retry mechanism
+  const scrollToBottom = () => {
+    const container = containerRef.current;
+    if (container) {
+      const maxScrollHeight = container.scrollHeight;
+      container.scrollTop = maxScrollHeight;
+      
+      // If scroll didn't work, try again after a short delay
+      setTimeout(() => {
+        if (container.scrollTop < maxScrollHeight - 10) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }, 100);
+    }
+  };
+  
   console.log('🔍 VirtualMessageList render:', { messagesCount: messages.length, isLoading, firstMessage: messages[0] });
   console.log('🔍 VirtualMessageList - all messages:', messages);
   
   // Auto-scroll to bottom when messages change or conversation is first loaded (latest messages are at bottom)
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMore) {
-      const container = containerRef.current;
-      if (container) {
-        // Use setTimeout to ensure DOM is updated
-        setTimeout(() => {
-          container.scrollTop = container.scrollHeight; // Scroll to bottom where latest messages are
-        }, 100);
-      }
+      // Use multiple timeouts to ensure DOM is fully updated
+      setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+      setTimeout(() => {
+        scrollToBottom();
+      }, 200);
     }
   }, [messages.length, isLoadingMore]);
 
   // Auto-scroll to bottom when new messages arrive (latest messages are at bottom)
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMore && shouldScrollToBottom) {
-      const container = containerRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight; // Scroll to bottom where latest messages are
-        setShouldScrollToBottom(false);
-      }
+      scrollToBottom();
+      setShouldScrollToBottom(false);
     }
   }, [messages.length, isLoadingMore, shouldScrollToBottom]);
 
@@ -119,9 +132,6 @@ export function VirtualMessageList({
             </div>
           </div>
         )}
-        
-        {/* Bottom padding to account for fixed message input */}
-        <div className="h-24"></div>
       </div>
     </div>
   );

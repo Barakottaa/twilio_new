@@ -373,6 +373,12 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
               />
             </div>
 
+            {/* Message Input */}
+            <MessageInput
+              onSendMessage={handleSendMessage}
+              disabled={messageInputDisabled}
+              disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
+            />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
