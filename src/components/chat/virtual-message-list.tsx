@@ -29,25 +29,25 @@ export function VirtualMessageList({
   console.log('🔍 VirtualMessageList render:', { messagesCount: messages.length, isLoading, firstMessage: messages[0] });
   console.log('🔍 VirtualMessageList - all messages:', messages);
   
-  // Auto-scroll to bottom when messages change or conversation is first loaded
+  // Auto-scroll to top when messages change or conversation is first loaded (latest messages are at top)
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMore) {
       const container = containerRef.current;
       if (container) {
         // Use setTimeout to ensure DOM is updated
         setTimeout(() => {
-          container.scrollTop = container.scrollHeight;
+          container.scrollTop = 0; // Scroll to top where latest messages are
         }, 100);
       }
     }
   }, [messages.length, isLoadingMore]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to top when new messages arrive (latest messages are at top)
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMore && shouldScrollToBottom) {
       const container = containerRef.current;
       if (container) {
-        container.scrollTop = container.scrollHeight;
+        container.scrollTop = 0; // Scroll to top where latest messages are
         setShouldScrollToBottom(false);
       }
     }
@@ -60,12 +60,12 @@ export function VirtualMessageList({
     }
   }, [messages.length, isLoadingMore]);
 
-  // Handle scroll to detect when user reaches top to load older messages
+  // Handle scroll to detect when user reaches bottom to load older messages
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
-    const isAtTop = container.scrollTop === 0;
+    const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
     
-    if (isAtTop && hasMore && !isLoadingMore) {
+    if (isAtBottom && hasMore && !isLoadingMore) {
       onLoadOlder();
     }
   };
@@ -93,15 +93,8 @@ export function VirtualMessageList({
         className="flex flex-col h-full max-h-[600px] overflow-y-auto scrollbar-fixed"
         onScroll={handleScroll}
       >
-        {/* Load more indicator at the top */}
-        {isLoadingMore && (
-          <div className="flex justify-center py-4">
-            <LoadingSpinner size="sm" />
-          </div>
-        )}
-        
-        {/* Messages */}
-        {messages.map((message, index) => (
+        {/* Messages - Latest messages first, scroll down for older */}
+        {messages.slice().reverse().map((message, index) => (
           <div key={message.id} className="px-4 py-2">
             <MessageBubble 
               message={message} 
@@ -111,11 +104,18 @@ export function VirtualMessageList({
           </div>
         ))}
         
+        {/* Load more indicator at the bottom */}
+        {isLoadingMore && (
+          <div className="flex justify-center py-4">
+            <LoadingSpinner size="sm" />
+          </div>
+        )}
+        
         {/* Scroll to bottom indicator */}
-        {hasMore && (
+        {hasMore && !isLoadingMore && (
           <div className="flex justify-center py-2">
             <div className="text-xs text-muted-foreground">
-              Scroll up to load older messages
+              Scroll down to load older messages
             </div>
           </div>
         )}
