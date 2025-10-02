@@ -86,6 +86,8 @@ export function AgentAssignmentDialog({
   };
 
   const handleAssign = async () => {
+    console.log('🔍 handleAssign called with:', { selectedAgentId, conversationId });
+    
     if (!selectedAgentId) {
       toast({
         title: "Error",
@@ -125,6 +127,7 @@ export function AgentAssignmentDialog({
       }
 
       // Call the API to assign the agent
+      console.log('🔍 Calling assignment API:', `/api/twilio/conversations/${conversationId}/assign`);
       const response = await fetch(`/api/twilio/conversations/${conversationId}/assign`, {
         method: 'PATCH',
         headers: {
@@ -135,8 +138,12 @@ export function AgentAssignmentDialog({
         })
       });
 
+      console.log('🔍 Assignment API response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to assign agent');
+        const errorText = await response.text();
+        console.error('🔍 Assignment API error:', errorText);
+        throw new Error(`Failed to assign agent: ${response.status} ${errorText}`);
       }
 
       toast({
@@ -267,7 +274,10 @@ export function AgentAssignmentDialog({
               Cancel
             </Button>
             <Button
-              onClick={handleAssign}
+              onClick={() => {
+                console.log('🔍 Assign button clicked');
+                handleAssign();
+              }}
               disabled={isLoading || !selectedAgentId}
             >
               {isLoading ? 'Assigning...' : 'Assign'}
