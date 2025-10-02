@@ -378,7 +378,11 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Mark as Closed
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          const { toggleConversationPin } = useChatStore.getState();
+                          toggleConversationPin(conversation.id);
+                        }}>
                           {conversation.isPinned ? (
                             <>
                               <PinOff className="h-4 w-4 mr-2" />

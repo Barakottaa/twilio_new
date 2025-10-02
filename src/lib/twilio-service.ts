@@ -155,7 +155,8 @@ export async function listConversationsLite(limit = 30, after?: string) {
       // Get the last message for preview
       let lastMessagePreview = '';
       try {
-        const messages = await c.messages().list({ limit: 1 });
+        // Get messages in descending order (newest first) and take the first one
+        const messages = await c.messages().list({ limit: 1, order: 'desc' });
         if (messages.length > 0) {
           const lastMessage = messages[0];
           if (lastMessage.body) {

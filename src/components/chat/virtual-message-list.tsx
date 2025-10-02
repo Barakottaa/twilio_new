@@ -29,7 +29,20 @@ export function VirtualMessageList({
   console.log('🔍 VirtualMessageList render:', { messagesCount: messages.length, isLoading, firstMessage: messages[0] });
   console.log('🔍 VirtualMessageList - all messages:', messages);
   
-  // Auto-scroll to bottom only when new messages arrive (not when loading older messages)
+  // Auto-scroll to bottom when messages change or conversation is first loaded
+  useEffect(() => {
+    if (messages.length > 0 && !isLoadingMore) {
+      const container = containerRef.current;
+      if (container) {
+        // Use setTimeout to ensure DOM is updated
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight;
+        }, 100);
+      }
+    }
+  }, [messages.length, isLoadingMore]);
+
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0 && !isLoadingMore && shouldScrollToBottom) {
       const container = containerRef.current;
@@ -87,8 +100,8 @@ export function VirtualMessageList({
           </div>
         )}
         
-        {/* Messages */}
-        {messages.map((message, index) => (
+        {/* Messages - reverse order so latest appear at bottom */}
+        {messages.slice().reverse().map((message, index) => (
           <div key={message.id} className="px-4 py-2">
             <MessageBubble 
               message={message} 

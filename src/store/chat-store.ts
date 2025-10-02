@@ -55,6 +55,7 @@ interface ChatActions {
   // conversation property updates
   updateConversationStatus: (conversationId: string, status: 'open' | 'closed' | 'pending') => void;
   updateConversationPriority: (conversationId: string, priority: 'low' | 'medium' | 'high') => void;
+  toggleConversationPin: (conversationId: string) => void;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -200,6 +201,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           conversations: state.conversations.map(conv =>
             conv.id === conversationId
               ? { ...conv, priority, updatedAt: new Date().toISOString() }
+              : conv
+          )
+        })),
+
+        // Toggle conversation pin
+        toggleConversationPin: (conversationId) => set((state) => ({
+          conversations: state.conversations.map(conv =>
+            conv.id === conversationId
+              ? { ...conv, isPinned: !conv.isPinned, updatedAt: new Date().toISOString() }
               : conv
           )
         }))
