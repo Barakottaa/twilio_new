@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID as string,
-  process.env.TWILIO_AUTH_TOKEN as string
-);
+// Initialize Twilio client with proper error handling
+let client: twilio.Twilio | null = null;
+
+function getTwilioClient(): twilio.Twilio {
+  if (!client) {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    
+    if (!accountSid || !authToken) {
+      throw new Error('Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables.');
+    }
+    
+    client = twilio(accountSid, authToken);
+  }
+  
+  return client;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +33,8 @@ export async function POST(req: NextRequest) {
     console.log(`🏷️ Setting display name "${displayName}" for conversation ${conversationSid}`);
 
     // Get participants for this conversation
-    const participants = await client.conversations.v1
+    const twilioClient = getTwilioClient();
+    const participants = await twilioClient.conversations.v1
       .conversations(conversationSid)
       .participants.list();
 
@@ -43,7 +57,7 @@ export async function POST(req: NextRequest) {
     })();
 
     // Update participant attributes with the new display name
-    await client.conversations.v1
+    await twilioClient.conversations.v1
       .conversations(conversationSid)
       .participants(whatsappParticipant.sid)
       .update({

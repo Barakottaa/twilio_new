@@ -1,5 +1,4 @@
-import sqlite3 from 'sqlite3';
-import { promisify } from 'util';
+import Database from 'better-sqlite3';
 import type { Agent, Contact } from '@/types';
 
 interface DatabaseRecord {
@@ -32,7 +31,7 @@ interface AgentRecord extends DatabaseRecord {
 }
 
 class SQLiteDatabaseService {
-  private db: sqlite3.Database | null = null;
+  private db: Database.Database | null = null;
   private isInitialized = false;
   private static instance: SQLiteDatabaseService | null = null;
 
@@ -52,23 +51,28 @@ class SQLiteDatabaseService {
   }
 
   private async initialize(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database('./database.sqlite', (err) => {
-        if (err) {
-          console.error('Error opening SQLite database:', err);
-          reject(err);
-        } else {
-          console.log('✅ SQLite database connected successfully');
-          this.createTables().then(resolve).catch(reject);
-        }
-      });
-    });
+    try {
+      // Use environment variable for database path, fallback to current directory
+      const dbPath = process.env.SQLITE_DB_PATH || './database.sqlite';
+      
+      // Ensure the directory exists
+      const path = require('path');
+      const fs = require('fs');
+      const dir = path.dirname(dbPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      this.db = new Database(dbPath);
+      console.log('✅ SQLite database connected successfully at:', dbPath);
+      await this.createTables();
+    } catch (error) {
+      console.error('Error opening SQLite database:', error);
+      throw error;
+    }
   }
 
   private async createTables(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-
-    const run = promisify(this.db.run.bind(this.db));
 
     const tables = [
       `CREATE TABLE IF NOT EXISTS agents (
@@ -123,7 +127,7 @@ class SQLiteDatabaseService {
 
     for (const sql of tables) {
       try {
-        await run(sql);
+        this.db.exec(sql);
         console.log('✅ Table created/verified successfully');
       } catch (error) {
         console.error('Error creating table:', error);
@@ -133,16 +137,23 @@ class SQLiteDatabaseService {
 
     // Add migration for is_pinned column if it doesn't exist
     try {
-      await run(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
-      console.log('✅ Added is_pinned column to conversations table');
+      // Check if column exists first
+      const tableInfo = this.db.prepare("PRAGMA table_info(conversations)").all();
+      const hasIsPinned = tableInfo.some((col: any) => col.name === 'is_pinned');
+      
+      if (!hasIsPinned) {
+        this.db.exec(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
+        console.log('✅ Added is_pinned column to conversations table');
+      } else {
+        console.log('✅ is_pinned column already exists');
+      }
     } catch (error) {
-      // Column already exists, ignore error
-      console.log('is_pinned column already exists or migration failed:', error);
+      console.log('Migration check failed:', error);
     }
 
     // Insert default admin user if not exists
     try {
-      await run(`
+      this.db.exec(`
         INSERT OR IGNORE INTO agents (id, username, password, role, permissions_dashboard, permissions_agents, permissions_contacts, permissions_analytics, permissions_settings)
         VALUES ('admin_001', 'admin', 'admin', 'admin', 1, 1, 1, 1, 1)
       `);
@@ -157,199 +168,119 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
-
     const id = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
 
-    await run(`
+    const stmt = this.db.prepare(`
       INSERT INTO contacts (id, name, phone_number, email, avatar, last_seen, notes, tags, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `);
+
+    stmt.run(
       id,
       data.name,
-      data.phoneNumber || null,
+      data.phone_number || null,
       data.email || null,
       data.avatar || null,
-      data.lastSeen || null,
+      data.last_seen || null,
       data.notes || null,
       data.tags || null,
-      data.isActive !== false ? 1 : 0,
+      data.is_active || 1,
       now,
       now
-    ]);
+    );
 
-    const result = await get('SELECT * FROM contacts WHERE id = ?', [id]);
-    
-    // Map snake_case database fields to camelCase interface fields
-    return {
-      id: result.id,
-      name: result.name,
-      phoneNumber: result.phone_number,
-      email: result.email,
-      avatar: result.avatar,
-      lastSeen: result.last_seen,
-      notes: result.notes,
-      tags: result.tags && result.tags !== '[object Object]' ? JSON.parse(result.tags) : [],
-      isActive: result.is_active === 1,
-      createdAt: result.created_at,
-      updatedAt: result.updated_at
-    } as ContactRecord;
+    return await this.getContact(id) as ContactRecord;
   }
 
   async getContact(id: string): Promise<ContactRecord | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM contacts WHERE id = ? AND is_active = 1', [id]);
-    
-    if (!result) return null;
-    
-    // Map snake_case database fields to camelCase interface fields
-    return {
-      id: result.id,
-      name: result.name,
-      phoneNumber: result.phone_number,
-      email: result.email,
-      avatar: result.avatar,
-      lastSeen: result.last_seen,
-      notes: result.notes,
-      tags: result.tags && result.tags !== '[object Object]' ? JSON.parse(result.tags) : [],
-      isActive: result.is_active === 1,
-      createdAt: result.created_at,
-      updatedAt: result.updated_at
-    } as ContactRecord;
+    const stmt = this.db.prepare('SELECT * FROM contacts WHERE id = ?');
+    const result = stmt.get(id) as ContactRecord | undefined;
+    return result || null;
   }
 
   async getAllContacts(): Promise<ContactRecord[]> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const all = promisify(this.db.all.bind(this.db));
-    const result = await all('SELECT * FROM contacts WHERE is_active = 1 ORDER BY created_at DESC');
-    
-    // Map snake_case database fields to camelCase interface fields
-    return result.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      phoneNumber: row.phone_number,
-      email: row.email,
-      avatar: row.avatar,
-      lastSeen: row.last_seen,
-      notes: row.notes,
-      tags: row.tags && row.tags !== '[object Object]' ? JSON.parse(row.tags) : [],
-      isActive: row.is_active === 1,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
-    })) as ContactRecord[];
+    const stmt = this.db.prepare('SELECT * FROM contacts WHERE is_active = 1 ORDER BY created_at DESC');
+    return stmt.all() as ContactRecord[];
   }
 
-  async updateContact(id: string, data: Partial<Omit<ContactRecord, 'id' | 'created_at'>>): Promise<ContactRecord | null> {
+  async updateContact(id: string, data: Partial<ContactRecord>): Promise<ContactRecord | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
+    const now = new Date().toISOString();
+    const fields = Object.keys(data).filter(key => key !== 'id' && key !== 'created_at');
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const values = fields.map(field => (data as any)[field]);
 
-    const updateFields = [];
-    const values = [];
+    if (fields.length === 0) return await this.getContact(id);
 
-    if (data.name !== undefined) {
-      updateFields.push('name = ?');
-      values.push(data.name);
-    }
-    if (data.phoneNumber !== undefined) {
-      updateFields.push('phone_number = ?');
-      values.push(data.phoneNumber);
-    }
-    if (data.email !== undefined) {
-      updateFields.push('email = ?');
-      values.push(data.email);
-    }
-    if (data.avatar !== undefined) {
-      updateFields.push('avatar = ?');
-      values.push(data.avatar);
-    }
-    if (data.lastSeen !== undefined) {
-      updateFields.push('last_seen = ?');
-      values.push(data.lastSeen);
-    }
-    if (data.notes !== undefined) {
-      updateFields.push('notes = ?');
-      values.push(data.notes);
-    }
-    if (data.tags !== undefined) {
-      updateFields.push('tags = ?');
-      values.push(data.tags);
-    }
-    if (data.isActive !== undefined) {
-      updateFields.push('is_active = ?');
-      values.push(data.isActive ? 1 : 0);
-    }
-
-    if (updateFields.length === 0) {
-      return await this.getContact(id);
-    }
-
-    updateFields.push('updated_at = ?');
-    values.push(new Date().toISOString());
-    values.push(id);
-
-    const result = await run(`
-      UPDATE contacts SET ${updateFields.join(', ')}
+    const stmt = this.db.prepare(`
+      UPDATE contacts 
+      SET ${setClause}, updated_at = ?
       WHERE id = ?
-    `, values);
+    `);
 
-    if (result.changes > 0) {
-      return await this.getContact(id);
-    }
-    return null;
+    stmt.run(...values, now, id);
+    return await this.getContact(id);
   }
 
   async deleteContact(id: string): Promise<boolean> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const result = await run('UPDATE contacts SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id]);
+    const stmt = this.db.prepare('UPDATE contacts SET is_active = 0 WHERE id = ?');
+    const result = stmt.run(id);
     return result.changes > 0;
   }
 
-  async findContactByPhone(phoneNumber: string): Promise<ContactRecord | null> {
+  async findContactByPhone(phone: string): Promise<ContactRecord | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM contacts WHERE phone_number = ? AND is_active = 1', [phoneNumber]);
-    return result as ContactRecord || null;
+    const stmt = this.db.prepare('SELECT * FROM contacts WHERE phone_number = ? AND is_active = 1');
+    const result = stmt.get(phone) as ContactRecord | undefined;
+    return result || null;
   }
 
-  async findContactByEmail(email: string): Promise<ContactRecord | null> {
+  async findContactByName(name: string): Promise<ContactRecord | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM contacts WHERE email = ? AND is_active = 1', [email]);
-    return result as ContactRecord || null;
+    const stmt = this.db.prepare('SELECT * FROM contacts WHERE name = ? AND is_active = 1');
+    const result = stmt.get(name) as ContactRecord | undefined;
+    return result || null;
   }
 
   // Agent operations
-  async createAgent(data: Omit<AgentRecord, 'id' | 'created_at' | 'updated_at'>): Promise<AgentRecord> {
+  async createAgent(data: {
+    username: string;
+    password: string;
+    role: 'admin' | 'agent';
+    permissions_dashboard?: number;
+    permissions_agents?: number;
+    permissions_contacts?: number;
+    permissions_analytics?: number;
+    permissions_settings?: number;
+  }): Promise<AgentRecord> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
-
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
 
     const id = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
 
-    await run(`
+    const stmt = this.db.prepare(`
       INSERT INTO agents (id, username, password, role, permissions_dashboard, permissions_agents, permissions_contacts, permissions_analytics, permissions_settings, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `);
+
+    stmt.run(
       id,
       data.username,
       data.password,
@@ -359,162 +290,77 @@ class SQLiteDatabaseService {
       data.permissions_contacts || 0,
       data.permissions_analytics || 0,
       data.permissions_settings || 0,
-      data.is_active || 1,
+      1,
       now,
       now
-    ]);
+    );
 
-    const result = await get('SELECT * FROM agents WHERE id = ?', [id]);
-    return result as AgentRecord;
+    return await this.getAgent(id) as AgentRecord;
   }
 
   async getAgent(id: string): Promise<AgentRecord | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM agents WHERE id = ? AND is_active = 1', [id]);
-    return result as AgentRecord || null;
+    const stmt = this.db.prepare('SELECT * FROM agents WHERE id = ?');
+    const result = stmt.get(id) as AgentRecord | undefined;
+    return result || null;
   }
 
   async getAllAgents(): Promise<AgentRecord[]> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const all = promisify(this.db.all.bind(this.db));
-    const result = await all('SELECT * FROM agents WHERE is_active = 1 ORDER BY created_at DESC');
-    return result as AgentRecord[];
+    const stmt = this.db.prepare('SELECT * FROM agents WHERE is_active = 1 ORDER BY created_at DESC');
+    return stmt.all() as AgentRecord[];
   }
 
-  async updateAgent(id: string, data: Partial<Omit<AgentRecord, 'id' | 'created_at'>>): Promise<AgentRecord | null> {
+  async updateAgent(id: string, data: Partial<AgentRecord>): Promise<AgentRecord | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
+    const now = new Date().toISOString();
+    const fields = Object.keys(data).filter(key => key !== 'id' && key !== 'created_at');
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const values = fields.map(field => (data as any)[field]);
 
-    const updateFields = [];
-    const values = [];
+    if (fields.length === 0) return await this.getAgent(id);
 
-    if (data.username !== undefined) {
-      updateFields.push('username = ?');
-      values.push(data.username);
-    }
-    if (data.password !== undefined) {
-      updateFields.push('password = ?');
-      values.push(data.password);
-    }
-    if (data.role !== undefined) {
-      updateFields.push('role = ?');
-      values.push(data.role);
-    }
-    if (data.permissions_dashboard !== undefined) {
-      updateFields.push('permissions_dashboard = ?');
-      values.push(data.permissions_dashboard);
-    }
-    if (data.permissions_agents !== undefined) {
-      updateFields.push('permissions_agents = ?');
-      values.push(data.permissions_agents);
-    }
-    if (data.permissions_contacts !== undefined) {
-      updateFields.push('permissions_contacts = ?');
-      values.push(data.permissions_contacts);
-    }
-    if (data.permissions_analytics !== undefined) {
-      updateFields.push('permissions_analytics = ?');
-      values.push(data.permissions_analytics);
-    }
-    if (data.permissions_settings !== undefined) {
-      updateFields.push('permissions_settings = ?');
-      values.push(data.permissions_settings);
-    }
-    if (data.is_active !== undefined) {
-      updateFields.push('is_active = ?');
-      values.push(data.is_active);
-    }
-
-    if (updateFields.length === 0) {
-      return await this.getAgent(id);
-    }
-
-    updateFields.push('updated_at = ?');
-    values.push(new Date().toISOString());
-    values.push(id);
-
-    const result = await run(`
-      UPDATE agents SET ${updateFields.join(', ')}
+    const stmt = this.db.prepare(`
+      UPDATE agents 
+      SET ${setClause}, updated_at = ?
       WHERE id = ?
-    `, values);
+    `);
 
-    if (result.changes > 0) {
-      return await this.getAgent(id);
-    }
-    return null;
+    stmt.run(...values, now, id);
+    return await this.getAgent(id);
   }
 
   async deleteAgent(id: string): Promise<boolean> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    return new Promise((resolve, reject) => {
-      this.db!.run('UPDATE agents SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.changes > 0);
-        }
-      });
-    });
+    const stmt = this.db.prepare('UPDATE agents SET is_active = 0 WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
   }
 
   async findAgentByUsername(username: string): Promise<AgentRecord | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM agents WHERE username = ? AND is_active = 1', [username]);
-    return result as AgentRecord || null;
+    const stmt = this.db.prepare('SELECT * FROM agents WHERE username = ? AND is_active = 1');
+    const result = stmt.get(username) as AgentRecord | undefined;
+    return result || null;
   }
 
   async authenticateAgent(username: string, password: string): Promise<AgentRecord | null> {
-    const agent = await this.findAgentByUsername(username);
-    if (!agent) return null;
-
-    // In production, use proper password hashing (bcrypt, etc.)
-    if (agent.password === password) {
-      return agent;
-    }
-
-    return null;
-  }
-
-  // Initialize with sample data (optional)
-  async initializeSampleData(): Promise<void> {
     await this.ensureInitialized();
-    
-    // Check if we already have data
-    const existingAgents = await this.getAllAgents();
-    if (existingAgents.length > 0) {
-      console.log('SQLite database already initialized with data');
-      return;
-    }
+    if (!this.db) throw new Error('Database not initialized');
 
-    console.log('SQLite database initialized successfully');
-  }
-
-  async close(): Promise<void> {
-    if (this.db) {
-      return new Promise((resolve) => {
-        this.db!.close((err) => {
-          if (err) {
-            console.error('Error closing SQLite database:', err);
-          } else {
-            console.log('SQLite database connection closed');
-          }
-          resolve();
-        });
-      });
-    }
+    const stmt = this.db.prepare('SELECT * FROM agents WHERE username = ? AND password = ? AND is_active = 1');
+    const result = stmt.get(username, password) as AgentRecord | undefined;
+    return result || null;
   }
 
   // Conversation operations
@@ -530,13 +376,14 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
     const now = new Date().toISOString();
 
-    await run(`
+    const stmt = this.db.prepare(`
       INSERT INTO conversations (id, contact_id, agent_id, status, priority, is_pinned, twilio_conversation_sid, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `);
+
+    stmt.run(
       data.id,
       data.contact_id || null,
       data.agent_id || null,
@@ -546,7 +393,7 @@ class SQLiteDatabaseService {
       data.twilio_conversation_sid,
       now,
       now
-    ]);
+    );
 
     return await this.getConversation(data.id);
   }
@@ -555,82 +402,76 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    return await get('SELECT * FROM conversations WHERE id = ?', [id]);
-  }
-
-  async updateConversation(id: string, data: {
-    contact_id?: string;
-    agent_id?: string;
-    status?: string;
-    priority?: string;
-    is_pinned?: number;
-  }): Promise<any> {
-    await this.ensureInitialized();
-    if (!this.db) throw new Error('Database not initialized');
-
-    const run = promisify(this.db.run.bind(this.db));
-    const now = new Date().toISOString();
-
-    const updates = [];
-    const values = [];
-
-    if (data.contact_id !== undefined) {
-      updates.push('contact_id = ?');
-      values.push(data.contact_id);
-    }
-    if (data.agent_id !== undefined) {
-      updates.push('agent_id = ?');
-      values.push(data.agent_id);
-    }
-    if (data.status !== undefined) {
-      updates.push('status = ?');
-      values.push(data.status);
-    }
-    if (data.priority !== undefined) {
-      updates.push('priority = ?');
-      values.push(data.priority);
-    }
-    if (data.is_pinned !== undefined) {
-      updates.push('is_pinned = ?');
-      values.push(data.is_pinned);
-    }
-
-    if (updates.length === 0) {
-      return await this.getConversation(id);
-    }
-
-    updates.push('updated_at = ?');
-    values.push(now);
-    values.push(id);
-
-    await run(`
-      UPDATE conversations 
-      SET ${updates.join(', ')} 
-      WHERE id = ?
-    `, values);
-
-    return await this.getConversation(id);
-  }
-
-  async assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any> {
-    return await this.updateConversation(conversationId, { agent_id: agentId });
-  }
-
-  async updateConversationStatus(conversationId: string, status: string): Promise<any> {
-    return await this.updateConversation(conversationId, { status: status });
-  }
-
-  async updateConversationPinStatus(conversationId: string, isPinned: boolean): Promise<any> {
-    return await this.updateConversation(conversationId, { is_pinned: isPinned ? 1 : 0 });
+    const stmt = this.db.prepare('SELECT * FROM conversations WHERE id = ?');
+    const result = stmt.get(id);
+    return result || null;
   }
 
   async getAllConversations(): Promise<any[]> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const all = promisify(this.db.all.bind(this.db));
-    return await all('SELECT * FROM conversations ORDER BY updated_at DESC');
+    const stmt = this.db.prepare('SELECT * FROM conversations ORDER BY created_at DESC');
+    return stmt.all();
+  }
+
+  async updateConversation(id: string, data: any): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const fields = Object.keys(data).filter(key => key !== 'id' && key !== 'created_at');
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const values = fields.map(field => data[field]);
+
+    if (fields.length === 0) return await this.getConversation(id);
+
+    const stmt = this.db.prepare(`
+      UPDATE conversations 
+      SET ${setClause}, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(...values, now, id);
+    return await this.getConversation(id);
+  }
+
+  async assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE conversations SET agent_id = ?, updated_at = ? WHERE id = ?');
+    stmt.run(agentId, now, conversationId);
+    return await this.getConversation(conversationId);
+  }
+
+  async updateConversationStatus(conversationId: string, status: string): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE conversations SET status = ?, updated_at = ? WHERE id = ?');
+    stmt.run(status, now, conversationId);
+    return await this.getConversation(conversationId);
+  }
+
+  async updateConversationPinStatus(conversationId: string, isPinned: boolean): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare('UPDATE conversations SET is_pinned = ?, updated_at = ? WHERE id = ?');
+    stmt.run(isPinned ? 1 : 0, now, conversationId);
+    return await this.getConversation(conversationId);
+  }
+
+  async close(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.isInitialized = false;
+    }
   }
 }
 

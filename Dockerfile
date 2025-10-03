@@ -34,8 +34,8 @@ RUN apk add --no-cache sqlite curl
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy public assets
-COPY --from=builder /app/public ./public
+# Create public directory
+RUN mkdir -p ./public
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
@@ -48,6 +48,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Create database directory and set permissions
 RUN mkdir -p /app/data
 RUN chown nextjs:nodejs /app/data
+RUN chmod 755 /app/data
 
 # Switch to non-root user
 USER nextjs

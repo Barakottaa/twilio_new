@@ -14,7 +14,7 @@ type ChatHeaderProps = {
   agents?: Agent[]; // optional list for menu
 };
 
-export default function ChatHeader({
+export function ChatHeader({
   conversationId,
   contactName,
   assignedTo,
@@ -158,3 +158,5 @@ export default function ChatHeader({
     </div>
   );
 }
+
+export default ChatHeader;

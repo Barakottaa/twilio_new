@@ -3,10 +3,23 @@ import Twilio from "twilio";
 import { broadcastMessage } from '@/lib/sse-broadcast';
 import { invalidateConversationCache } from '@/lib/twilio-service';
 
-const client = Twilio(
-  process.env.TWILIO_ACCOUNT_SID as string,
-  process.env.TWILIO_AUTH_TOKEN as string
-);
+// Initialize Twilio client with proper error handling
+let client: Twilio.Twilio | null = null;
+
+function getTwilioClient(): Twilio.Twilio {
+  if (!client) {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    
+    if (!accountSid || !authToken) {
+      throw new Error('Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables.');
+    }
+    
+    client = Twilio(accountSid, authToken);
+  }
+  
+  return client;
+}
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +33,8 @@ export async function POST(req: Request) {
       const address = `whatsapp:+${waId}`;
       console.log('🔍 Looking up conversations for address:', address);
       
-      const pcs = await client.conversations.v1.participantConversations.list({ address, limit: 20 });
+      const twilioClient = getTwilioClient();
+      const pcs = await twilioClient.conversations.v1.participantConversations.list({ address, limit: 20 });
       console.log('📋 Found participant conversations:', pcs.length);
       
       const attrs = JSON.stringify({ display_name: profileName });
@@ -29,7 +43,7 @@ export async function POST(req: Request) {
       await Promise.all(
         pcs.map(pc => {
           console.log('🔄 Updating participant:', pc.participantSid, 'in conversation:', pc.conversationSid);
-          return client.conversations.v1
+          return twilioClient.conversations.v1
             .conversations(pc.conversationSid)
             .participants(pc.participantSid)
             .update({ attributes: attrs });
@@ -47,7 +61,7 @@ export async function POST(req: Request) {
         
         // Try to get the latest message from the conversation
         try {
-          const messages = await client.conversations.v1
+          const messages = await twilioClient.conversations.v1
             .conversations(conversationSid)
             .messages.list({ limit: 5 }); // Get more messages to find the actual latest one
           

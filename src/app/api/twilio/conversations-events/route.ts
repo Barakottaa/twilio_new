@@ -1,10 +1,23 @@
 // Next.js App Router — Twilio Conversations post-event webhook
 import Twilio from "twilio";
 
-const client = Twilio(
-  process.env.TWILIO_ACCOUNT_SID as string,
-  process.env.TWILIO_AUTH_TOKEN as string
-);
+// Initialize Twilio client with proper error handling
+let client: Twilio.Twilio | null = null;
+
+function getTwilioClient(): Twilio.Twilio {
+  if (!client) {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    
+    if (!accountSid || !authToken) {
+      throw new Error('Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables.');
+    }
+    
+    client = Twilio(accountSid, authToken);
+  }
+  
+  return client;
+}
 
 type ConvEvent = {
   EventType?: string;
@@ -28,7 +41,8 @@ export async function POST(req: Request) {
       console.log('👤 New participant added event');
       
       if (ConversationSid && ParticipantSid) {
-        const participant = await client.conversations.v1
+        const twilioClient = getTwilioClient();
+        const participant = await twilioClient.conversations.v1
           .conversations(ConversationSid)
           .participants(ParticipantSid)
           .fetch();
@@ -50,7 +64,7 @@ export async function POST(req: Request) {
           
           console.log('🏷️ Setting fallback display name:', fallbackName);
           
-          await client.conversations.v1
+          await twilioClient.conversations.v1
             .conversations(ConversationSid)
             .participants(ParticipantSid)
             .update({
