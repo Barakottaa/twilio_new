@@ -94,12 +94,6 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
           <p className="text-sm text-gray-500 italic">Empty message</p>
         )}
         
-        {/* Debug info for media messages */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="text-xs text-gray-400 mt-1">
-            Debug: text="{message.text}" mediaType="{message.mediaType}" mediaUrl="{message.mediaUrl}" media={JSON.stringify(message.media)}
-          </div>
-        )}
         
         <span className={`text-xs text-right block mt-1 ${
           isAgent ? "opacity-60" : "text-gray-500"

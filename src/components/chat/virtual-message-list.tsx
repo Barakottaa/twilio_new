@@ -26,8 +26,7 @@ export function VirtualMessageList({
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(false);
   
-  console.log('🔍 VirtualMessageList render:', { messagesCount: messages.length, isLoading, firstMessage: messages[0] });
-  console.log('🔍 VirtualMessageList - all messages:', messages);
+  // VirtualMessageList render
   
   // Auto-scroll to bottom when messages change or conversation is first loaded (latest messages are at bottom)
   useEffect(() => {

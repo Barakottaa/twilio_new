@@ -43,9 +43,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     error: messagesError
   } = useMessages(selectedConversationId || undefined);
 
-  console.log('🔍 OptimizedChatLayout - selectedConversationId:', selectedConversationId);
-  console.log('🔍 OptimizedChatLayout - messages:', messages);
-  console.log('🔍 OptimizedChatLayout - messagesLoading:', messagesLoading);
+  // OptimizedChatLayout render
 
   // Get the selected conversation from the store
   const selectedConversation = useChatStore(state => {
@@ -214,22 +212,12 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   });
 
   const handleSendMessage = async (text: string) => {
-    console.log('🔍 handleSendMessage called with:', { text, selectedConversationId });
     
     if (!selectedConversationId || !text.trim()) {
-      console.log('🔍 Cannot send message - missing conversationId or text:', { selectedConversationId, text });
       return;
     }
     
     if (messageInputDisabled) {
-      console.log('🔍 Cannot send message - conversation not assigned to current user:', { 
-        selectedConversationId, 
-        assignedAgent,
-        loggedInAgentId: loggedInAgent.id,
-        isUnassigned,
-        isAssignedToOtherAgent,
-        isAssignedToCurrentUser
-      });
       toast({
         title: "Cannot send message",
         description: messageInputDisabledReason,
@@ -239,7 +227,6 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     }
     
     try {
-      console.log('🔍 Sending message:', text, 'to conversation:', selectedConversationId);
       
       // Call the send message API
       const response = await fetch(`/api/twilio/conversations/${selectedConversationId}/message`, {
@@ -253,16 +240,16 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         })
       });
       
-      console.log('🔍 Message API response status:', response.status);
+      // Message API response status
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('🔍 Message API error:', errorText);
+        console.error('Message API error:', errorText);
         throw new Error(`Failed to send message: ${response.status} ${errorText}`);
       }
       
       const result = await response.json();
-      console.log('🔍 Message sent successfully:', result);
+      // Message sent successfully
       
       // Add the message to the store immediately for instant UI update
       const { appendMessage, setConversations } = useChatStore.getState();

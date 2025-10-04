@@ -29,10 +29,12 @@ export function useMessages(conversationId?: string): UseMessagesResult {
   // (You can keep clearConversation if you need it somewhere else)
   // const clearConversation = useChatStore((s) => s.clearConversation);
 
-  // ✅ Use simple referential equality (no shallow). Return stable EMPTY when missing.
+  // ✅ Subscribe to messages for this specific conversation
   const messages = useChatStore((state) => {
     if (!conversationId) return EMPTY_MESSAGES;
-    return state.messages[conversationId] ?? EMPTY_MESSAGES;
+    const msgs = state.messages[conversationId];
+    console.log('🔥 useMessages selector called for conversation:', conversationId, 'count:', msgs?.length || 0, 'exists:', !!msgs);
+    return msgs ?? EMPTY_MESSAGES;
   });
 
   const fetchMessages = useCallback(

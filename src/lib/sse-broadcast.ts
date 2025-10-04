@@ -4,10 +4,34 @@
 // Store active connections with metadata
 const connections = new Map<ReadableStreamDefaultController, { id: string, timestamp: number }>();
 
+// Store recent messages for new connections (last 10 messages)
+const recentMessages: Array<{ type: string, data: any, timestamp: number }> = [];
+
 export function addConnection(controller: ReadableStreamDefaultController) {
   const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   connections.set(controller, { id: connectionId, timestamp: Date.now() });
   console.log(`🔌 SSE connection added: ${connectionId}. Total connections: ${connections.size}`);
+  
+  // Send recent messages to new connection (within last 60 seconds)
+  const encoder = new TextEncoder();
+  const now = Date.now();
+  const recentThreshold = 60000; // 60 seconds (increased from 5)
+  
+  console.log(`📨 Checking recent messages for new connection. Queue size: ${recentMessages.length}`);
+  
+  const messagesToSend = recentMessages.filter(msg => now - msg.timestamp < recentThreshold);
+  console.log(`📨 Found ${messagesToSend.length} recent messages to send (threshold: ${recentThreshold}ms)`);
+  
+  messagesToSend.forEach(msg => {
+    try {
+      const message = JSON.stringify({ type: msg.type, data: msg.data });
+      const eventData = `data: ${message}\n\n`;
+      controller.enqueue(encoder.encode(eventData));
+      console.log(`📨 Sent recent message to new connection: ${connectionId}`, msg.data);
+    } catch (error) {
+      console.error(`❌ Error sending recent message to ${connectionId}:`, error);
+    }
+  });
 }
 
 export function removeConnection(controller: ReadableStreamDefaultController) {
@@ -25,13 +49,21 @@ export function broadcastMessage(type: string, data: any) {
   const message = JSON.stringify({ type, data });
   const eventData = `data: ${message}\n\n`;
   
+  // Store message in recent messages queue
+  recentMessages.push({ type, data, timestamp: Date.now() });
+  
+  // Keep only last 10 messages
+  if (recentMessages.length > 10) {
+    recentMessages.shift();
+  }
+  
   // Clean up stale connections first
   cleanupStaleConnections();
   
   console.log(`📡 Broadcasting ${type} to ${connections.size} connections:`, data);
   
   if (connections.size === 0) {
-    console.log('⚠️ No active connections to broadcast to');
+    console.log('⚠️ No active connections to broadcast to - message queued for next connection');
     return;
   }
   

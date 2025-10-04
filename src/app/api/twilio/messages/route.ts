@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const limit = Number(url.searchParams.get('limit') ?? 25);
     const before = url.searchParams.get('before') ?? undefined;
 
-    console.log('Fetching messages for conversation:', conversationId, 'limit:', limit, 'before:', before);
+    // Fetching messages for conversation
 
     const data = await listMessages(conversationId, limit, before);
     

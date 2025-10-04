@@ -1,0 +1,28 @@
+[33mcommit 1e5e2e6d86d3b6953300959d83a53b6c63036bc3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: abdelrahman <abdelrahmanbaraka01@gmail.com>
+Date:   Thu Oct 2 19:35:45 2025 +0300
+
+    debug: Add comprehensive debugging for real-time messaging and media handling
+    
+    - Add detailed debugging for SSE message processing
+    - Add media detection debugging in real-time message hook
+    - Add store state debugging before/after appendMessage
+    - Add webhook broadcast debugging
+    - Add debug info display in message bubble component
+    - Improve media detection logic with better fallbacks
+    
+    Debug Features Added:
+    - SSE connection and message flow debugging
+    - Media data structure debugging
+    - Store state changes debugging
+    - Webhook broadcast debugging
+    - Visual debug info in development mode
+    
+    This will help identify the root cause of:
+    1. Real-time messaging not working (need to reload)
+    2. Media messages showing as 'Empty message'
+
+database.sqlite-wal
+src/app/api/twilio/webhook/route.ts
+src/components/chat/message-bubble.tsx
+src/hooks/use-realtime-messages.ts

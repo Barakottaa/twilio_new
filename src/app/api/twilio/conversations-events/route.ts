@@ -1,77 +1,318 @@
-// Next.js App Router — Twilio Conversations post-event webhook
-import Twilio from "twilio";
+import { NextRequest, NextResponse } from 'next/server';
 
-const client = Twilio(
-  process.env.TWILIO_ACCOUNT_SID as string,
-  process.env.TWILIO_AUTH_TOKEN as string
-);
-
-type ConvEvent = {
-  EventType?: string;
-  ConversationSid?: string;
-  ParticipantSid?: string;
-  ParticipantMessagingBinding?: { Address?: string }; // "whatsapp:+20123..."
-};
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const ct = req.headers.get("content-type") || "";
-    const body: any = ct.includes("application/json")
-      ? await req.json()
-      : Object.fromEntries((await req.formData()).entries());
+    console.log('🔔 CONVERSATION EVENTS WEBHOOK CALLED - Starting processing...');
+    console.log('🔔 CONVERSATION EVENTS WEBHOOK CALLED - Time:', new Date().toISOString());
+    console.log('🔔 CONVERSATION EVENTS WEBHOOK CALLED - URL:', req.url);
+    console.log('🔔 CONVERSATION EVENTS WEBHOOK CALLED - Method:', req.method);
 
-    const { EventType, ConversationSid, ParticipantSid } = body as ConvEvent;
+    const body = await req.text();
+    console.log('📝 Conversation events webhook body:', body);
 
-    console.log('📡 Conversations webhook received:', { EventType, ConversationSid, ParticipantSid });
+    const formData = new URLSearchParams(body);
+    const params: { [key: string]: string } = {};
+    formData.forEach((value, key) => {
+      params[key] = value;
+    });
 
-    if (EventType === "onParticipantAdded") {
-      console.log('👤 New participant added event');
+    console.log('📋 Conversation events webhook parameters:', params);
+
+    // Handle different conversation event types
+    const eventType = params.EventType;
+    console.log('🎯 Event Type:', eventType);
+
+    switch (eventType) {
+      case 'onMessageAdded':
+        console.log('📨 New message added via conversation events');
+        await handleMessageAdded(params);
+        break;
       
-      if (ConversationSid && ParticipantSid) {
-        const participant = await client.conversations.v1
-          .conversations(ConversationSid)
-          .participants(ParticipantSid)
-          .fetch();
-
-        console.log('📋 Participant details:', {
-          identity: participant.identity,
-          messagingBinding: participant.messagingBinding,
-          attributes: participant.attributes
-        });
-
-        const attrs = (() => {
-          try { return JSON.parse(participant.attributes || "{}"); }
-          catch { return {}; }
-        })();
-
-        if (!attrs.display_name) {
-          const address = participant.messagingBinding?.address as string | undefined;
-          const fallbackName = address?.replace("whatsapp:+", "");
-          
-          console.log('🏷️ Setting fallback display name:', fallbackName);
-          
-          await client.conversations.v1
-            .conversations(ConversationSid)
-            .participants(ParticipantSid)
-            .update({
-              attributes: JSON.stringify({
-                ...attrs,
-                display_name: attrs.display_name ?? fallbackName,
-              }),
-            });
-            
-          console.log('✅ Updated participant attributes with fallback name');
-        } else {
-          console.log('ℹ️ Participant already has display name:', attrs.display_name);
-        }
-      }
-    } else {
-      console.log('ℹ️ Other conversation event:', EventType);
+      case 'onConversationAdded':
+        console.log('🆕 New conversation added');
+        await handleConversationAdded(params);
+        break;
+      
+      case 'onConversationUpdated':
+        console.log('🔄 Conversation updated');
+        await handleConversationUpdated(params);
+        break;
+      
+      case 'onConversationRemoved':
+        console.log('🗑️ Conversation removed');
+        await handleConversationRemoved(params);
+        break;
+      
+      case 'onParticipantAdded':
+        console.log('👤 Participant added');
+        await handleParticipantAdded(params);
+        break;
+      
+      case 'onParticipantUpdated':
+        console.log('🔄 Participant updated');
+        await handleParticipantUpdated(params);
+        break;
+      
+      case 'onParticipantRemoved':
+        console.log('👋 Participant removed');
+        await handleParticipantRemoved(params);
+        break;
+      
+      default:
+        console.log('❓ Unknown event type:', eventType);
     }
 
+    console.log('✅ Conversation events webhook processing completed successfully');
     return new Response("ok", { status: 200 });
+
   } catch (error) {
-    console.error("❌ Conversations webhook error:", error);
-    return new Response("ok", { status: 200 });
+    console.error('❌ Conversation events webhook error:', error);
+    return new Response("error", { status: 500 });
   }
+}
+
+async function handleMessageAdded(params: { [key: string]: string }) {
+  console.log('📨 Processing message added event...');
+  console.log('📋 Message params:', params);
+  
+  const conversationSid = params.ConversationSid;
+  const messageSid = params.MessageSid;
+  const body = params.Body;
+  const author = params.Author;
+  const participantSid = params.ParticipantSid;
+  
+  if (conversationSid && messageSid && body) {
+    console.log('🔄 Processing message from conversation events...');
+    
+    // Extract phone number from author
+    const phoneMatch = author?.match(/whatsapp:\+?(\d+)/);
+    const phone = phoneMatch ? phoneMatch[1] : null;
+    
+    console.log('📱 Phone extracted from Author:', phone);
+    
+    if (phone) {
+      // Create/update contact
+      try {
+        const sqlite3 = require('sqlite3');
+        const db = new sqlite3.Database('./database.sqlite');
+        const run = require('util').promisify(db.run.bind(db));
+        const all = require('util').promisify(db.all.bind(db));
+        
+        // Check if contact exists
+        const existingContacts = await all('SELECT * FROM contacts WHERE phone_number = ?', [phone]);
+        
+        let contactId;
+        if (existingContacts.length > 0) {
+          contactId = existingContacts[0].id;
+          console.log('✅ Found existing contact:', contactId);
+        } else {
+          // Create new contact
+          contactId = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          await run(`
+            INSERT INTO contacts (id, phone_number, name, avatar, last_seen, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `, [
+            contactId,
+            phone,
+            `Contact ${phone}`,
+            `https://ui-avatars.com/api/?name=Contact%20${phone}&background=random`,
+            new Date().toISOString(),
+            new Date().toISOString(),
+            new Date().toISOString()
+          ]);
+          console.log('✅ Created new contact:', contactId);
+        }
+        
+        // Create/update conversation
+        const existingConversations = await all('SELECT * FROM conversations WHERE id = ?', [conversationSid]);
+        if (existingConversations.length === 0) {
+          await run(`
+            INSERT INTO conversations (id, contact_id, friendly_name, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+          `, [
+            conversationSid,
+            contactId,
+            `Conversation with ${phone}`,
+            new Date().toISOString(),
+            new Date().toISOString()
+          ]);
+          console.log('✅ Created new conversation:', conversationSid);
+        }
+        
+        // Store message
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        await run(`
+          INSERT INTO messages (id, conversation_id, sender_id, sender_type, content, message_type, twilio_message_sid, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          messageId,
+          conversationSid,
+          author,
+          'contact',
+          body,
+          'text',
+          messageSid,
+          new Date().toISOString()
+        ]);
+        
+        console.log('✅ Message stored via conversation events:', {
+          messageId,
+          conversationSid,
+          content: body,
+          author
+        });
+        
+        db.close();
+        
+        // Broadcast the message to connected clients via SSE
+        console.log('📡 Broadcasting message to clients...');
+        const { broadcastMessage } = require('@/lib/sse-broadcast');
+        const { invalidateConversationCache } = require('@/lib/twilio-service');
+        
+        // Invalidate cache for this conversation
+        await invalidateConversationCache(conversationSid);
+        
+        // Broadcast the new message
+        await broadcastMessage('newMessage', {
+          conversationSid,
+          messageSid,
+          body,
+          author,
+          dateCreated: params.DateCreated || new Date().toISOString(),
+          index: params.Index || '0',
+          numMedia: 0,
+          media: [],
+          phone
+        });
+        console.log('✅ Message broadcasted to UI');
+        
+      } catch (error) {
+        console.error('❌ Error processing message in conversation events:', error);
+      }
+    }
+  }
+}
+
+async function handleConversationAdded(params: { [key: string]: string }) {
+  console.log('🆕 Processing conversation added event...');
+  console.log('📋 Conversation params:', params);
+  
+  const conversationSid = params.ConversationSid;
+  const friendlyName = params.FriendlyName;
+  const dateCreated = params.DateCreated;
+  
+  if (conversationSid) {
+    console.log('🔄 Creating conversation in database...');
+    try {
+      const sqlite3 = require('sqlite3');
+      const db = new sqlite3.Database('./database.sqlite');
+      const run = require('util').promisify(db.run.bind(db));
+      
+      await run(`
+        INSERT OR REPLACE INTO conversations (id, friendly_name, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+      `, [
+        conversationSid,
+        friendlyName || 'New Conversation',
+        dateCreated || new Date().toISOString(),
+        new Date().toISOString()
+      ]);
+      
+      db.close();
+      console.log('✅ Conversation added to database:', conversationSid);
+    } catch (error) {
+      console.error('❌ Error adding conversation to database:', error);
+    }
+  }
+}
+
+async function handleConversationUpdated(params: { [key: string]: string }) {
+  console.log('🔄 Processing conversation updated event...');
+  console.log('📋 Update params:', params);
+  
+  const conversationSid = params.ConversationSid;
+  const friendlyName = params.FriendlyName;
+  
+  if (conversationSid) {
+    console.log('🔄 Updating conversation in database...');
+    try {
+      const sqlite3 = require('sqlite3');
+      const db = new sqlite3.Database('./database.sqlite');
+      const run = require('util').promisify(db.run.bind(db));
+      
+      await run(`
+        UPDATE conversations 
+        SET friendly_name = ?, updated_at = ?
+        WHERE id = ?
+      `, [
+        friendlyName,
+        new Date().toISOString(),
+        conversationSid
+      ]);
+      
+      db.close();
+      console.log('✅ Conversation updated in database:', conversationSid);
+    } catch (error) {
+      console.error('❌ Error updating conversation in database:', error);
+    }
+  }
+}
+
+async function handleConversationRemoved(params: { [key: string]: string }) {
+  console.log('🗑️ Processing conversation removed event...');
+  console.log('📋 Removal params:', params);
+  
+  const conversationSid = params.ConversationSid;
+  
+  if (conversationSid) {
+    console.log('🔄 Removing conversation from database...');
+    try {
+      const sqlite3 = require('sqlite3');
+      const db = new sqlite3.Database('./database.sqlite');
+      const run = require('util').promisify(db.run.bind(db));
+      
+      await run(`
+        DELETE FROM conversations WHERE id = ?
+      `, [conversationSid]);
+      
+      db.close();
+      console.log('✅ Conversation removed from database:', conversationSid);
+    } catch (error) {
+      console.error('❌ Error removing conversation from database:', error);
+    }
+  }
+}
+
+async function handleParticipantAdded(params: { [key: string]: string }) {
+  console.log('👤 Processing participant added event...');
+  console.log('📋 Participant params:', params);
+  
+  const conversationSid = params.ConversationSid;
+  const participantSid = params.ParticipantSid;
+  const identity = params.Identity;
+  const attributes = params.Attributes;
+  
+  console.log('✅ Participant added:', { conversationSid, participantSid, identity });
+}
+
+async function handleParticipantUpdated(params: { [key: string]: string }) {
+  console.log('🔄 Processing participant updated event...');
+  console.log('📋 Update params:', params);
+  
+  const conversationSid = params.ConversationSid;
+  const participantSid = params.ParticipantSid;
+  const identity = params.Identity;
+  
+  console.log('✅ Participant updated:', { conversationSid, participantSid, identity });
+}
+
+async function handleParticipantRemoved(params: { [key: string]: string }) {
+  console.log('👋 Processing participant removed event...');
+  console.log('📋 Removal params:', params);
+  
+  const conversationSid = params.ConversationSid;
+  const participantSid = params.ParticipantSid;
+  const identity = params.Identity;
+  
+  console.log('✅ Participant removed:', { conversationSid, participantSid, identity });
 }

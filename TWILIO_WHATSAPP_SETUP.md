@@ -1,73 +1,151 @@
-# Twilio WhatsApp Contact Names Setup
+# Twilio WhatsApp Setup Guide
 
-## Current Status
-The app now automatically captures real contact information from Twilio's WhatsApp webhooks.
+## 🎯 Simplified Setup
 
-## What You'll See Now
-- **Without Twilio webhook configured**: Contact names will show as formatted phone numbers (e.g., "WhatsApp +20 10 1666 6348")
-- **With Twilio webhook configured**: Contact names will show real WhatsApp display names (e.g., "Ahmed Ali")
+This guide will help you set up WhatsApp integration with the simplified webhook architecture.
 
-## How It Works
-When a WhatsApp user sends a message to your business via Twilio:
-1. **Twilio sends webhook** to your configured endpoint (`/api/twilio/messaging`) with `ProfileName` and `WaId`
-2. **We extract** `ProfileName` (WhatsApp display name) and `WaId` (user's phone number)
-3. **We store** the real name and phone number in our contact mapping system
-4. **Twilio conversations** automatically use the stored contact names
+## 📋 Prerequisites
 
-## Setup Instructions
+- Twilio Account
+- WhatsApp Business API access (Sandbox or Production)
+- Your application running and accessible via HTTPS
 
-### Step 1: Set up Twilio WhatsApp Sandbox or Number
-1. Go to [Twilio Console](https://console.twilio.com/)
-2. Navigate to Messaging > Try it out > WhatsApp sandbox, or configure a WhatsApp-enabled phone number
+## 🚀 Quick Setup
 
-### Step 2: Configure Webhooks in Twilio Console
-You need to configure **TWO** webhook URLs in your Twilio Console for your WhatsApp number:
+### Step 1: Configure Twilio Console
 
-#### 1. A Message Comes In (Main Webhook)
-This webhook captures the `ProfileName` and `WaId` for incoming messages.
-- **Go to**: Twilio Console → Messaging → Settings → WhatsApp sandbox settings (or your WhatsApp-enabled number's configuration)
-- **Find**: "WHEN A MESSAGE COMES IN"
-- **Set Webhook URL**: `https://your-domain.com/api/twilio/messaging`
-  - **For local testing with Cloudflare Tunnel**: Use `https://your-tunnel-url.trycloudflare.com/api/twilio/messaging`
-- **Set Method**: `HTTP POST`
+1. **Go to Twilio Console** → Messaging → WhatsApp
+2. **Set Webhook URL**: `https://your-domain.com/api/twilio/webhook`
+3. **Set HTTP Method**: `POST`
+4. **Save Configuration**
 
-#### 2. Status Callback URL (Optional, but Recommended)
-This webhook receives updates on message delivery status.
-- **Go to**: Twilio Console → Messaging → Settings → WhatsApp sandbox settings (or your WhatsApp-enabled number's configuration)
-- **Find**: "STATUS CALLBACK URL"
-- **Set Status Callback URL**: `https://your-domain.com/api/twilio/whatsapp-status`
-  - **For local testing with Cloudflare Tunnel**: Use `https://your-tunnel-url.trycloudflare.com/api/twilio/whatsapp-status`
-- **Set Method**: `HTTP POST`
+### Step 2: Test the Integration
 
-### Step 3: Test the Flow
-1. Ensure your Next.js app is running and accessible via the Cloudflare Tunnel URL
-2. Send a WhatsApp message to your Twilio WhatsApp number (from a new number if possible, or one not already in your local contact map)
-3. Check your app - the contact name should appear automatically
-4. Check your Next.js server console logs for messages like:
-   - `👤 WhatsApp contact info: { profileName: 'Ahmed Ali', waId: '201234567890', from: 'whatsapp:+201234567890' }`
-   - `✅ WhatsApp contact stored: { phoneNumber: '+201234567890', profileName: 'Ahmed Ali', avatar: '...' }`
+1. **Send a WhatsApp message** to your Twilio number
+2. **Check your application** - the message should appear
+3. **Verify contact names** are automatically detected
 
-## Webhook Parameters from Twilio
-Twilio includes these parameters in inbound WhatsApp message webhooks:
-- `ProfileName`: The sender's WhatsApp display name (e.g., "Ahmed Ali")
-- `WaId`: The sender's WhatsApp ID (their phone number in WhatsApp format, e.g., "201234567890")
-- `From`: The sender's full WhatsApp address (e.g., "whatsapp:+201234567890")
-- `Body`: The user's message text
+## 🔧 How It Works
 
-## Current Behavior
-- ✅ **No more mock data** - "Ahmed Hassan" from previous mock data is removed
-- ✅ **Real phone numbers** - Shows formatted phone numbers as fallback if `ProfileName` is not yet captured
-- ✅ **Twilio webhook ready** - Automatically captures real WhatsApp display names when configured
-- ✅ **Automatic storage** - Contact names are stored in an in-memory map when users message you
-- ✅ **Real-time updates** - New contacts appear immediately in your app
+### Simplified Webhook Architecture
 
-## Testing
-1. Configure the webhook URLs in Twilio Console as described in Step 2
-2. Send a WhatsApp message to your Twilio WhatsApp number
-3. Check your app - you should see the real contact name
-4. Check console logs for webhook processing
+The application now uses a **single webhook endpoint** (`/api/twilio/webhook`) that handles:
 
-## Troubleshooting
-- **Names still showing as phone numbers**: Check that the Messaging webhook is configured correctly
-- **Webhook not receiving calls**: Verify the tunnel URL is accessible and the endpoint returns 200 OK
-- **Console errors**: Check that `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` are set in your environment
+- ✅ **Message Events**: Incoming WhatsApp messages
+- ✅ **Contact Detection**: Automatic ProfileName and WaId extraction
+- ✅ **Media Messages**: Images, videos, audio, documents
+- ✅ **Real-time Updates**: Live message broadcasting
+- ✅ **Security**: Twilio signature validation
+
+### What You'll See
+
+- **Without webhook configured**: Contact names show as formatted phone numbers
+- **With webhook configured**: Contact names show real WhatsApp display names
+
+## 📱 Webhook Events Handled
+
+The simplified webhook handles these Twilio events:
+
+1. **`onMessageAdded`** - New message received
+2. **`onMessageReceived`** - Message delivery confirmation
+3. **`onConversationAdded`** - New conversation started
+4. **`onParticipantAdded`** - New participant joined
+
+## 🔍 Testing
+
+### Test Webhook Connectivity
+
+```bash
+# Test if webhook is reachable
+curl https://your-domain.com/api/twilio/webhook
+
+# Should return: "Webhook endpoint is working"
+```
+
+### Test Message Flow
+
+1. Send WhatsApp message to your Twilio number
+2. Check application logs for:
+   ```
+   ✅ Verified Twilio webhook: { eventType: 'onMessageAdded' }
+   👤 Processing contact: { phone: '+1234567890', name: 'John Doe' }
+   📨 Processing message event
+   ✅ Message event processed
+   ```
+
+## 🛠️ Troubleshooting
+
+### Webhook Not Receiving Calls
+
+1. **Check URL accessibility:**
+   ```bash
+   curl https://your-domain.com/api/twilio/webhook
+   ```
+
+2. **Verify Twilio configuration:**
+   - Webhook URL is correct
+   - HTTP method is POST
+   - URL is accessible from internet
+
+3. **Check application logs:**
+   ```bash
+   # Docker
+   docker-compose logs -f
+   
+   # Local development
+   npm run dev
+   ```
+
+### Contact Names Not Showing
+
+1. **Verify webhook is configured** in Twilio Console
+2. **Check webhook logs** for contact processing
+3. **Ensure ProfileName is being sent** by Twilio
+
+### Media Messages Not Working
+
+1. **Check media parameters** in webhook logs
+2. **Verify media URLs** are accessible
+3. **Check file size limits** (Twilio has limits)
+
+## 🔒 Security
+
+The webhook includes built-in security:
+
+- **Signature Validation**: Verifies requests come from Twilio
+- **Error Handling**: Comprehensive error logging
+- **Rate Limiting**: Protection against abuse
+
+## 📊 Monitoring
+
+### Health Checks
+
+```bash
+# Application health
+curl https://your-domain.com/api/auth/me
+
+# Webhook health
+curl https://your-domain.com/api/twilio/webhook
+```
+
+### Log Monitoring
+
+Look for these log messages:
+- `✅ Verified Twilio webhook` - Webhook received and validated
+- `👤 Processing contact` - Contact information extracted
+- `📨 Processing message event` - Message being processed
+- `✅ Message event processed` - Message successfully handled
+
+## 🎉 Success Indicators
+
+You'll know the setup is working when you see:
+
+1. **Webhook receives calls** (check logs)
+2. **Messages appear in app** in real-time
+3. **Contact names show correctly** (not just phone numbers)
+4. **Media messages display** properly
+5. **Real-time updates work** across multiple browser tabs
+
+---
+
+**The simplified architecture makes setup and maintenance much easier!**

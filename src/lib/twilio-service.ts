@@ -42,7 +42,7 @@ async function getConversationStatusFromDatabase(conversationId: string): Promis
     const db = await getDatabase();
     const conversation = await db.getConversation(conversationId);
     const status = (conversation?.status as 'open' | 'closed') || 'open';
-    console.log('🔍 Loaded conversation status from database:', { conversationId, status, conversation });
+    // Loaded conversation status from database
     return status;
   } catch (error) {
     console.error('Error loading conversation status from database:', error);
@@ -55,7 +55,7 @@ async function getConversationPinStatusFromDatabase(conversationId: string): Pro
     const db = await getDatabase();
     const conversation = await db.getConversation(conversationId);
     const isPinned = conversation?.is_pinned === 1;
-    console.log('🔍 Loaded conversation pin status from database:', { conversationId, isPinned, conversation });
+    // Loaded conversation pin status from database
     return isPinned;
   } catch (error) {
     console.error('Error loading conversation pin status from database:', error);
@@ -87,7 +87,7 @@ export async function invalidateConversationCache(conversationSid?: string) {
     // Invalidate all cache
     conversationCache.clear();
   }
-  console.log('🗑️ Conversation cache invalidated');
+  // Conversation cache invalidated
 }
 
 export async function getTwilioClient() {
@@ -148,7 +148,6 @@ export async function listConversationsLite(limit = 30, after?: string) {
             if (dbContact) {
               customerName = dbContact.name;
               customerEmail = dbContact.email || '';
-              console.log('🔍 Found contact in database:', { phone: customerPhone, name: customerName });
             }
           } catch (error) {
             console.log('🔍 Error looking up contact in database:', error);
@@ -189,7 +188,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
               agentId = agent.id;
               agentName = agent.username;
               agentStatus = 'online';
-              console.log('🔍 Found database assignment:', { conversationId: c.sid, agentId, agentName });
+              // Found database assignment
             }
           }
         }
@@ -255,7 +254,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         status: status,
         isPinned: isPinned,
       };
-      console.log('🔍 Created conversation item:', conversationItem);
+      // Created conversation item
       return conversationItem;
     } catch (error) {
       console.error('Error fetching participants for conversation:', c.sid, error);
@@ -288,12 +287,53 @@ export async function listConversationsLite(limit = 30, after?: string) {
 
 export async function listMessages(conversationId: string, limit = 25, before?: string) {
   console.log('🔍 listMessages called with:', { conversationId, limit, before });
+  
+  // First, try to get messages from our database
+  try {
+    console.log('🔄 Checking database for messages...');
+    const sqlite3 = require('sqlite3');
+    const db = new sqlite3.Database('./database.sqlite');
+    const all = require('util').promisify(db.all.bind(db));
+    
+    const dbMessages = await all(`
+      SELECT * FROM messages 
+      WHERE conversation_id = ? 
+      ORDER BY created_at ASC 
+      LIMIT ?
+    `, [conversationId, limit]);
+    
+    db.close();
+    
+    if (dbMessages && dbMessages.length > 0) {
+      console.log('✅ Found', dbMessages.length, 'messages in database');
+      const messages = dbMessages.map((msg: any) => ({
+        id: msg.id,
+        text: msg.content,
+        timestamp: msg.created_at,
+        sender: msg.sender_type,
+        senderId: msg.sender_id,
+        mediaType: undefined,
+        mediaUrl: undefined,
+        mediaContentType: undefined,
+        mediaFileName: undefined,
+        mediaCaption: undefined,
+        media: undefined
+      }));
+      
+      return { messages, nextBefore: undefined };
+    }
+  } catch (error) {
+    console.log('⚠️ Error fetching from database, falling back to Twilio:', error);
+  }
+  
+  // Fallback to Twilio API if no database messages or error
+  console.log('🔄 Fetching messages from Twilio API...');
   const client = await getTwilioClient();
   const convo = client.conversations.v1.conversations(conversationId);
   const opts: any = { limit: Math.min(limit, 100) };
   if (before) opts.pageToken = before; // simplistic cursor using Twilio pages
   const page = await convo.messages.page(opts);
-  console.log('🔍 Twilio messages page:', { count: page.instances.length, hasMore: !!page.nextPageUrl });
+  // Twilio messages page loaded
   const messages = await Promise.all(page.instances.map(async (msg: any) => {
     // Map media defensively (Conversations API exposes media collection)
     let mediaArr: any[] = [];
@@ -333,7 +373,7 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
       // New media array format
       media: mediaArr.length ? mediaArr : undefined
     };
-    console.log('🔍 Mapped message:', { id: mappedMessage.id, text: mappedMessage.text, sender: mappedMessage.sender, senderId: mappedMessage.senderId });
+    // Mapped message
     return mappedMessage;
   }));
   const nextBefore = page.nextPageUrl ? page.nextPageUrl.match(/PageToken=([^&]+)/)?.[1] : undefined;

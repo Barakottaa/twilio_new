@@ -88,15 +88,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
   
   appendMessage: (conversationId, message) => set((state) => {
+    console.log('🔥 appendMessage called:', { conversationId, messageId: message.id, text: message.text });
+    
     const currentMessages = state.messages[conversationId] || [];
     
     // Check if message already exists to prevent duplicates
     const messageExists = currentMessages.some(m => m.id === message.id);
     if (messageExists) {
+      console.log('🔥 Message already exists, skipping');
       return state; // No change needed
     }
     
+    console.log('🔥 Appending new message. Current count:', currentMessages.length);
+    
+    // Create a new array with the new message to ensure React detects the change
     const updatedMessages = [...currentMessages, message];
+    
+    console.log('🔥 Updated count:', updatedMessages.length);
     
     // Update last message preview for the conversation and auto-reopen if closed
     const updatedConversations = state.conversations.map(conv => 

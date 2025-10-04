@@ -26,13 +26,17 @@ export async function GET(req: NextRequest) {
       // Send periodic heartbeat to keep connection alive
       const heartbeat = setInterval(() => {
         try {
-          const heartbeatData = JSON.stringify({ type: 'heartbeat', timestamp: Date.now() });
-          controller?.enqueue(encoder.encode(`data: ${heartbeatData}\n\n`));
+          if (controller) {
+            const heartbeatData = JSON.stringify({ type: 'heartbeat', timestamp: Date.now() });
+            controller.enqueue(encoder.encode(`data: ${heartbeatData}\n\n`));
+            console.log('💓 Heartbeat sent to connection');
+          }
         } catch (error) {
+          console.error('❌ Error sending heartbeat:', error);
           clearInterval(heartbeat);
           if (controller) removeConnection(controller);
         }
-      }, 30000); // Send heartbeat every 30 seconds
+      }, 15000); // Send heartbeat every 15 seconds (more frequent)
       
       // Handle client disconnect
       req.signal.addEventListener('abort', () => {

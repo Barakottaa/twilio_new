@@ -78,23 +78,21 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           eventSourceRef.current.close();
         }
 
-        console.log('🔌 Connecting to SSE...');
+        // Connecting to SSE...
         const eventSource = new EventSource('/api/events');
         eventSourceRef.current = eventSource;
         
         // Add a small delay to ensure connection is established
         setTimeout(() => {
           if (eventSource.readyState === EventSource.OPEN) {
-            console.log('✅ SSE connection confirmed as open');
+            // SSE connection confirmed as open
           } else {
-            console.log('⚠️ SSE connection not open, readyState:', eventSource.readyState);
+            // SSE connection not open
           }
         }, 100);
 
     eventSource.onopen = () => {
-      console.log('✅ SSE connection opened');
-      console.log('🔗 SSE URL:', eventSource.url);
-      console.log('🔗 SSE readyState:', eventSource.readyState);
+      // SSE connection opened
     };
 
     eventSource.onmessage = (event) => {
@@ -176,7 +174,8 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
   }, []);
 
   const handleNewMessage = async (messageData: RealtimeMessageData) => {
-    console.log('🔄 Processing new message:', messageData);
+    console.log('🔥 handleNewMessage CALLED with:', messageData);
+    console.log('🔥 Current conversation:', messageData.conversationSid);
     
     // Fix message direction logic to match the main service
     const isAgentMessage = messageData.author && (
@@ -185,19 +184,11 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       messageData.author.startsWith('admin_')
     );
     
-    console.log('🔍 Message direction check:', {
-      author: messageData.author,
-      isAgentMessage,
-      senderType: isAgentMessage ? 'agent' : 'customer'
-    });
+    console.log('🔥 Is agent message:', isAgentMessage);
+    // Message direction check
     
     // Handle new contact information
     if (messageData.profileName && messageData.from && !isAgentMessage) {
-      console.log('👤 New contact detected:', {
-        profileName: messageData.profileName,
-        from: messageData.from,
-        waId: messageData.waId
-      });
       
       // Add contact to in-memory mapping
       const phoneNumber = messageData.from.replace('whatsapp:', '');
@@ -206,7 +197,6 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       // Import and use addContact function
       import('@/lib/contact-mapping').then(({ addContact }) => {
         addContact(phoneNumber, messageData.profileName, avatar);
-        console.log('✅ New contact added to memory mapping');
       });
       
       // Also create contact in database
@@ -238,13 +228,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     const mediaMessages = messageData.mediaMessages || [];
     const mediaArray = messageData.media || [];
     
-    console.log('🔍 Media detection debug:', {
-      numMedia: messageData.numMedia,
-      mediaMessages: mediaMessages,
-      mediaArray: mediaArray,
-      hasMedia: hasMedia,
-      body: messageData.body
-    });
+    // Media detection debug
     
     // Determine text content - use body if available, otherwise use media caption
     let messageText = messageData.body || '';
@@ -278,38 +262,24 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       })),
     };
     
-    console.log('📝 Created new message object:', newMessage);
-    console.log('📝 Message text content:', newMessage.text);
-    console.log('📝 Message media info:', {
-      hasMedia,
-      mediaMessages: mediaMessages,
-      mediaArray: mediaArray,
-      mediaType: newMessage.mediaType,
-      mediaUrl: newMessage.mediaUrl,
-      mediaContentType: newMessage.mediaContentType,
-      mediaFileName: newMessage.mediaFileName,
-      mediaCaption: newMessage.mediaCaption,
-      media: newMessage.media
-    });
+    // Created new message object
 
     // Use the new store system for message updates
+    console.log('🔥 About to append message to store...');
+    console.log('🔥 New message object:', newMessage);
+    
     import('@/store/chat-store').then(({ useChatStore }) => {
       const store = useChatStore.getState();
-      console.log('🔍 Before appendMessage - Store state:', {
-        selectedConversationId: store.selectedConversationId,
-        conversationSid: messageData.conversationSid,
-        currentMessages: store.messages[messageData.conversationSid]?.length || 0
+      console.log('🔥 Store state before append:', { 
+        conversationMessages: store.messages[messageData.conversationSid]?.length || 0 
       });
       
       store.appendMessage(messageData.conversationSid, newMessage);
       
-      console.log('🔍 After appendMessage - Store state:', {
-        selectedConversationId: store.selectedConversationId,
-        conversationSid: messageData.conversationSid,
-        currentMessages: store.messages[messageData.conversationSid]?.length || 0
+      console.log('🔥 Store state after append:', { 
+        conversationMessages: store.messages[messageData.conversationSid]?.length || 0 
       });
-      
-      console.log('📝 Message added to store:', newMessage.id);
+      console.log('🔥 Message appended successfully!');
     });
   };
 
