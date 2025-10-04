@@ -167,8 +167,8 @@ async function handleMessageAdded(params: { [key: string]: string }) {
                 size: media.Size
               });
               
-              // Build the media URL
-              const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${conversationSid}/Media/${media.Sid}`;
+              // Build the media URL using our proxy endpoint for authentication
+              const mediaUrl = `/api/media/${media.Sid}?conversationSid=${conversationSid}`;
               
               mediaData.push({
                 sid: media.Sid,
