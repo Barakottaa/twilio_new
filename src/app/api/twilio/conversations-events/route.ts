@@ -73,13 +73,23 @@ export async function POST(req: NextRequest) {
 
 async function handleMessageAdded(params: { [key: string]: string }) {
   console.log('📨 Processing message added event...');
-  console.log('📋 Message params:', params);
+  console.log('📋 Message params:', JSON.stringify(params, null, 2));
   
   const conversationSid = params.ConversationSid;
   const messageSid = params.MessageSid;
   const body = params.Body;
   const author = params.Author;
   const participantSid = params.ParticipantSid;
+  const mediaParam = params.Media; // Media is already provided in the webhook!
+  
+  console.log('🔍 Extracted values:', {
+    conversationSid,
+    messageSid,
+    body: body || '(empty)',
+    author,
+    participantSid,
+    mediaParam: mediaParam || '(none)'
+  });
   
   if (conversationSid && messageSid) {
     console.log('🔄 Processing message from conversation events...');
@@ -139,80 +149,40 @@ async function handleMessageAdded(params: { [key: string]: string }) {
           console.log('✅ Created new conversation:', conversationSid);
         }
         
-        // Fetch full message details from Twilio to get media information
-        console.log('🔍 Fetching full message details from Twilio API...');
-        const twilio = require('twilio');
-        const client = twilio(
-          process.env.TWILIO_ACCOUNT_SID,
-          process.env.TWILIO_AUTH_TOKEN
-        );
-        
+        // Parse media data from webhook parameters (already provided!)
         let mediaData: any[] = [];
         let messageBody = body || '';
         
-        try {
-          // Fetch the message from Twilio Conversations API
-          const message = await client.conversations.v1
-            .conversations(conversationSid)
-            .messages(messageSid)
-            .fetch();
-          
-          console.log('📦 Fetched Twilio message:', {
-            sid: message.sid,
-            body: message.body
-          });
-          
-          // Update body if it was missing
-          if (!messageBody && message.body) {
-            messageBody = message.body;
-          }
-          
-          // Fetch media list separately (Twilio API requirement)
-          let mediaList: any[] = [];
+        if (mediaParam) {
           try {
-            mediaList = await client.conversations.v1
-              .conversations(conversationSid)
-              .messages(messageSid)
-              .media
-              .list();
-          } catch (mediaListErr) {
-            console.error('❌ Error fetching media list:', mediaListErr);
-          }
-
-          if (mediaList.length > 0) {
-            console.log(`📎 Processing ${mediaList.length} media items...`);
-
-            for (const media of mediaList) {
-              try {
-                const mediaDetails = await client.conversations.v1
-                  .conversations(conversationSid)
-                  .messages(messageSid)
-                  .media(media.sid)
-                  .fetch();
-
-                console.log('📷 Media details fetched:', {
-                  sid: mediaDetails.sid,
-                  contentType: mediaDetails.contentType,
-                  filename: mediaDetails.filename
-                });
-
-                const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${conversationSid}/Media/${media.sid}`;
-
-                mediaData.push({
-                  sid: media.sid,
-                  url: mediaUrl,
-                  contentType: mediaDetails.contentType,
-                  filename: mediaDetails.filename || 'file',
-                  size: mediaDetails.size
-                });
-
-              } catch (mediaErr) {
-                console.error('❌ Error fetching media details:', mediaErr);
-              }
+            console.log('📦 Parsing media from webhook parameters...');
+            const mediaArray = JSON.parse(mediaParam);
+            console.log(`✅ Found ${mediaArray.length} media items in webhook`);
+            
+            for (const media of mediaArray) {
+              console.log('📷 Media item:', {
+                sid: media.Sid,
+                contentType: media.ContentType,
+                filename: media.Filename,
+                size: media.Size
+              });
+              
+              // Build the media URL
+              const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${conversationSid}/Media/${media.Sid}`;
+              
+              mediaData.push({
+                sid: media.Sid,
+                url: mediaUrl,
+                contentType: media.ContentType,
+                filename: media.Filename || 'file',
+                size: media.Size
+              });
             }
+            
+            console.log(`✅ Processed ${mediaData.length} media items successfully`);
+          } catch (parseError) {
+            console.error('❌ Error parsing media from webhook:', parseError);
           }
-        } catch (twilioError) {
-          console.error('❌ Error fetching message from Twilio:', twilioError);
         }
         
         // Store message with media data
@@ -221,6 +191,16 @@ async function handleMessageAdded(params: { [key: string]: string }) {
         // Serialize media data as JSON for storage
         const mediaJson = mediaData.length > 0 ? JSON.stringify(mediaData) : null;
         const firstMedia = mediaData.length > 0 ? mediaData[0] : null;
+        
+        console.log('💾 About to store message:', {
+          messageId,
+          conversationSid,
+          body: messageBody || '(empty)',
+          messageType: mediaData.length > 0 ? 'media' : 'text',
+          mediaCount: mediaData.length,
+          firstMediaUrl: firstMedia?.url || 'none',
+          mediaJsonLength: mediaJson?.length || 0
+        });
         
         await run(`
           INSERT INTO messages (
