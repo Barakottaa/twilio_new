@@ -46,11 +46,35 @@ export function broadcastMessage(type: string, data: any) {
   console.log(`📡 BROADCAST MESSAGE CALLED - Type: ${type}, Data:`, data);
   
   const encoder = new TextEncoder();
-  const message = JSON.stringify({ type, data });
+  
+  // Serialize data to JSON with error handling
+  let message: string;
+  try {
+    // Create a serializable copy of the data
+    const serializableData = JSON.parse(JSON.stringify(data));
+    message = JSON.stringify({ type, data: serializableData });
+  } catch (serializationError) {
+    console.error('❌ Error serializing message data:', serializationError);
+    // Fallback to a simplified version
+    message = JSON.stringify({ 
+      type, 
+      data: { 
+        error: 'Failed to serialize full message',
+        conversationSid: data?.conversationSid,
+        messageSid: data?.messageSid 
+      } 
+    });
+  }
+  
   const eventData = `data: ${message}\n\n`;
   
-  // Store message in recent messages queue
-  recentMessages.push({ type, data, timestamp: Date.now() });
+  // Store message in recent messages queue (with serializable data only)
+  try {
+    const serializableData = JSON.parse(JSON.stringify(data));
+    recentMessages.push({ type, data: serializableData, timestamp: Date.now() });
+  } catch (error) {
+    console.error('❌ Error storing message in queue:', error);
+  }
   
   // Keep only last 10 messages
   if (recentMessages.length > 10) {
@@ -60,7 +84,7 @@ export function broadcastMessage(type: string, data: any) {
   // Clean up stale connections first
   cleanupStaleConnections();
   
-  console.log(`📡 Broadcasting ${type} to ${connections.size} connections:`, data);
+  console.log(`📡 Broadcasting ${type} to ${connections.size} connections`);
   
   if (connections.size === 0) {
     console.log('⚠️ No active connections to broadcast to - message queued for next connection');

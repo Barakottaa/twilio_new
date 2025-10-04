@@ -117,6 +117,10 @@ class SQLiteDatabaseService {
         content TEXT NOT NULL,
         message_type TEXT DEFAULT 'text',
         twilio_message_sid TEXT UNIQUE,
+        media_url TEXT,
+        media_content_type TEXT,
+        media_filename TEXT,
+        media_data TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
     ];
@@ -138,6 +142,24 @@ class SQLiteDatabaseService {
     } catch (error) {
       // Column already exists, ignore error
       console.log('is_pinned column already exists or migration failed:', error);
+    }
+
+    // Add migrations for media columns in messages table
+    const mediaColumns = [
+      { name: 'media_url', sql: 'ALTER TABLE messages ADD COLUMN media_url TEXT' },
+      { name: 'media_content_type', sql: 'ALTER TABLE messages ADD COLUMN media_content_type TEXT' },
+      { name: 'media_filename', sql: 'ALTER TABLE messages ADD COLUMN media_filename TEXT' },
+      { name: 'media_data', sql: 'ALTER TABLE messages ADD COLUMN media_data TEXT' }
+    ];
+
+    for (const col of mediaColumns) {
+      try {
+        await run(col.sql);
+        console.log(`✅ Added ${col.name} column to messages table`);
+      } catch (error) {
+        // Column already exists, ignore error
+        console.log(`${col.name} column already exists or migration failed`);
+      }
     }
 
     // Insert default admin user if not exists

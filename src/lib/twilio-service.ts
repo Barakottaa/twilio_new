@@ -306,19 +306,42 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
     
     if (dbMessages && dbMessages.length > 0) {
       console.log('✅ Found', dbMessages.length, 'messages in database');
-      const messages = dbMessages.map((msg: any) => ({
-        id: msg.id,
-        text: msg.content,
-        timestamp: msg.created_at,
-        sender: msg.sender_type,
-        senderId: msg.sender_id,
-        mediaType: undefined,
-        mediaUrl: undefined,
-        mediaContentType: undefined,
-        mediaFileName: undefined,
-        mediaCaption: undefined,
-        media: undefined
-      }));
+      const messages = dbMessages.map((msg: any) => {
+        // Parse media data from JSON if it exists
+        let mediaArray = [];
+        if (msg.media_data) {
+          try {
+            mediaArray = JSON.parse(msg.media_data);
+          } catch (error) {
+            console.error('Error parsing media data:', error);
+          }
+        }
+        
+        // Determine text content - use body if available, otherwise use media description
+        let messageText = msg.content || '';
+        if (!messageText && msg.message_type === 'media' && mediaArray.length > 0) {
+          // If no text but has media, use a descriptive message
+          const firstMedia = mediaArray[0];
+          const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
+          messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        }
+        
+        return {
+          id: msg.id,
+          text: messageText,
+          timestamp: msg.created_at,
+          sender: msg.sender_type,
+          senderId: msg.sender_id,
+          // Legacy media fields for backward compatibility
+          mediaType: msg.media_content_type ? getMediaTypeFromContentType(msg.media_content_type) : undefined,
+          mediaUrl: msg.media_url || undefined,
+          mediaContentType: msg.media_content_type || undefined,
+          mediaFileName: msg.media_filename || undefined,
+          mediaCaption: messageText,
+          // New media array format
+          media: mediaArray.length > 0 ? mediaArray : undefined
+        };
+      });
       
       return { messages, nextBefore: undefined };
     }

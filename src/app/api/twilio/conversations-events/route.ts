@@ -81,7 +81,7 @@ async function handleMessageAdded(params: { [key: string]: string }) {
   const author = params.Author;
   const participantSid = params.ParticipantSid;
   
-  if (conversationSid && messageSid && body) {
+  if (conversationSid && messageSid) {
     console.log('🔄 Processing message from conversation events...');
     
     // Extract phone number from author
@@ -139,27 +139,117 @@ async function handleMessageAdded(params: { [key: string]: string }) {
           console.log('✅ Created new conversation:', conversationSid);
         }
         
-        // Store message
+        // Fetch full message details from Twilio to get media information
+        console.log('🔍 Fetching full message details from Twilio API...');
+        const twilio = require('twilio');
+        const client = twilio(
+          process.env.TWILIO_ACCOUNT_SID,
+          process.env.TWILIO_AUTH_TOKEN
+        );
+        
+        let mediaData: any[] = [];
+        let messageBody = body || '';
+        
+        try {
+          // Fetch the message from Twilio Conversations API
+          const message = await client.conversations.v1
+            .conversations(conversationSid)
+            .messages(messageSid)
+            .fetch();
+          
+          console.log('📦 Fetched Twilio message:', {
+            sid: message.sid,
+            body: message.body
+          });
+          
+          // Update body if it was missing
+          if (!messageBody && message.body) {
+            messageBody = message.body;
+          }
+          
+          // Fetch media list separately (Twilio API requirement)
+          let mediaList: any[] = [];
+          try {
+            mediaList = await client.conversations.v1
+              .conversations(conversationSid)
+              .messages(messageSid)
+              .media
+              .list();
+          } catch (mediaListErr) {
+            console.error('❌ Error fetching media list:', mediaListErr);
+          }
+
+          if (mediaList.length > 0) {
+            console.log(`📎 Processing ${mediaList.length} media items...`);
+
+            for (const media of mediaList) {
+              try {
+                const mediaDetails = await client.conversations.v1
+                  .conversations(conversationSid)
+                  .messages(messageSid)
+                  .media(media.sid)
+                  .fetch();
+
+                console.log('📷 Media details fetched:', {
+                  sid: mediaDetails.sid,
+                  contentType: mediaDetails.contentType,
+                  filename: mediaDetails.filename
+                });
+
+                const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${conversationSid}/Media/${media.sid}`;
+
+                mediaData.push({
+                  sid: media.sid,
+                  url: mediaUrl,
+                  contentType: mediaDetails.contentType,
+                  filename: mediaDetails.filename || 'file',
+                  size: mediaDetails.size
+                });
+
+              } catch (mediaErr) {
+                console.error('❌ Error fetching media details:', mediaErr);
+              }
+            }
+          }
+        } catch (twilioError) {
+          console.error('❌ Error fetching message from Twilio:', twilioError);
+        }
+        
+        // Store message with media data
         const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Serialize media data as JSON for storage
+        const mediaJson = mediaData.length > 0 ? JSON.stringify(mediaData) : null;
+        const firstMedia = mediaData.length > 0 ? mediaData[0] : null;
+        
         await run(`
-          INSERT INTO messages (id, conversation_id, sender_id, sender_type, content, message_type, twilio_message_sid, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO messages (
+            id, conversation_id, sender_id, sender_type, content, message_type, 
+            twilio_message_sid, media_url, media_content_type, media_filename, 
+            media_data, created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           messageId,
           conversationSid,
           author,
           'contact',
-          body,
-          'text',
+          messageBody,
+          mediaData.length > 0 ? 'media' : 'text',
           messageSid,
+          firstMedia?.url || null,
+          firstMedia?.contentType || null,
+          firstMedia?.filename || null,
+          mediaJson,
           new Date().toISOString()
         ]);
         
         console.log('✅ Message stored via conversation events:', {
           messageId,
           conversationSid,
-          content: body,
-          author
+          content: messageBody,
+          author,
+          mediaCount: mediaData.length
         });
         
         db.close();
@@ -172,19 +262,19 @@ async function handleMessageAdded(params: { [key: string]: string }) {
         // Invalidate cache for this conversation
         await invalidateConversationCache(conversationSid);
         
-        // Broadcast the new message
+        // Broadcast the new message with media data
         await broadcastMessage('newMessage', {
           conversationSid,
           messageSid,
-          body,
+          body: messageBody,
           author,
           dateCreated: params.DateCreated || new Date().toISOString(),
           index: params.Index || '0',
-          numMedia: 0,
-          media: [],
+          numMedia: mediaData.length,
+          media: mediaData,
           phone
         });
-        console.log('✅ Message broadcasted to UI');
+        console.log('✅ Message broadcasted to UI with', mediaData.length, 'media items');
         
       } catch (error) {
         console.error('❌ Error processing message in conversation events:', error);
