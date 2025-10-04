@@ -7,13 +7,17 @@ export async function GET(
   try {
     const { mediaSid } = await params;
     const conversationSid = req.nextUrl.searchParams.get('conversationSid');
+    const chatServiceSid = req.nextUrl.searchParams.get('chatServiceSid');
 
     if (!conversationSid) {
       return NextResponse.json({ error: 'Missing conversationSid' }, { status: 400 });
     }
 
-    // Fetch media from Twilio with authentication
-    const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${conversationSid}/Media/${mediaSid}`;
+    // First try with the chatServiceSid if provided, otherwise try with conversationSid
+    const serviceId = chatServiceSid || conversationSid;
+    const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${serviceId}/Media/${mediaSid}`;
+    
+    console.log('🔍 Fetching media from Twilio:', mediaUrl);
     
     const response = await fetch(mediaUrl, {
       headers: {
@@ -24,7 +28,7 @@ export async function GET(
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch media from Twilio:', response.status);
+      console.error('Failed to fetch media from Twilio:', response.status, await response.text());
       return NextResponse.json({ error: 'Failed to fetch media' }, { status: response.status });
     }
 

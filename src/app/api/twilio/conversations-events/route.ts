@@ -81,6 +81,7 @@ async function handleMessageAdded(params: { [key: string]: string }) {
   const author = params.Author;
   const participantSid = params.ParticipantSid;
   const mediaParam = params.Media; // Media is already provided in the webhook!
+  const chatServiceSid = params.ChatServiceSid; // Needed for media URL construction
   
   console.log('🔍 Extracted values:', {
     conversationSid,
@@ -168,7 +169,8 @@ async function handleMessageAdded(params: { [key: string]: string }) {
               });
               
               // Build the media URL using our proxy endpoint for authentication
-              const mediaUrl = `/api/media/${media.Sid}?conversationSid=${conversationSid}`;
+              // Use ChatServiceSid (not conversationSid) for the media URL
+              const mediaUrl = `/api/media/${media.Sid}?conversationSid=${conversationSid}&chatServiceSid=${chatServiceSid}`;
               
               mediaData.push({
                 sid: media.Sid,
