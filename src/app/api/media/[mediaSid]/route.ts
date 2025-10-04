@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { mediaSid: string } }
+  { params }: { params: Promise<{ mediaSid: string }> }
 ) {
   try {
-    const mediaSid = params.mediaSid;
+    const { mediaSid } = await params;
     const conversationSid = req.nextUrl.searchParams.get('conversationSid');
 
     if (!conversationSid) {
