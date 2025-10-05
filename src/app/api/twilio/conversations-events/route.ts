@@ -95,8 +95,8 @@ async function handleMessageAdded(params: { [key: string]: string }) {
   if (conversationSid && messageSid) {
     console.log('🔄 Processing message from conversation events...');
     
-    // Extract phone number from author
-    const phoneMatch = author?.match(/whatsapp:\+?(\d+)/);
+    // Extract phone number from author (handle spaces after colon)
+    const phoneMatch = author?.match(/whatsapp:\s*\+?(\d+)/);
     const phone = phoneMatch ? phoneMatch[1] : null;
     
     console.log('📱 Phone extracted from Author:', phone);
