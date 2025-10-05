@@ -104,46 +104,41 @@ async function handleMessageAdded(params: { [key: string]: string }) {
     if (phone) {
       // Create/update contact
       try {
-        const { run, all } = await import('@/lib/db-helper');
+        const { getDatabase } = await import('@/lib/database-config');
+        const db = await getDatabase();
         
         // Check if contact exists
-        const existingContacts = await all('SELECT * FROM contacts WHERE phone_number = ?', [phone]);
+        const existingContacts = await db.findContactByPhone(phone);
         
         let contactId;
-        if (existingContacts.length > 0) {
-          contactId = existingContacts[0].id;
+        if (existingContacts) {
+          contactId = existingContacts.id;
           console.log('✅ Found existing contact:', contactId);
         } else {
           // Create new contact
           contactId = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          await run(`
-            INSERT INTO contacts (id, phone_number, name, avatar, last_seen, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `, [
-            contactId,
-            phone,
-            `Contact ${phone}`,
-            `https://ui-avatars.com/api/?name=Contact%20${phone}&background=random`,
-            new Date().toISOString(),
-            new Date().toISOString(),
-            new Date().toISOString()
-          ]);
+          await db.createContact({
+            id: contactId,
+            phoneNumber: phone,
+            name: `Contact ${phone}`,
+            avatar: `https://ui-avatars.com/api/?name=Contact%20${phone}&background=random`,
+            lastSeen: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
           console.log('✅ Created new contact:', contactId);
         }
         
         // Create/update conversation
-        const existingConversations = await all('SELECT * FROM conversations WHERE id = ?', [conversationSid]);
-        if (existingConversations.length === 0) {
-          await run(`
-            INSERT INTO conversations (id, contact_id, friendly_name, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-          `, [
-            conversationSid,
-            contactId,
-            `Conversation with ${phone}`,
-            new Date().toISOString(),
-            new Date().toISOString()
-          ]);
+        const existingConversations = await db.getConversation(conversationSid);
+        if (!existingConversations) {
+          await db.createConversation({
+            id: conversationSid,
+            contactId: contactId,
+            title: `Conversation with ${phone}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
           console.log('✅ Created new conversation:', conversationSid);
         }
         
@@ -185,8 +180,8 @@ async function handleMessageAdded(params: { [key: string]: string }) {
         }
         
         // Check if message already exists to prevent duplicates
-        const existingMessages = await all('SELECT id FROM messages WHERE twilio_message_sid = ?', [messageSid]);
-        if (existingMessages.length > 0) {
+        const existingMessages = await db.getMessageByTwilioSid(messageSid);
+        if (existingMessages) {
           console.log('⚠️ Message already exists, skipping duplicate:', messageSid);
           return;
         }
@@ -208,28 +203,21 @@ async function handleMessageAdded(params: { [key: string]: string }) {
           mediaJsonLength: mediaJson?.length || 0
         });
         
-        await run(`
-          INSERT INTO messages (
-            id, conversation_id, sender_id, sender_type, content, message_type, 
-            twilio_message_sid, media_url, media_content_type, media_filename, 
-            media_data, chat_service_sid, created_at
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          messageId,
-          conversationSid,
-          author,
-          'contact',
-          messageBody,
-          mediaData.length > 0 ? 'media' : 'text',
-          messageSid,
-          firstMedia?.url || null,
-          firstMedia?.contentType || null,
-          firstMedia?.filename || null,
-          mediaJson,
-          chatServiceSid,
-          new Date().toISOString()
-        ]);
+        await db.createMessage({
+          id: messageId,
+          conversation_id: conversationSid,
+          sender_id: author,
+          sender_type: 'contact',
+          content: messageBody,
+          message_type: mediaData.length > 0 ? 'media' : 'text',
+          twilio_message_sid: messageSid,
+          media_url: firstMedia?.url || null,
+          media_content_type: firstMedia?.contentType || null,
+          media_filename: firstMedia?.filename || null,
+          media_data: mediaJson,
+          chat_service_sid: chatServiceSid,
+          created_at: new Date().toISOString()
+        });
         
         console.log('✅ Message stored via conversation events:', {
           messageId,
@@ -279,19 +267,16 @@ async function handleConversationAdded(params: { [key: string]: string }) {
   if (conversationSid) {
     console.log('🔄 Creating conversation in database...');
     try {
-      const { run } = await import('@/lib/db-helper');
+      const { getDatabase } = await import('@/lib/database-config');
+      const db = await getDatabase();
       
-      await run(`
-        INSERT OR REPLACE INTO conversations (id, friendly_name, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-      `, [
-        conversationSid,
-        friendlyName || 'New Conversation',
-        dateCreated || new Date().toISOString(),
-        new Date().toISOString()
-      ]);
+      await db.createConversation({
+        id: conversationSid,
+        title: friendlyName || 'New Conversation',
+        createdAt: dateCreated || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
       
-      db.close();
       console.log('✅ Conversation added to database:', conversationSid);
     } catch (error) {
       console.error('❌ Error adding conversation to database:', error);
@@ -309,19 +294,14 @@ async function handleConversationUpdated(params: { [key: string]: string }) {
   if (conversationSid) {
     console.log('🔄 Updating conversation in database...');
     try {
-      const { run } = await import('@/lib/db-helper');
+      const { getDatabase } = await import('@/lib/database-config');
+      const db = await getDatabase();
       
-      await run(`
-        UPDATE conversations 
-        SET friendly_name = ?, updated_at = ?
-        WHERE id = ?
-      `, [
-        friendlyName,
-        new Date().toISOString(),
-        conversationSid
-      ]);
+      await db.updateConversation(conversationSid, {
+        title: friendlyName,
+        updatedAt: new Date().toISOString()
+      });
       
-      db.close();
       console.log('✅ Conversation updated in database:', conversationSid);
     } catch (error) {
       console.error('❌ Error updating conversation in database:', error);
@@ -338,13 +318,8 @@ async function handleConversationRemoved(params: { [key: string]: string }) {
   if (conversationSid) {
     console.log('🔄 Removing conversation from database...');
     try {
-      const { run } = await import('@/lib/db-helper');
-      
-      await run(`
-        DELETE FROM conversations WHERE id = ?
-      `, [conversationSid]);
-      
-      console.log('✅ Conversation removed from database:', conversationSid);
+      // Note: deleteConversation method not implemented yet
+      console.log('⚠️ Conversation removal not implemented yet:', conversationSid);
     } catch (error) {
       console.error('❌ Error removing conversation from database:', error);
     }
