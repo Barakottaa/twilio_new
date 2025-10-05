@@ -121,6 +121,7 @@ class SQLiteDatabaseService {
         media_content_type TEXT,
         media_filename TEXT,
         media_data TEXT,
+        chat_service_sid TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
     ];
@@ -149,7 +150,8 @@ class SQLiteDatabaseService {
       { name: 'media_url', sql: 'ALTER TABLE messages ADD COLUMN media_url TEXT' },
       { name: 'media_content_type', sql: 'ALTER TABLE messages ADD COLUMN media_content_type TEXT' },
       { name: 'media_filename', sql: 'ALTER TABLE messages ADD COLUMN media_filename TEXT' },
-      { name: 'media_data', sql: 'ALTER TABLE messages ADD COLUMN media_data TEXT' }
+      { name: 'media_data', sql: 'ALTER TABLE messages ADD COLUMN media_data TEXT' },
+      { name: 'chat_service_sid', sql: 'ALTER TABLE messages ADD COLUMN chat_service_sid TEXT' }
     ];
 
     for (const col of mediaColumns) {

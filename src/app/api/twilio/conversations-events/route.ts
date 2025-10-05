@@ -208,9 +208,9 @@ async function handleMessageAdded(params: { [key: string]: string }) {
           INSERT INTO messages (
             id, conversation_id, sender_id, sender_type, content, message_type, 
             twilio_message_sid, media_url, media_content_type, media_filename, 
-            media_data, created_at
+            media_data, chat_service_sid, created_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           messageId,
           conversationSid,
@@ -223,6 +223,7 @@ async function handleMessageAdded(params: { [key: string]: string }) {
           firstMedia?.contentType || null,
           firstMedia?.filename || null,
           mediaJson,
+          chatServiceSid,
           new Date().toISOString()
         ]);
         

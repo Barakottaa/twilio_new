@@ -295,10 +295,15 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
     const db = new sqlite3.Database('./database.sqlite');
     const all = require('util').promisify(db.all.bind(db));
     
+    // Get the LATEST messages first (DESC), then reverse to show oldest-first in UI
     const dbMessages = await all(`
-      SELECT * FROM messages 
+      SELECT 
+        id, conversation_id, sender_id, sender_type, content, message_type,
+        twilio_message_sid, media_url, media_content_type, media_filename,
+        media_data, chat_service_sid, created_at
+      FROM messages 
       WHERE conversation_id = ? 
-      ORDER BY created_at ASC 
+      ORDER BY created_at DESC 
       LIMIT ?
     `, [conversationId, limit]);
     
@@ -312,8 +317,21 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
         if (msg.media_data) {
           try {
             mediaArray = JSON.parse(msg.media_data);
+            
+            // Reconstruct media URLs ONLY if chatServiceSid is available
+            // Old messages without chat_service_sid will keep their original URLs (which will fail)
+            // But at least the messages will still show
+            if (msg.chat_service_sid && msg.twilio_message_sid) {
+              mediaArray = mediaArray.map((media: any) => ({
+                ...media,
+                url: `/api/media/${media.sid}?conversationSid=${conversationId}&chatServiceSid=${msg.chat_service_sid}&messageSid=${msg.twilio_message_sid}`
+              }));
+            }
+            // If no chat_service_sid, keep the media array as-is (URLs will be broken but message will show)
           } catch (error) {
             console.error('Error parsing media data:', error);
+            // Don't let media parsing errors break the entire message
+            mediaArray = [];
           }
         }
         
@@ -343,7 +361,12 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
         };
       });
       
-      return { messages, nextBefore: undefined };
+      // Reverse the array to show oldest-first (since we queried DESC to get latest)
+      const orderedMessages = messages.reverse();
+      console.log(`✅ Returning ${orderedMessages.length} messages from database (latest ${limit})`);
+      return { messages: orderedMessages, nextBefore: undefined };
+    } else {
+      console.log('⚠️ No messages found in database');
     }
   } catch (error) {
     console.log('⚠️ Error fetching from database, falling back to Twilio:', error);
