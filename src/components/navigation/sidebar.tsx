@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -71,6 +71,13 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
   const [clickedItem, setClickedItem] = useState<string | null>(null);
   const [loadingItem, setLoadingItem] = useState<string | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Clear loading state when pathname changes (navigation completed)
+  useEffect(() => {
+    setLoadingItem(null);
+    setClickedItem(null);
+  }, [pathname]);
 
   const handleLogout = async () => {
     try {
@@ -129,25 +136,28 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
           
           const isClicked = clickedItem === item.href;
           
+          const handleNavigation = (href: string) => {
+            if (href === pathname) return; // Don't navigate if already on the page
+            
+            setClickedItem(href);
+            setLoadingItem(href);
+            router.push(href);
+          };
+
           return (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-3 h-10 transition-all duration-100",
-                  (isCollapsed && !isHovered) && "justify-center px-2",
-                  isClicked && "scale-95 bg-primary/10"
-                )}
-                title={(isCollapsed && !isHovered) ? item.name : undefined}
-                onClick={() => {
-                  setClickedItem(item.href);
-                  setLoadingItem(item.href);
-                  // Reset clicked state after a short delay
-                  setTimeout(() => setClickedItem(null), 150);
-                  // Reset loading state after navigation
-                  setTimeout(() => setLoadingItem(null), 1000);
-                }}
-              >
+            <Button
+              key={item.href}
+              variant={isActive ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 h-10 transition-all duration-200",
+                (isCollapsed && !isHovered) && "justify-center px-2",
+                isClicked && "scale-95 bg-primary/10",
+                loadingItem === item.href && "opacity-70"
+              )}
+              title={(isCollapsed && !isHovered) ? item.name : undefined}
+              onClick={() => handleNavigation(item.href)}
+              disabled={loadingItem === item.href}
+            >
                 {loadingItem === item.href ? (
                   <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
                 ) : (
@@ -163,7 +173,6 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
                   </div>
                 )}
               </Button>
-            </Link>
           );
         })}
       </nav>

@@ -376,7 +376,16 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                   height={40}
                 />
                 <AvatarFallback>
-                  {conversation.title.charAt(0).toUpperCase()}
+                  {(() => {
+                    // Generate proper initials from conversation title
+                    const words = conversation.title.trim().split(' ');
+                    if (words.length >= 2) {
+                      return (words[0][0] + words[1][0]).toUpperCase();
+                    } else if (words.length === 1) {
+                      return words[0].substring(0, 2).toUpperCase();
+                    }
+                    return conversation.title.charAt(0).toUpperCase();
+                  })()}
                 </AvatarFallback>
               </Avatar>
               

@@ -11,7 +11,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle, Trash2 } from 'lucide-react';
+import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle, Trash2, Sync } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { StatusToggle } from '@/components/ui/status-toggle';
 import { PriorityBadge } from '@/components/ui/priority-badge';
@@ -57,6 +57,34 @@ export function OptimizedChatHeader({
 }: OptimizedChatHeaderProps) {
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [showAgentDialog, setShowAgentDialog] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
+  const handleSyncMessages = async () => {
+    if (!conversationId || isSyncing) return;
+    
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/sync-messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, forceSync: true })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log(`✅ Synced ${result.syncedCount} messages`);
+        // Refresh the conversation to show new messages
+        if (onRefresh) onRefresh();
+      } else {
+        console.error('❌ Sync failed:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Sync error:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   
   // Pull fallbacks from the store if props are missing
   const convFromStore = useChatStore(s => 
@@ -243,6 +271,11 @@ export function OptimizedChatHeader({
               <DropdownMenuItem onClick={() => setShowContactDialog(true)}>
                 <User className="h-4 w-4 mr-2" />
                 View Contact Details
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={handleSyncMessages} disabled={isSyncing}>
+                <Sync className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync Messages'}
               </DropdownMenuItem>
               
                      <DropdownMenuItem>

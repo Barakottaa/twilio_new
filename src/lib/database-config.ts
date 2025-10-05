@@ -23,6 +23,11 @@ export interface DatabaseInterface {
   assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any>;
   updateConversationStatus(conversationId: string, status: string): Promise<any>;
   updateConversationPinStatus(conversationId: string, isPinned: boolean): Promise<any>;
+  
+  // Message methods
+  createMessage(data: any): Promise<any>;
+  getMessage(id: string): Promise<any>;
+  getMessageByTwilioSid(twilioMessageSid: string): Promise<any>;
 }
 
 // Database configuration

@@ -650,6 +650,67 @@ class SQLiteDatabaseService {
     const stmt = this.db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC');
     return stmt.all();
   }
+
+  // Message operations
+  async createMessage(data: {
+    id: string;
+    conversation_id: string;
+    sender_id: string;
+    sender_type: 'agent' | 'contact';
+    content: string;
+    message_type?: string;
+    twilio_message_sid?: string;
+    media_url?: string;
+    media_content_type?: string;
+    media_filename?: string;
+    media_data?: string;
+    chat_service_sid?: string;
+    created_at?: string;
+  }): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+
+    this.db.prepare(`
+      INSERT INTO messages (
+        id, conversation_id, sender_id, sender_type, content, message_type,
+        twilio_message_sid, media_url, media_content_type, media_filename,
+        media_data, chat_service_sid, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      data.id,
+      data.conversation_id,
+      data.sender_id,
+      data.sender_type,
+      data.content,
+      data.message_type || 'text',
+      data.twilio_message_sid || null,
+      data.media_url || null,
+      data.media_content_type || null,
+      data.media_filename || null,
+      data.media_data || null,
+      data.chat_service_sid || null,
+      data.created_at || now
+    );
+
+    return await this.getMessage(data.id);
+  }
+
+  async getMessage(id: string): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    return this.db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
+  }
+
+  async getMessageByTwilioSid(twilioMessageSid: string): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    return this.db.prepare('SELECT * FROM messages WHERE twilio_message_sid = ?').get(twilioMessageSid);
+  }
 }
 
 // Export singleton instance

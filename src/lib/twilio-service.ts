@@ -873,6 +873,30 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         
         console.log("Conversation message sent successfully:", conversationMessage.sid);
         
+        // Store the sent message in our database
+        try {
+            const { getDatabase } = await import('@/lib/database-config');
+            const db = await getDatabase();
+            
+            const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            await db.createMessage({
+                id: messageId,
+                conversation_id: conversationSid,
+                sender_id: author,
+                sender_type: 'agent',
+                content: text,
+                message_type: 'text',
+                twilio_message_sid: conversationMessage.sid,
+                created_at: new Date().toISOString()
+            });
+            
+            console.log('✅ Sent message stored in database:', messageId);
+        } catch (dbError) {
+            console.error('❌ Failed to store sent message in database:', dbError);
+            // Don't fail the entire operation if database storage fails
+        }
+        
         // Return success object
         return {
             success: true,
