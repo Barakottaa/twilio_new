@@ -24,8 +24,10 @@ export async function GET(
     );
 
     try {
-      // Fetch media using Twilio SDK - this handles authentication automatically
+      // Fetch media using Twilio SDK with full service hierarchy
+      // Must use services(chatServiceSid) to properly scope the request
       const mediaInstance = await client.conversations.v1
+        .services(chatServiceSid)
         .conversations(conversationSid)
         .messages(messageSid)
         .media(mediaSid)
@@ -37,13 +39,17 @@ export async function GET(
         size: mediaInstance.size
       });
 
-      // Get the actual media content URL with temporary credentials
-      const mediaContentUrl = mediaInstance.links.content_direct_temporary;
+      // Get the actual media content URL - try temporary first, fallback to direct
+      const mediaContentUrl = 
+        mediaInstance.links.content_direct_temporary ?? 
+        mediaInstance.links.content_direct;
       
       if (!mediaContentUrl) {
         console.error('❌ No content URL available for media');
         return NextResponse.json({ error: 'Media content not available' }, { status: 404 });
       }
+
+      console.log('🔗 Using media content URL:', mediaContentUrl);
 
       // Fetch the actual media content
       const response = await fetch(mediaContentUrl);
