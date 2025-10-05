@@ -43,6 +43,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     error: messagesError
   } = useMessages(selectedConversationId || undefined);
 
+  // Enable real-time messaging for incoming messages
+  useRealtimeMessages({
+    loggedInAgentId: loggedInAgent.id
+  });
+
   // OptimizedChatLayout render
 
   // Get the selected conversation from the store

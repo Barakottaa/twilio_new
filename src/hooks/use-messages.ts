@@ -65,8 +65,17 @@ export function useMessages(conversationId?: string): UseMessagesResult {
           const merged = [...data.messages, ...current];
           setMessages(conversationId, merged);
         } else {
-          // ✅ Only one write here (no pre-clear write)
-          setMessages(conversationId, data.messages ?? EMPTY_MESSAGES);
+          // ✅ Merge with existing messages to preserve real-time updates
+          const current = useChatStore.getState().messages[conversationId] ?? EMPTY_MESSAGES;
+          const apiMessages = data.messages ?? EMPTY_MESSAGES;
+          
+          // Merge API messages with existing real-time messages
+          // Remove duplicates based on message ID
+          const existingIds = new Set(current.map(m => m.id));
+          const newApiMessages = apiMessages.filter(m => !existingIds.has(m.id));
+          const merged = [...newApiMessages, ...current];
+          
+          setMessages(conversationId, merged);
         }
 
         setNextBefore(data.nextBefore ?? null);
