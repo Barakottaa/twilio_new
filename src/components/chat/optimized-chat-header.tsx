@@ -11,7 +11,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle, Trash2, Sync } from 'lucide-react';
+import { MoreVertical, RefreshCw, User, MessageSquare, UserPlus, Lock, Unlock, AlertCircle, Trash2 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { StatusToggle } from '@/components/ui/status-toggle';
 import { PriorityBadge } from '@/components/ui/priority-badge';
@@ -274,7 +274,7 @@ export function OptimizedChatHeader({
               </DropdownMenuItem>
               
               <DropdownMenuItem onClick={handleSyncMessages} disabled={isSyncing}>
-                <Sync className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
                 {isSyncing ? 'Syncing...' : 'Sync Messages'}
               </DropdownMenuItem>
               
