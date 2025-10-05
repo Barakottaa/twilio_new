@@ -892,6 +892,26 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
             });
             
             console.log('✅ Sent message stored in database:', messageId);
+            
+            // Broadcast the sent message via SSE for real-time updates
+            try {
+                const { broadcastMessage } = await import('@/lib/sse-broadcast');
+                await broadcastMessage('newMessage', {
+                    conversationSid,
+                    messageSid: conversationMessage.sid,
+                    body: text,
+                    author,
+                    dateCreated: new Date().toISOString(),
+                    index: '0',
+                    numMedia: 0,
+                    media: [],
+                    phone: customerWhatsAppNumber.replace('whatsapp:', '')
+                });
+                console.log('✅ Sent message broadcasted via SSE');
+            } catch (sseError) {
+                console.error('❌ Failed to broadcast sent message via SSE:', sseError);
+                // Don't fail the entire operation if SSE broadcast fails
+            }
         } catch (dbError) {
             console.error('❌ Failed to store sent message in database:', dbError);
             // Don't fail the entire operation if database storage fails
