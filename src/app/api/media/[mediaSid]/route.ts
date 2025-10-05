@@ -8,43 +8,68 @@ export async function GET(
     const { mediaSid } = await params;
     const conversationSid = req.nextUrl.searchParams.get('conversationSid');
     const chatServiceSid = req.nextUrl.searchParams.get('chatServiceSid');
+    const messageSid = req.nextUrl.searchParams.get('messageSid');
 
     if (!conversationSid) {
       return NextResponse.json({ error: 'Missing conversationSid' }, { status: 400 });
     }
 
-    // First try with the chatServiceSid if provided, otherwise try with conversationSid
-    const serviceId = chatServiceSid || conversationSid;
-    const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${serviceId}/Media/${mediaSid}`;
-    
-    console.log('🔍 Fetching media from Twilio:', mediaUrl);
-    
-    const response = await fetch(mediaUrl, {
-      headers: {
-        'Authorization': `Basic ${Buffer.from(
-          `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
-        ).toString('base64')}`
+    console.log('🔍 Fetching media:', { conversationSid, chatServiceSid, messageSid, mediaSid });
+
+    // Use Twilio SDK to fetch media
+    const twilio = require('twilio');
+    const client = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+
+    try {
+      // Fetch media using Twilio SDK - this handles authentication automatically
+      const mediaInstance = await client.conversations.v1
+        .conversations(conversationSid)
+        .messages(messageSid)
+        .media(mediaSid)
+        .fetch();
+
+      console.log('✅ Media fetched from Twilio:', {
+        sid: mediaInstance.sid,
+        contentType: mediaInstance.contentType,
+        size: mediaInstance.size
+      });
+
+      // Get the actual media content URL with temporary credentials
+      const mediaContentUrl = mediaInstance.links.content_direct_temporary;
+      
+      if (!mediaContentUrl) {
+        console.error('❌ No content URL available for media');
+        return NextResponse.json({ error: 'Media content not available' }, { status: 404 });
       }
-    });
 
-    if (!response.ok) {
-      console.error('Failed to fetch media from Twilio:', response.status, await response.text());
-      return NextResponse.json({ error: 'Failed to fetch media' }, { status: response.status });
+      // Fetch the actual media content
+      const response = await fetch(mediaContentUrl);
+
+      if (!response.ok) {
+        console.error('Failed to fetch media content:', response.status);
+        return NextResponse.json({ error: 'Failed to fetch media content' }, { status: response.status });
+      }
+
+      // Get the media content
+      const buffer = await response.arrayBuffer();
+      const contentType = mediaInstance.contentType || response.headers.get('content-type') || 'application/octet-stream';
+
+      // Return the media with appropriate headers
+      return new NextResponse(buffer, {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      });
+    } catch (twilioError) {
+      console.error('❌ Twilio SDK error:', twilioError);
+      return NextResponse.json({ error: 'Failed to fetch from Twilio' }, { status: 500 });
     }
-
-    // Get the media content
-    const buffer = await response.arrayBuffer();
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
-
-    // Return the media with appropriate headers
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
-    });
   } catch (error) {
-    console.error('Error proxying media:', error);
+    console.error('❌ Error proxying media:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

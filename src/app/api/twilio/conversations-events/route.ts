@@ -169,8 +169,8 @@ async function handleMessageAdded(params: { [key: string]: string }) {
               });
               
               // Build the media URL using our proxy endpoint for authentication
-              // Use ChatServiceSid (not conversationSid) for the media URL
-              const mediaUrl = `/api/media/${media.Sid}?conversationSid=${conversationSid}&chatServiceSid=${chatServiceSid}`;
+              // Include all necessary parameters for Twilio SDK
+              const mediaUrl = `/api/media/${media.Sid}?conversationSid=${conversationSid}&chatServiceSid=${chatServiceSid}&messageSid=${messageSid}`;
               
               mediaData.push({
                 sid: media.Sid,
