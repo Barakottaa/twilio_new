@@ -1,5 +1,4 @@
-import sqlite3 from 'sqlite3';
-import { promisify } from 'util';
+import Database from 'better-sqlite3';
 import type { Agent, Contact } from '@/types';
 
 interface DatabaseRecord {
@@ -32,7 +31,7 @@ interface AgentRecord extends DatabaseRecord {
 }
 
 class SQLiteDatabaseService {
-  private db: sqlite3.Database | null = null;
+  private db: Database.Database | null = null;
   private isInitialized = false;
   private static instance: SQLiteDatabaseService | null = null;
 
@@ -52,23 +51,18 @@ class SQLiteDatabaseService {
   }
 
   private async initialize(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database('./database.sqlite', (err) => {
-        if (err) {
-          console.error('Error opening SQLite database:', err);
-          reject(err);
-        } else {
-          console.log('✅ SQLite database connected successfully');
-          this.createTables().then(resolve).catch(reject);
-        }
-      });
-    });
+    try {
+      this.db = new Database('./database.sqlite');
+      console.log('✅ SQLite database connected successfully');
+      await this.createTables();
+    } catch (err) {
+      console.error('Error opening SQLite database:', err);
+      throw err;
+    }
   }
 
   private async createTables(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-
-    const run = promisify(this.db.run.bind(this.db));
 
     const tables = [
       `CREATE TABLE IF NOT EXISTS agents (
@@ -128,7 +122,7 @@ class SQLiteDatabaseService {
 
     for (const sql of tables) {
       try {
-        await run(sql);
+        this.db.exec(sql);
         console.log('✅ Table created/verified successfully');
       } catch (error) {
         console.error('Error creating table:', error);
@@ -138,7 +132,7 @@ class SQLiteDatabaseService {
 
     // Add migration for is_pinned column if it doesn't exist
     try {
-      await run(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
+      this.db.exec(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
       console.log('✅ Added is_pinned column to conversations table');
     } catch (error) {
       // Column already exists, ignore error
@@ -156,7 +150,7 @@ class SQLiteDatabaseService {
 
     for (const col of mediaColumns) {
       try {
-        await run(col.sql);
+        this.db.exec(col.sql);
         console.log(`✅ Added ${col.name} column to messages table`);
       } catch (error) {
         // Column already exists, ignore error
@@ -166,7 +160,7 @@ class SQLiteDatabaseService {
 
     // Insert default admin user if not exists
     try {
-      await run(`
+      this.db.exec(`
         INSERT OR IGNORE INTO agents (id, username, password, role, permissions_dashboard, permissions_agents, permissions_contacts, permissions_analytics, permissions_settings)
         VALUES ('admin_001', 'admin', 'admin', 'admin', 1, 1, 1, 1, 1)
       `);
@@ -181,16 +175,16 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
+    // Using better-sqlite3 synchronous API
+    // Using better-sqlite3 synchronous API
 
     const id = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
 
-    await run(`
+    this.db.prepare(`
       INSERT INTO contacts (id, name, phone_number, email, avatar, last_seen, notes, tags, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `).run(
       id,
       data.name,
       data.phoneNumber || null,
@@ -202,9 +196,9 @@ class SQLiteDatabaseService {
       data.isActive !== false ? 1 : 0,
       now,
       now
-    ]);
+    );
 
-    const result = await get('SELECT * FROM contacts WHERE id = ?', [id]);
+    const result = this.db.prepare('SELECT * FROM contacts WHERE id = ?').get(id);
     
     // Map snake_case database fields to camelCase interface fields
     return {
@@ -226,8 +220,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM contacts WHERE id = ? AND is_active = 1', [id]);
+    // Using better-sqlite3 synchronous API
+    const result = this.db.prepare('SELECT * FROM contacts WHERE id = ? AND is_active = 1').get(id);
     
     if (!result) return null;
     
@@ -251,7 +245,7 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const all = promisify(this.db.all.bind(this.db));
+    // Using better-sqlite3 synchronous API
     const result = await all('SELECT * FROM contacts WHERE is_active = 1 ORDER BY created_at DESC');
     
     // Map snake_case database fields to camelCase interface fields
@@ -274,8 +268,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
+    // Using better-sqlite3 synchronous API
+    // Using better-sqlite3 synchronous API
 
     const updateFields = [];
     const values = [];
@@ -336,8 +330,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const result = await run('UPDATE contacts SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id]);
+    // Using better-sqlite3 synchronous API
+    const result = this.db.prepare('UPDATE contacts SET is_active = 0, updated_at = ? WHERE id = ?').run(new Date().toISOString(), id);
     return result.changes > 0;
   }
 
@@ -345,8 +339,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM contacts WHERE phone_number = ? AND is_active = 1', [phoneNumber]);
+    // Using better-sqlite3 synchronous API
+    const result = this.db.prepare('SELECT * FROM contacts WHERE phone_number = ? AND is_active = 1').get(phoneNumber);
     return result as ContactRecord || null;
   }
 
@@ -354,8 +348,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM contacts WHERE email = ? AND is_active = 1', [email]);
+    // Using better-sqlite3 synchronous API
+    const result = this.db.prepare('SELECT * FROM contacts WHERE email = ? AND is_active = 1').get(email);
     return result as ContactRecord || null;
   }
 
@@ -364,16 +358,16 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
+    // Using better-sqlite3 synchronous API
+    // Using better-sqlite3 synchronous API
 
     const id = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
 
-    await run(`
+    this.db.prepare(`
       INSERT INTO agents (id, username, password, role, permissions_dashboard, permissions_agents, permissions_contacts, permissions_analytics, permissions_settings, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `).run(
       id,
       data.username,
       data.password,
@@ -386,9 +380,9 @@ class SQLiteDatabaseService {
       data.is_active || 1,
       now,
       now
-    ]);
+    );
 
-    const result = await get('SELECT * FROM agents WHERE id = ?', [id]);
+    const result = this.db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
     return result as AgentRecord;
   }
 
@@ -396,8 +390,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM agents WHERE id = ? AND is_active = 1', [id]);
+    const stmt = this.db.prepare('SELECT * FROM agents WHERE id = ? AND is_active = 1');
+    const result = stmt.get(id);
     return result as AgentRecord || null;
   }
 
@@ -405,8 +399,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const all = promisify(this.db.all.bind(this.db));
-    const result = await all('SELECT * FROM agents WHERE is_active = 1 ORDER BY created_at DESC');
+    // Using better-sqlite3 synchronous API
+    const result = this.db.prepare('SELECT * FROM agents WHERE is_active = 1 ORDER BY created_at DESC').all();
     return result as AgentRecord[];
   }
 
@@ -414,8 +408,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
-    const get = promisify(this.db.get.bind(this.db));
+    // Using better-sqlite3 synchronous API
+    // Using better-sqlite3 synchronous API
 
     const updateFields = [];
     const values = [];
@@ -495,8 +489,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    const result = await get('SELECT * FROM agents WHERE username = ? AND is_active = 1', [username]);
+    const stmt = this.db.prepare('SELECT * FROM agents WHERE username = ? AND is_active = 1');
+    const result = stmt.get(username);
     return result as AgentRecord || null;
   }
 
@@ -554,13 +548,13 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
+    // Using better-sqlite3 synchronous API
     const now = new Date().toISOString();
 
-    await run(`
+    this.db.prepare(`
       INSERT INTO conversations (id, contact_id, agent_id, status, priority, is_pinned, twilio_conversation_sid, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `).run(
       data.id,
       data.contact_id || null,
       data.agent_id || null,
@@ -570,7 +564,7 @@ class SQLiteDatabaseService {
       data.twilio_conversation_sid,
       now,
       now
-    ]);
+    );
 
     return await this.getConversation(data.id);
   }
@@ -579,8 +573,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const get = promisify(this.db.get.bind(this.db));
-    return await get('SELECT * FROM conversations WHERE id = ?', [id]);
+    // Using better-sqlite3 synchronous API
+    return this.db.prepare('SELECT * FROM conversations WHERE id = ?').get(id);
   }
 
   async updateConversation(id: string, data: {
@@ -593,7 +587,7 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const run = promisify(this.db.run.bind(this.db));
+    // Using better-sqlite3 synchronous API
     const now = new Date().toISOString();
 
     const updates = [];
@@ -653,8 +647,8 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const all = promisify(this.db.all.bind(this.db));
-    return await all('SELECT * FROM conversations ORDER BY updated_at DESC');
+    const stmt = this.db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC');
+    return stmt.all();
   }
 }
 

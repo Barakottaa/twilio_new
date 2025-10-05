@@ -104,10 +104,7 @@ async function handleMessageAdded(params: { [key: string]: string }) {
     if (phone) {
       // Create/update contact
       try {
-        const sqlite3 = require('sqlite3');
-        const db = new sqlite3.Database('./database.sqlite');
-        const run = require('util').promisify(db.run.bind(db));
-        const all = require('util').promisify(db.all.bind(db));
+        const { run, all } = await import('@/lib/db-helper');
         
         // Check if contact exists
         const existingContacts = await all('SELECT * FROM contacts WHERE phone_number = ?', [phone]);
@@ -235,8 +232,6 @@ async function handleMessageAdded(params: { [key: string]: string }) {
           mediaCount: mediaData.length
         });
         
-        db.close();
-        
         // Broadcast the message to connected clients via SSE
         console.log('📡 Broadcasting message to clients...');
         const { broadcastMessage } = require('@/lib/sse-broadcast');
@@ -277,9 +272,7 @@ async function handleConversationAdded(params: { [key: string]: string }) {
   if (conversationSid) {
     console.log('🔄 Creating conversation in database...');
     try {
-      const sqlite3 = require('sqlite3');
-      const db = new sqlite3.Database('./database.sqlite');
-      const run = require('util').promisify(db.run.bind(db));
+      const { run } = await import('@/lib/db-helper');
       
       await run(`
         INSERT OR REPLACE INTO conversations (id, friendly_name, created_at, updated_at)
@@ -309,9 +302,7 @@ async function handleConversationUpdated(params: { [key: string]: string }) {
   if (conversationSid) {
     console.log('🔄 Updating conversation in database...');
     try {
-      const sqlite3 = require('sqlite3');
-      const db = new sqlite3.Database('./database.sqlite');
-      const run = require('util').promisify(db.run.bind(db));
+      const { run } = await import('@/lib/db-helper');
       
       await run(`
         UPDATE conversations 
@@ -340,9 +331,7 @@ async function handleConversationRemoved(params: { [key: string]: string }) {
   if (conversationSid) {
     console.log('🔄 Removing conversation from database...');
     try {
-      const sqlite3 = require('sqlite3');
-      const db = new sqlite3.Database('./database.sqlite');
-      const run = require('util').promisify(db.run.bind(db));
+      const { run } = await import('@/lib/db-helper');
       
       await run(`
         DELETE FROM conversations WHERE id = ?

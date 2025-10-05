@@ -12,11 +12,10 @@ export async function DELETE() {
     // Clear all contacts by actually deleting them (hard delete)
     // Note: This uses a direct SQL query since we don't have a clearAllContacts method
     if (db.constructor.name === 'SQLiteDatabaseService') {
-      // For SQLite, we can access the db directly
+      // For SQLite with better-sqlite3, we can access the db directly
       const sqliteDb = db as any;
       if (sqliteDb.db) {
-        const run = require('util').promisify(sqliteDb.db.run.bind(sqliteDb.db));
-        await run('DELETE FROM contacts');
+        sqliteDb.db.prepare('DELETE FROM contacts').run();
         console.log('✅ All contacts cleared (hard delete)');
       }
     } else {

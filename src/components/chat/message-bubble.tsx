@@ -54,7 +54,9 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
         )}
 
         {/* Display new media array format */}
-        {message.media?.map((mediaItem, index) => (
+        {message.media?.map((mediaItem, index) => {
+          console.log('🖼️ Rendering media item:', { url: mediaItem.url, contentType: mediaItem.contentType, sid: mediaItem.sid });
+          return (
           <div key={index} className="mt-2">
             {mediaItem.contentType?.startsWith('image/') ? (
               <div className="relative">
@@ -66,6 +68,8 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
                   height={240}
                   loading="lazy"
                   style={{ aspectRatio: '4/3' }}
+                  onError={(e) => console.error('❌ Image failed to load:', mediaItem.url, e)}
+                  onLoad={() => console.log('✅ Image loaded successfully:', mediaItem.url)}
                 />
               </div>
             ) : (
@@ -82,7 +86,8 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
               </a>
             )}
           </div>
-        ))}
+        );
+        })}
         
         {/* Display text content */}
         {message.text && (

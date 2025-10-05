@@ -291,12 +291,11 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
   // First, try to get messages from our database
   try {
     console.log('🔄 Checking database for messages...');
-    const sqlite3 = require('sqlite3');
-    const db = new sqlite3.Database('./database.sqlite');
-    const all = require('util').promisify(db.all.bind(db));
+    const Database = require('better-sqlite3');
+    const db = new Database('./database.sqlite');
     
     // Get the LATEST messages first (DESC), then reverse to show oldest-first in UI
-    const dbMessages = await all(`
+    const stmt = db.prepare(`
       SELECT 
         id, conversation_id, sender_id, sender_type, content, message_type,
         twilio_message_sid, media_url, media_content_type, media_filename,
@@ -305,7 +304,8 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
       WHERE conversation_id = ? 
       ORDER BY created_at DESC 
       LIMIT ?
-    `, [conversationId, limit]);
+    `);
+    const dbMessages = stmt.all(conversationId, limit);
     
     db.close();
     
