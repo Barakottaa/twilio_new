@@ -19,6 +19,26 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName }: M
 
   // Generate proper initials from contact name or sender ID
   const getInitials = () => {
+    // For agent messages, use agent name instead of contact name
+    if (isAgent) {
+      // Try to extract agent name from senderId (e.g., "admin_001" -> "AD")
+      if (message.senderId) {
+        if (message.senderId === 'admin_001') {
+          return 'AD'; // Admin
+        } else if (message.senderId.startsWith('agent-')) {
+          // Extract agent name from agent-xxx format
+          const agentName = message.senderId.replace('agent-', '');
+          if (agentName.length >= 2) {
+            return agentName.substring(0, 2).toUpperCase();
+          }
+        } else if (message.senderId.startsWith('admin_')) {
+          return 'AD'; // Admin
+        }
+      }
+      return 'AG'; // Default agent fallback
+    }
+    
+    // For customer messages, use contact name
     if (contactName) {
       // Extract initials from contact name (e.g., "Abdelrahman Baraka" -> "AB")
       const words = contactName.trim().split(' ');

@@ -246,7 +246,7 @@ class SQLiteDatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     // Using better-sqlite3 synchronous API
-    const result = await all('SELECT * FROM contacts WHERE is_active = 1 ORDER BY created_at DESC');
+    const result = this.db.prepare('SELECT * FROM contacts WHERE is_active = 1 ORDER BY created_at DESC').all();
     
     // Map snake_case database fields to camelCase interface fields
     return result.map((row: any) => ({
