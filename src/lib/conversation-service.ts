@@ -82,7 +82,8 @@ export class ConversationService {
 }
 
 // Initialize conversations function for client-side usage
-export function initializeConversations(conversations: Chat[]): void {
+// Note: This function is currently unused but kept for potential future use
+function initializeConversations(conversations: Chat[]): void {
   console.log('🔄 Initializing conversations:', conversations.length);
   // This function is used by the client to initialize conversations
   // The actual initialization logic is handled by the client state management

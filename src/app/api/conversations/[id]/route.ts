@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConversationById } from '@/lib/conversation-service';
+import { getTwilioConversations } from '@/lib/twilio-service';
 
 export async function GET(
   req: NextRequest,
@@ -7,7 +7,11 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params;
-    const conversation = await getConversationById(resolvedParams.id);
+    const agentId = 'admin_001'; // Default to admin
+    
+    // Get specific conversation by ID
+    const conversations = await getTwilioConversations(agentId, 1, resolvedParams.id);
+    const conversation = conversations[0];
     
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });

@@ -10,11 +10,38 @@ interface MessageBubbleProps {
   message: Message;
   avatarUrl: string;
   showAvatar: boolean;
+  contactName?: string;
 }
 
-export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleProps) {
+export function MessageBubble({ message, avatarUrl, showAvatar, contactName }: MessageBubbleProps) {
   const isAgent = message.sender === 'agent';
   const [formattedTimestamp, setFormattedTimestamp] = useState('');
+
+  // Generate proper initials from contact name or sender ID
+  const getInitials = () => {
+    if (contactName) {
+      // Extract initials from contact name (e.g., "Abdelrahman Baraka" -> "AB")
+      const words = contactName.trim().split(' ');
+      if (words.length >= 2) {
+        return (words[0][0] + words[1][0]).toUpperCase();
+      } else if (words.length === 1) {
+        return words[0].substring(0, 2).toUpperCase();
+      }
+    }
+    
+    // Fallback: try to extract from senderId
+    if (message.senderId) {
+      // If senderId is like "whatsapp:+1234567890", we can't get initials from it
+      // So we'll use a generic fallback
+      if (message.senderId.startsWith('whatsapp:')) {
+        return 'C'; // Customer
+      }
+      // If it's something like "WH", use the first two characters
+      return message.senderId.substring(0, 2).toUpperCase();
+    }
+    
+    return 'C'; // Default fallback
+  };
 
   useEffect(() => {
     // Format timestamp on the client to avoid hydration mismatch
@@ -26,7 +53,7 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
       {!isAgent && showAvatar && (
         <Avatar className="h-8 w-8">
             <AvatarImage src={avatarUrl} alt="Avatar" />
-            <AvatarFallback>C</AvatarFallback>
+            <AvatarFallback>{getInitials()}</AvatarFallback>
         </Avatar>
       )}
        {!isAgent && !showAvatar && (
@@ -38,55 +65,31 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
           isAgent ? "bg-primary text-primary-foreground" : "bg-card shadow-sm",
         )}
       >
-        {/* Display media if present (Option 1: Twilio-only storage) */}
-        {message.mediaType && message.mediaUrl && (
-          <div className="mb-2">
-            <MediaMessage
-              mediaType={message.mediaType}
-              mediaUrl={message.mediaUrl}
-              mediaContentType={message.mediaContentType || ''}
-              fileName={message.mediaFileName}
-              caption={message.mediaCaption}
-              timestamp={message.timestamp}
-              sender={message.sender}
-            />
-          </div>
-        )}
-
-        {/* Display new media array format */}
+        {/* Display media using the enhanced MediaMessage component */}
         {message.media?.map((mediaItem, index) => {
           console.log('🖼️ Rendering media item:', { url: mediaItem.url, contentType: mediaItem.contentType, sid: mediaItem.sid });
+          
+          // Determine media type from content type
+          const getMediaType = (contentType: string) => {
+            if (contentType?.startsWith('image/')) return 'image';
+            if (contentType?.startsWith('video/')) return 'video';
+            if (contentType?.startsWith('audio/')) return 'audio';
+            return 'document';
+          };
+          
           return (
-          <div key={index} className="mt-2">
-            {mediaItem.contentType?.startsWith('image/') ? (
-              <div className="relative">
-                <img 
-                  src={mediaItem.url} 
-                  alt={mediaItem.filename || 'media'} 
-                  className="max-w-xs rounded"
-                  width={320}
-                  height={240}
-                  loading="lazy"
-                  style={{ aspectRatio: '4/3' }}
-                  onError={(e) => console.error('❌ Image failed to load:', mediaItem.url, e)}
-                  onLoad={() => console.log('✅ Image loaded successfully:', mediaItem.url)}
-                />
-              </div>
-            ) : (
-              <a 
-                href={mediaItem.url} 
-                target="_blank" 
-                rel="noreferrer noopener"
-                className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                {mediaItem.filename || mediaItem.contentType || 'Download file'}
-              </a>
-            )}
-          </div>
-        );
+            <div key={index} className="mt-2">
+              <MediaMessage
+                mediaType={getMediaType(mediaItem.contentType || '')}
+                mediaUrl={mediaItem.url}
+                mediaContentType={mediaItem.contentType || ''}
+                fileName={mediaItem.filename}
+                caption={message.text || undefined}
+                timestamp={message.timestamp}
+                sender={message.sender}
+              />
+            </div>
+          );
         })}
         
         {/* Display text content */}
@@ -95,7 +98,7 @@ export function MessageBubble({ message, avatarUrl, showAvatar }: MessageBubbleP
         )}
         
         {/* Show media placeholder if no text and no media displayed */}
-        {!message.text && !message.mediaType && !message.mediaUrl && !message.media?.length && (
+        {!message.text && !message.media?.length && (
           <p className="text-sm text-gray-500 italic">Empty message</p>
         )}
         

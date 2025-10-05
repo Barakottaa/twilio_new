@@ -184,6 +184,13 @@ async function handleMessageAdded(params: { [key: string]: string }) {
           }
         }
         
+        // Check if message already exists to prevent duplicates
+        const existingMessages = await all('SELECT id FROM messages WHERE twilio_message_sid = ?', [messageSid]);
+        if (existingMessages.length > 0) {
+          console.log('⚠️ Message already exists, skipping duplicate:', messageSid);
+          return;
+        }
+        
         // Store message with media data
         const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
@@ -337,7 +344,6 @@ async function handleConversationRemoved(params: { [key: string]: string }) {
         DELETE FROM conversations WHERE id = ?
       `, [conversationSid]);
       
-      db.close();
       console.log('✅ Conversation removed from database:', conversationSid);
     } catch (error) {
       console.error('❌ Error removing conversation from database:', error);

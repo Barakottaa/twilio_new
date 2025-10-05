@@ -13,6 +13,7 @@ interface VirtualMessageListProps {
   hasMore: boolean;
   onLoadOlder: () => void;
   className?: string;
+  contactName?: string;
 }
 
 export function VirtualMessageList({
@@ -21,7 +22,8 @@ export function VirtualMessageList({
   isLoadingMore,
   hasMore,
   onLoadOlder,
-  className = ''
+  className = '',
+  contactName
 }: VirtualMessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(false);
@@ -104,8 +106,9 @@ export function VirtualMessageList({
           <div key={message.id} className="px-4 py-2">
             <MessageBubble 
               message={message} 
-              avatarUrl={`https://ui-avatars.com/api/?name=${encodeURIComponent(message.senderId)}&background=random`}
+              avatarUrl={`https://ui-avatars.com/api/?name=${encodeURIComponent(contactName || message.senderId)}&background=random`}
               showAvatar={true}
+              contactName={contactName}
             />
           </div>
         ))}

@@ -315,10 +315,10 @@ class SQLiteDatabaseService {
     values.push(new Date().toISOString());
     values.push(id);
 
-    const result = await run(`
+    const result = this.db.prepare(`
       UPDATE contacts SET ${updateFields.join(', ')}
       WHERE id = ?
-    `, values);
+    `).run(...values);
 
     if (result.changes > 0) {
       return await this.getContact(id);
@@ -459,10 +459,10 @@ class SQLiteDatabaseService {
     values.push(new Date().toISOString());
     values.push(id);
 
-    const result = await run(`
+    const result = this.db.prepare(`
       UPDATE agents SET ${updateFields.join(', ')}
       WHERE id = ?
-    `, values);
+    `).run(...values);
 
     if (result.changes > 0) {
       return await this.getAgent(id);
@@ -622,11 +622,11 @@ class SQLiteDatabaseService {
     values.push(now);
     values.push(id);
 
-    await run(`
+    this.db.prepare(`
       UPDATE conversations 
       SET ${updates.join(', ')} 
       WHERE id = ?
-    `, values);
+    `).run(...values);
 
     return await this.getConversation(id);
   }

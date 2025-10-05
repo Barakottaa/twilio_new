@@ -3,13 +3,16 @@ import { getDatabase } from '@/lib/database-config';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id;
+    const { id: conversationId } = await params;
     const { isPinned } = await request.json();
 
+    console.log('🔍 Pin route called with:', { conversationId, isPinned, type: typeof isPinned });
+
     if (typeof isPinned !== 'boolean') {
+      console.log('❌ Invalid isPinned type:', typeof isPinned);
       return NextResponse.json(
         { error: 'Invalid isPinned value. Must be boolean.' },
         { status: 400 }
@@ -51,9 +54,14 @@ export async function PATCH(
     });
 
   } catch (error) {
-    console.error('Error updating conversation pin status:', error);
+    console.error('❌ Error updating conversation pin status:', error);
+    console.error('❌ Error stack:', error.stack);
     return NextResponse.json(
-      { error: 'Failed to update conversation pin status' },
+      { 
+        error: 'Failed to update conversation pin status',
+        details: error.message,
+        stack: error.stack
+      },
       { status: 500 }
     );
   }

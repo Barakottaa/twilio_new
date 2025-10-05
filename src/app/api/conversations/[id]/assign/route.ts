@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { assignConversation } from '@/lib/conversation-service';
+import { reassignTwilioConversation } from '@/lib/twilio-service';
 
 export async function PUT(
   req: NextRequest,
@@ -16,13 +16,15 @@ export async function PUT(
       );
     }
     
-    const updatedConversation = await assignConversation(resolvedParams.id, agentId);
+    // Use the existing Twilio service to reassign conversation
+    await reassignTwilioConversation(resolvedParams.id, agentId);
     
-    if (!updatedConversation) {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
-    }
-    
-    return NextResponse.json(updatedConversation);
+    return NextResponse.json({
+      success: true,
+      message: 'Conversation assigned successfully',
+      conversationId: resolvedParams.id,
+      agentId
+    });
   } catch (error) {
     console.error('Error assigning conversation:', error);
     return NextResponse.json({ error: 'Failed to assign conversation' }, { status: 500 });

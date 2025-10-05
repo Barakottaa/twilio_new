@@ -1,49 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getAllConversations, 
-  getConversationsByStatus, 
-  getConversationsByAgent,
-  getConversationsByPriority,
-  getConversationStats,
-  searchConversations
-} from '@/lib/conversation-service';
+import { getTwilioConversations } from '@/lib/twilio-service';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status');
-    const agentId = searchParams.get('agentId');
-    const priority = searchParams.get('priority');
-    const stats = searchParams.get('stats') === 'true';
-    const search = searchParams.get('search');
+    const agentId = searchParams.get('agentId') || 'admin_001'; // Default to admin
+    const limit = parseInt(searchParams.get('limit') || '20');
     
-    if (stats) {
-      const conversationStats = await getConversationStats();
-      return NextResponse.json(conversationStats);
-    }
+    // Use the existing Twilio service to get conversations
+    const conversations = await getTwilioConversations(agentId, limit);
     
-    if (search) {
-      const conversations = await searchConversations(search);
-      return NextResponse.json(conversations);
-    }
-    
-    if (status) {
-      const conversations = await getConversationsByStatus(status as any);
-      return NextResponse.json(conversations);
-    }
-    
-    if (agentId) {
-      const conversations = await getConversationsByAgent(agentId);
-      return NextResponse.json(conversations);
-    }
-    
-    if (priority) {
-      const conversations = await getConversationsByPriority(priority as any);
-      return NextResponse.json(conversations);
-    }
-    
-    const conversations = await getAllConversations();
-    return NextResponse.json(conversations);
+    return NextResponse.json({
+      success: true,
+      conversations,
+      count: conversations.length
+    });
   } catch (error) {
     console.error('Error fetching conversations:', error);
     return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 });
