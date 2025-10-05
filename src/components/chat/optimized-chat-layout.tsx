@@ -365,7 +365,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                 hasMore={hasMore}
                 onLoadOlder={loadOlder}
                 className="h-full"
-                contactName={selectedConversation?.contactName}
+                contactName={selectedConversation?.title}
               />
             </div>
 

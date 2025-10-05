@@ -106,7 +106,7 @@ export function VirtualMessageList({
           <div key={message.id} className="px-4 py-2">
             <MessageBubble 
               message={message} 
-              avatarUrl={`https://ui-avatars.com/api/?name=${encodeURIComponent(contactName || message.senderId)}&background=random`}
+              avatarUrl={`https://ui-avatars.com/api/?name=${encodeURIComponent(contactName || 'Customer')}&background=random`}
               showAvatar={true}
               contactName={contactName}
             />
