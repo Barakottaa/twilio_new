@@ -99,6 +99,7 @@ export function broadcastMessage(type: string, data: any) {
       console.log(`❌ Error sending to connection ${connectionInfo.id}:`, error);
       // Remove dead connections
       connections.delete(controller);
+      console.log(`🧹 Removed dead connection: ${connectionInfo.id}. Remaining: ${connections.size}`);
     }
   });
 }

@@ -3,6 +3,8 @@ import { NextRequest } from 'next/server';
 import { addConnection, removeConnection, getConnectionCount } from '@/lib/sse-broadcast';
 
 export async function GET(req: NextRequest) {
+  console.log('🔌 New SSE connection request received');
+  
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController | null = null;
   
@@ -16,12 +18,15 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     start(ctrl) {
       controller = ctrl;
+      console.log('🔌 SSE stream started, adding connection');
+      
       // Add this connection to our set
       addConnection(controller);
       
       // Send initial connection message
       const data = JSON.stringify({ type: 'connected', message: 'Connected to real-time updates' });
       controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+      console.log('📡 Initial connection message sent');
     
       // Send periodic heartbeat to keep connection alive
       const heartbeat = setInterval(() => {
@@ -40,6 +45,7 @@ export async function GET(req: NextRequest) {
       
       // Handle client disconnect
       req.signal.addEventListener('abort', () => {
+        console.log('🔌 SSE connection aborted by client');
         clearInterval(heartbeat);
         if (controller) {
           removeConnection(controller);
@@ -48,6 +54,7 @@ export async function GET(req: NextRequest) {
       });
     },
     cancel() {
+      console.log('🔌 SSE stream cancelled');
       if (controller) removeConnection(controller);
     }
   });

@@ -130,18 +130,24 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         eventSource.onerror = (error) => {
           console.error('❌ SSE connection error:', error);
           console.log('🔍 SSE readyState on error:', eventSource.readyState);
+          console.log('🔍 SSE URL:', eventSource.url);
           
           // Clear any existing reconnect timeout
           if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
           }
           
-          // Attempt to reconnect more aggressively in development
-          const reconnectDelay = process.env.NODE_ENV === 'development' ? 1000 : 5000;
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`🔄 Attempting to reconnect SSE after ${reconnectDelay}ms...`);
-            connectSSE();
-          }, reconnectDelay);
+          // Only reconnect if the connection is actually closed
+          if (eventSource.readyState === EventSource.CLOSED) {
+            // Attempt to reconnect more aggressively in development
+            const reconnectDelay = process.env.NODE_ENV === 'development' ? 2000 : 5000;
+            reconnectTimeoutRef.current = setTimeout(() => {
+              console.log(`🔄 Attempting to reconnect SSE after ${reconnectDelay}ms...`);
+              connectSSE();
+            }, reconnectDelay);
+          } else {
+            console.log('🔍 SSE connection is not closed, not attempting reconnect yet');
+          }
         };
 
     return eventSource;
@@ -264,23 +270,32 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     
     // Created new message object
 
-    // Use the new store system for message updates
-    console.log('🔥 About to append message to store...');
-    console.log('🔥 New message object:', newMessage);
+    // Import store and append message
+    const { useChatStore } = await import('@/store/chat-store');
+    const store = useChatStore.getState();
     
-    import('@/store/chat-store').then(({ useChatStore }) => {
-      const store = useChatStore.getState();
-      console.log('🔥 Store state before append:', { 
-        conversationMessages: store.messages[messageData.conversationSid]?.length || 0 
-      });
+    // Ensure conversation exists in store before adding message
+    const conversationExists = store.conversations.find(c => c.id === messageData.conversationSid);
+    
+    if (!conversationExists) {
+      // Create a placeholder conversation for the message
+      const placeholderConversation = {
+        id: messageData.conversationSid,
+        title: `Conversation ${messageData.conversationSid.slice(-8)}`,
+        lastMessagePreview: newMessage.text || '[Media]',
+        unreadCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        customerId: messageData.author || 'unknown',
+        agentId: 'unassigned',
+        status: 'open' as const
+      };
       
-      store.appendMessage(messageData.conversationSid, newMessage);
-      
-      console.log('🔥 Store state after append:', { 
-        conversationMessages: store.messages[messageData.conversationSid]?.length || 0 
-      });
-      console.log('🔥 Message appended successfully!');
-    });
+      store.setConversations([placeholderConversation, ...store.conversations]);
+    }
+    
+    // Append message using Twilio ConversationSid as the key
+    store.appendMessage(messageData.conversationSid, newMessage);
   };
 
   const handleNewConversation = async (conversationData: RealtimeConversationData) => {
