@@ -28,6 +28,7 @@ export interface DatabaseInterface {
   createMessage(data: any): Promise<any>;
   getMessage(id: string): Promise<any>;
   getMessageByTwilioSid(twilioMessageSid: string): Promise<any>;
+  updateMessageDeliveryStatus(twilioMessageSid: string, deliveryStatus: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered'): Promise<any>;
 }
 
 // Database configuration

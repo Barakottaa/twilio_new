@@ -51,6 +51,9 @@ export type Message = {
   timestamp: string;
   sender: 'agent' | 'customer';
   senderId: string;
+  // Message delivery status (for agent messages)
+  deliveryStatus?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered';
+  twilioMessageSid?: string; // Twilio message SID for tracking delivery
   // Media fields (Option 1: Twilio-only storage)
   mediaType?: 'image' | 'video' | 'audio' | 'document';
   mediaUrl?: string; // Twilio temporary URL

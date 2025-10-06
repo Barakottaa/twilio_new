@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { MediaMessage } from './media-message';
+import { MessageStatus } from './message-status';
 
 interface MessageBubbleProps {
   message: Message;
@@ -123,11 +124,23 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName }: M
         )}
         
         
-        <span className={`text-xs text-right block mt-1 ${
+        {/* Timestamp and status row */}
+        <div className={`flex items-center justify-end gap-1 mt-1 ${
           isAgent ? "opacity-60" : "text-gray-500"
         }`}>
-          {formattedTimestamp}
-        </span>
+          <span className="text-xs">
+            {formattedTimestamp}
+          </span>
+          {/* Show delivery status for agent messages */}
+          {isAgent && message.deliveryStatus && (
+            <div className="ml-2 bg-black/20 rounded-full p-1">
+              <MessageStatus 
+                status={message.deliveryStatus} 
+                className=""
+              />
+            </div>
+          )}
+        </div>
       </div>
       {isAgent && !showAvatar && (
         <div className="w-8" />

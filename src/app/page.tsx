@@ -17,6 +17,7 @@ export default function Home() {
     // Add a small delay to ensure cookies are set after login
     const timer = setTimeout(() => {
       if (!authLoading && !isAuthenticated) {
+        console.log('🔍 Redirecting to login - not authenticated');
         router.push('/login');
         return;
       }

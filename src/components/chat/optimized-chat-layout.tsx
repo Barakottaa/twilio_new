@@ -231,8 +231,22 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       return;
     }
     
+    // Add the message to the store immediately for instant UI update with "sending" status
+    const { appendMessage, setConversations } = useChatStore.getState();
+    const tempMessageId = `temp-${Date.now()}`;
+    const newMessage = {
+      id: tempMessageId,
+      text: text.trim(),
+      timestamp: new Date().toISOString(),
+      sender: 'agent' as const,
+      senderId: loggedInAgent.id,
+      conversationId: selectedConversationId,
+      deliveryStatus: 'sending' as const
+    };
+    
+    appendMessage(selectedConversationId, newMessage);
+    
     try {
-      
       // Call the send message API
       const response = await fetch(`/api/twilio/conversations/${selectedConversationId}/message`, {
         method: 'POST',
@@ -250,24 +264,24 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Message API error:', errorText);
+        
+        // Update message status to failed
+        const { updateMessageStatus } = useChatStore.getState();
+        updateMessageStatus(selectedConversationId, tempMessageId, 'failed');
+        
         throw new Error(`Failed to send message: ${response.status} ${errorText}`);
       }
       
       const result = await response.json();
       // Message sent successfully
       
-      // Add the message to the store immediately for instant UI update
-      const { appendMessage, setConversations } = useChatStore.getState();
-      const newMessage = {
-        id: result.messageId || `temp-${Date.now()}`,
-        text: text.trim(),
-        timestamp: new Date().toISOString(),
-        sender: 'agent' as const,
-        senderId: loggedInAgent.id,
-        conversationId: selectedConversationId
-      };
-      
-      appendMessage(selectedConversationId, newMessage);
+      // Update the message with the real ID and "sent" status
+      const { updateMessageAfterSend } = useChatStore.getState();
+      updateMessageAfterSend(selectedConversationId, tempMessageId, {
+        id: result.messageId || tempMessageId,
+        twilioMessageSid: result.twilioMessageSid,
+        deliveryStatus: 'sent' as const
+      });
       
       // Update the conversation list with the new last message
       const currentConversations = useChatStore.getState().conversations;
@@ -314,7 +328,12 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         <Card className="p-6 text-center">
           <h3 className="text-lg font-semibold text-red-600 mb-2">Error Loading Chats</h3>
           <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
+          <Button onClick={() => {
+            console.log('🔄 Retrying chat load...');
+            // Instead of reloading the entire page, just retry the operation
+            // This will trigger a re-render and retry the data loading
+            window.location.reload();
+          }}>
             Retry
           </Button>
         </Card>

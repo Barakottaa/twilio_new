@@ -111,6 +111,7 @@ class SQLiteDatabaseService {
         content TEXT NOT NULL,
         message_type TEXT DEFAULT 'text',
         twilio_message_sid TEXT UNIQUE,
+        delivery_status TEXT CHECK (delivery_status IN ('sending', 'sent', 'delivered', 'read', 'failed', 'undelivered')),
         media_url TEXT,
         media_content_type TEXT,
         media_filename TEXT,
@@ -145,7 +146,8 @@ class SQLiteDatabaseService {
       { name: 'media_content_type', sql: 'ALTER TABLE messages ADD COLUMN media_content_type TEXT' },
       { name: 'media_filename', sql: 'ALTER TABLE messages ADD COLUMN media_filename TEXT' },
       { name: 'media_data', sql: 'ALTER TABLE messages ADD COLUMN media_data TEXT' },
-      { name: 'chat_service_sid', sql: 'ALTER TABLE messages ADD COLUMN chat_service_sid TEXT' }
+      { name: 'chat_service_sid', sql: 'ALTER TABLE messages ADD COLUMN chat_service_sid TEXT' },
+      { name: 'delivery_status', sql: 'ALTER TABLE messages ADD COLUMN delivery_status TEXT CHECK (delivery_status IN (\'sending\', \'sent\', \'delivered\', \'read\', \'failed\', \'undelivered\'))' }
     ];
 
     for (const col of mediaColumns) {
@@ -660,6 +662,7 @@ class SQLiteDatabaseService {
     content: string;
     message_type?: string;
     twilio_message_sid?: string;
+    delivery_status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered';
     media_url?: string;
     media_content_type?: string;
     media_filename?: string;
@@ -675,10 +678,10 @@ class SQLiteDatabaseService {
     this.db.prepare(`
       INSERT INTO messages (
         id, conversation_id, sender_id, sender_type, content, message_type,
-        twilio_message_sid, media_url, media_content_type, media_filename,
+        twilio_message_sid, delivery_status, media_url, media_content_type, media_filename,
         media_data, chat_service_sid, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.id,
       data.conversation_id,
@@ -687,6 +690,7 @@ class SQLiteDatabaseService {
       data.content,
       data.message_type || 'text',
       data.twilio_message_sid || null,
+      data.delivery_status || null,
       data.media_url || null,
       data.media_content_type || null,
       data.media_filename || null,
@@ -710,6 +714,20 @@ class SQLiteDatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     return this.db.prepare('SELECT * FROM messages WHERE twilio_message_sid = ?').get(twilioMessageSid);
+  }
+
+  async updateMessageDeliveryStatus(twilioMessageSid: string, deliveryStatus: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered'): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const stmt = this.db.prepare('UPDATE messages SET delivery_status = ? WHERE twilio_message_sid = ?');
+    const result = stmt.run(deliveryStatus, twilioMessageSid);
+    
+    if (result.changes === 0) {
+      throw new Error(`No message found with Twilio SID: ${twilioMessageSid}`);
+    }
+    
+    return await this.getMessageByTwilioSid(twilioMessageSid);
   }
 }
 

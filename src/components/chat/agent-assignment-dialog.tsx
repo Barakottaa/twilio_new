@@ -68,8 +68,11 @@ export function AgentAssignmentDialog({
         const data = await response.json();
         console.log('🔍 Agents API data:', data);
         
+        // Extract agents array from the API response
+        const agentsArray = data.agents || [];
+        
         // Map the full Agent objects to the simplified format needed by the dialog
-        const simplifiedAgents = (data || []).map((agent: any) => ({
+        const simplifiedAgents = agentsArray.map((agent: any) => ({
           id: agent.id,
           username: agent.username,
           role: agent.role,

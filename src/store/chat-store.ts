@@ -48,6 +48,10 @@ interface ChatActions {
   clearMessages: (conversationId: string) => void;
   clearConversation: (conversationId: string) => void;
   
+  // Message status updates
+  updateMessageStatus: (conversationId: string, messageId: string, status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered') => void;
+  updateMessageAfterSend: (conversationId: string, tempMessageId: string, updates: { id: string; twilioMessageSid?: string; deliveryStatus: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered' }) => void;
+  
   // assignment & status actions
   setAssignment: (conversationId: string, agent: { id: string; name: string } | null) => void;
   setStatus: (conversationId: string, status: "open" | "closed") => void;
@@ -198,6 +202,38 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   clearConversation: (conversationId) => set((state) => ({
     messages: { ...state.messages, [conversationId]: [] }
   })),
+  
+  // Message status updates
+  updateMessageStatus: (conversationId, messageId, status) => set((state) => {
+    const messages = state.messages[conversationId] || [];
+    const updatedMessages = messages.map(msg => 
+      msg.id === messageId 
+        ? { ...msg, deliveryStatus: status }
+        : msg
+    );
+    
+    return {
+      messages: { ...state.messages, [conversationId]: updatedMessages }
+    };
+  }),
+  
+  updateMessageAfterSend: (conversationId, tempMessageId, updates) => set((state) => {
+    const messages = state.messages[conversationId] || [];
+    const updatedMessages = messages.map(msg => 
+      msg.id === tempMessageId 
+        ? { 
+            ...msg, 
+            id: updates.id,
+            twilioMessageSid: updates.twilioMessageSid,
+            deliveryStatus: updates.deliveryStatus
+          }
+        : msg
+    );
+    
+    return {
+      messages: { ...state.messages, [conversationId]: updatedMessages }
+    };
+  }),
   
   // assignment & status actions
   setAssignment: (conversationId, agent) => set((state) => ({

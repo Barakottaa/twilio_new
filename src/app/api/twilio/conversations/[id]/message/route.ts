@@ -36,7 +36,8 @@ export async function POST(
       return NextResponse.json({
         success: true,
         message: 'Message sent successfully',
-        messageId: result.messageId
+        messageId: result.messageId,
+        twilioMessageSid: result.twilioMessageSid
       });
     } else {
       return NextResponse.json(
@@ -52,7 +53,8 @@ export async function POST(
     return NextResponse.json(
       { 
         success: false,
-        error: 'Failed to send message' 
+        error: error instanceof Error ? error.message : 'Failed to send message',
+        details: error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     );

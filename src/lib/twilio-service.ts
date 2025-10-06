@@ -125,11 +125,13 @@ export async function listConversationsLite(limit = 30, after?: string) {
           // If identity is null, check if it's a WhatsApp participant (customer)
           return p.messagingBinding && p.messagingBinding.type === 'whatsapp';
         }
-        return !p.identity.startsWith('agent-') && !p.identity.startsWith('admin-');
+        return !p.identity.startsWith('agent-') && !p.identity.startsWith('admin-') && 
+               !p.identity.startsWith('agent_') && !p.identity.startsWith('admin_');
       });
       
       const agentParticipant = participants.find(p => 
-        p.identity && (p.identity.startsWith('agent-') || p.identity.startsWith('admin-'))
+        p.identity && (p.identity.startsWith('agent-') || p.identity.startsWith('admin-') ||
+                      p.identity.startsWith('agent_') || p.identity.startsWith('admin_'))
       );
       
       let customerName = 'Unknown Customer';
@@ -298,7 +300,7 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
     const stmt = db.prepare(`
       SELECT 
         id, conversation_id, sender_id, sender_type, content, message_type,
-        twilio_message_sid, media_url, media_content_type, media_filename,
+        twilio_message_sid, delivery_status, media_url, media_content_type, media_filename,
         media_data, chat_service_sid, created_at
       FROM messages 
       WHERE conversation_id = ? 
@@ -350,6 +352,9 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
           timestamp: msg.created_at,
           sender: msg.sender_type,
           senderId: msg.sender_id,
+          // Delivery status for agent messages
+          deliveryStatus: msg.sender_type === 'agent' ? (msg.delivery_status || 'sent') : undefined,
+          twilioMessageSid: msg.twilio_message_sid,
           // Legacy media fields for backward compatibility
           mediaType: msg.media_content_type ? getMediaTypeFromContentType(msg.media_content_type) : undefined,
           mediaUrl: msg.media_url || undefined,
@@ -410,6 +415,9 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
       timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
       sender,
       senderId,
+      // Delivery status for agent messages
+      deliveryStatus: sender === 'agent' ? 'sent' : undefined,
+      twilioMessageSid: msg.sid,
       // Legacy media fields for backward compatibility
       mediaType: mediaArr.length > 0 ? getMediaTypeFromContentType(mediaArr[0].contentType) : undefined,
       mediaUrl: mediaArr.length > 0 ? mediaArr[0].url : undefined,
@@ -693,6 +701,7 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         // WhatsApp messages have author like "whatsapp:+1234567890"
         const isAgentMessage = senderIdentity && (
           senderIdentity.startsWith('agent-') || 
+          senderIdentity.startsWith('agent_') ||
           senderIdentity === loggedInAgentId ||
           senderIdentity === 'admin_001' // Fallback for admin
         );
@@ -736,6 +745,9 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
           timestamp: msg.dateCreated ? new Date(msg.dateCreated).toISOString() : new Date().toISOString(),
           sender: senderType,
           senderId: senderIdentity || 'customer',
+          // Delivery status for agent messages
+          deliveryStatus: senderType === 'agent' ? 'sent' : undefined,
+          twilioMessageSid: msg.sid,
           // Media fields (Option 1: Twilio-only storage)
           mediaType: mediaType as 'image' | 'video' | 'audio' | 'document' | undefined,
           mediaUrl: mediaUrl || undefined,
@@ -855,8 +867,15 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         const conversation = await twilioClient.conversations.v1.conversations(conversationSid).fetch();
         const participants = await twilioClient.conversations.v1.conversations(conversationSid).participants.list();
         
+        console.log("All participants:", participants.map(p => ({ identity: p.identity, address: p.messagingBinding?.address })));
+        
         // Find the customer participant (not the agent)
-        const customerParticipant = participants.find(p => !p.identity?.startsWith('agent-'));
+        // Customer participants typically have null identity but have messagingBinding.address
+        const customerParticipant = participants.find(p => 
+          p.messagingBinding?.address && 
+          (!p.identity || (!p.identity.startsWith('agent-') && !p.identity.startsWith('admin') &&
+                          !p.identity.startsWith('agent_') && !p.identity.startsWith('admin_')))
+        );
         
         if (!customerParticipant || !customerParticipant.messagingBinding?.address) {
             throw new Error("Could not find customer WhatsApp number in conversation");
@@ -864,6 +883,15 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         
         const customerWhatsAppNumber = customerParticipant.messagingBinding.address; // e.g., "whatsapp:+201016666348"
         console.log("Customer WhatsApp number:", customerWhatsAppNumber);
+        
+        // Ensure the agent is a participant in the conversation
+        const agentParticipant = participants.find(p => p.identity === author);
+        if (!agentParticipant) {
+            console.log("Adding agent as participant to conversation");
+            await twilioClient.conversations.v1.conversations(conversationSid).participants.create({
+                identity: author
+            });
+        }
         
         // Use Twilio Conversations API for WhatsApp delivery
         const conversationMessage = await twilioClient.conversations.v1.conversations(conversationSid).messages.create({
@@ -873,12 +901,13 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         
         console.log("Conversation message sent successfully:", conversationMessage.sid);
         
+        // Generate message ID for our database
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
         // Store the sent message in our database
         try {
             const { getDatabase } = await import('@/lib/database-config');
             const db = await getDatabase();
-            
-            const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             
             await db.createMessage({
                 id: messageId,
@@ -888,6 +917,7 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
                 content: text,
                 message_type: 'text',
                 twilio_message_sid: conversationMessage.sid,
+                delivery_status: 'sent',
                 created_at: new Date().toISOString()
             });
             
@@ -920,7 +950,8 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         // Return success object
         return {
             success: true,
-            messageId: conversationMessage.sid,
+            messageId: messageId, // Our internal message ID
+            twilioMessageSid: conversationMessage.sid, // Twilio message SID for tracking
             message: conversationMessage
         };
     } catch (error: any) {

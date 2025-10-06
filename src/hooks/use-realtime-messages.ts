@@ -121,6 +121,9 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         } else if (data.type === 'newConversation') {
           console.log('💬 New conversation via SSE:', data.data);
           handleNewConversation(data.data as RealtimeConversationData);
+        } else if (data.type === 'deliveryStatusUpdate') {
+          console.log('📬 Delivery status update via SSE:', data.data);
+          handleDeliveryStatusUpdate(data.data);
         }
       } catch (error) {
         console.error('❌ Error parsing SSE message:', error);
@@ -182,12 +185,16 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
   const handleNewMessage = async (messageData: RealtimeMessageData) => {
     console.log('🔥 handleNewMessage CALLED with:', messageData);
     console.log('🔥 Current conversation:', messageData.conversationSid);
+    console.log('🔥 Author:', messageData.author);
+    console.log('🔥 Logged in agent ID:', loggedInAgentId);
     
     // Fix message direction logic to match the main service
     const isAgentMessage = messageData.author && (
       messageData.author.startsWith('agent-') || 
       messageData.author === 'admin_001' ||
-      messageData.author.startsWith('admin_')
+      messageData.author.startsWith('admin_') ||
+      messageData.author === loggedInAgentId ||
+      messageData.author === 'admin'
     );
     
     console.log('🔥 Is agent message:', isAgentMessage);
@@ -254,6 +261,9 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       timestamp: messageData.dateCreated,
       sender: isAgentMessage ? 'agent' : 'customer',
       senderId: messageData.author || 'customer',
+      // Delivery status for agent messages
+      deliveryStatus: isAgentMessage ? 'sent' : undefined,
+      twilioMessageSid: messageData.messageSid,
       // Legacy media fields for backward compatibility
       mediaType: mediaMessages[0]?.mediaType || getMediaTypeFromContentType(mediaMessages[0]?.mediaContentType),
       mediaUrl: mediaMessages[0]?.mediaUrl,
@@ -273,6 +283,19 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     // Import store and append message
     const { useChatStore } = await import('@/store/chat-store');
     const store = useChatStore.getState();
+    
+    // Check for duplicate messages to prevent showing the same message twice
+    const existingMessages = store.messages[messageData.conversationSid] || [];
+    const isDuplicate = existingMessages.some(msg => 
+      msg.text === newMessage.text && 
+      msg.sender === newMessage.sender &&
+      Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 5000 // Within 5 seconds
+    );
+    
+    if (isDuplicate) {
+      console.log('🔄 Duplicate message detected, skipping:', newMessage.text);
+      return;
+    }
     
     // Ensure conversation exists in store before adding message
     const conversationExists = store.conversations.find(c => c.id === messageData.conversationSid);
@@ -336,6 +359,40 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       }
     } catch (error) {
       console.error('❌ Error fetching new conversation:', error);
+    }
+  };
+
+  const handleDeliveryStatusUpdate = async (statusData: {
+    conversationSid: string;
+    messageSid: string;
+    status: 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered';
+    timestamp: string;
+  }) => {
+    console.log('📬 Processing delivery status update:', statusData);
+    
+    try {
+      // Import store and update message status
+      const { useChatStore } = await import('@/store/chat-store');
+      const store = useChatStore.getState();
+      
+      // Find the message by Twilio message SID and update its status
+      const messages = store.messages[statusData.conversationSid] || [];
+      const messageToUpdate = messages.find(msg => msg.twilioMessageSid === statusData.messageSid);
+      
+      if (messageToUpdate) {
+        console.log('📬 Updating message delivery status:', {
+          messageId: messageToUpdate.id,
+          twilioMessageSid: statusData.messageSid,
+          newStatus: statusData.status
+        });
+        
+        store.updateMessageStatus(statusData.conversationSid, messageToUpdate.id, statusData.status);
+        console.log('✅ Message delivery status updated successfully');
+      } else {
+        console.log('⚠️ Message not found for delivery status update:', statusData.messageSid);
+      }
+    } catch (error) {
+      console.error('❌ Error updating delivery status:', error);
     }
   };
 }

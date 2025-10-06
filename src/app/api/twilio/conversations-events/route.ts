@@ -58,6 +58,11 @@ export async function POST(req: NextRequest) {
         await handleParticipantRemoved(params);
         break;
       
+      case 'onDeliveryUpdated':
+        console.log('📬 Delivery status updated');
+        await handleDeliveryUpdated(params);
+        break;
+      
       default:
         console.log('❓ Unknown event type:', eventType);
     }
@@ -358,4 +363,106 @@ async function handleParticipantRemoved(params: { [key: string]: string }) {
   const identity = params.Identity;
   
   console.log('✅ Participant removed:', { conversationSid, participantSid, identity });
+}
+
+async function handleDeliveryUpdated(params: { [key: string]: string }) {
+  console.log('📬 Processing delivery status update...');
+  console.log('📋 Delivery params:', params);
+  
+  const messageSid = params.MessageSid;
+  const status = params.Status;
+  const conversationSid = params.ConversationSid;
+  const deliveryReceiptSid = params.DeliveryReceiptSid;
+  const channelMessageSid = params.ChannelMessageSid;
+  const participantSid = params.ParticipantSid;
+  const errorCode = params.ErrorCode;
+  const dateCreated = params.DateCreated;
+  const dateUpdated = params.DateUpdated;
+  
+  if (!messageSid || !status || !conversationSid) {
+    console.log('⚠️ Missing required parameters for delivery update');
+    return;
+  }
+  
+  console.log('📬 Updating delivery status:', { 
+    messageSid, 
+    status, 
+    conversationSid,
+    deliveryReceiptSid,
+    channelMessageSid,
+    participantSid,
+    errorCode,
+    dateCreated,
+    dateUpdated
+  });
+  
+  try {
+    // Import SSE broadcast function
+    const { broadcastMessage } = await import('@/lib/sse-broadcast');
+    
+    // Map Twilio delivery status to our status (including undelivered)
+    let deliveryStatus: 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered';
+    switch (status.toLowerCase()) {
+      case 'sent':
+        deliveryStatus = 'sent';
+        break;
+      case 'delivered':
+        deliveryStatus = 'delivered';
+        break;
+      case 'read':
+        deliveryStatus = 'read';
+        break;
+      case 'failed':
+        deliveryStatus = 'failed';
+        break;
+      case 'undelivered':
+        deliveryStatus = 'undelivered';
+        break;
+      default:
+        console.log('⚠️ Unknown delivery status:', status);
+        return;
+    }
+    
+    // Store detailed receipt information in database
+    try {
+      const { getDatabase } = await import('@/lib/database-config');
+      const db = await getDatabase();
+      
+      // Check if we have a message with this Twilio SID
+      const existingMessage = await db.getMessageByTwilioSid(messageSid);
+      if (existingMessage) {
+        // Update message with latest delivery status
+        await db.updateMessageDeliveryStatus(messageSid, deliveryStatus);
+        console.log('📬 Updated message delivery status in database:', { messageSid, deliveryStatus });
+      } else {
+        console.log('⚠️ Message not found in database for delivery status update:', messageSid);
+      }
+    } catch (dbError) {
+      console.error('❌ Error updating message delivery status in database:', dbError);
+    }
+    
+    // Broadcast enhanced delivery status update to connected clients
+    broadcastMessage('deliveryStatusUpdate', {
+      conversationSid,
+      messageSid,
+      status: deliveryStatus,
+      deliveryReceiptSid,
+      channelMessageSid,
+      participantSid,
+      errorCode: errorCode ? parseInt(errorCode) : null,
+      dateCreated,
+      dateUpdated: dateUpdated || new Date().toISOString(),
+      timestamp: new Date().toISOString()
+    });
+    
+    console.log('✅ Enhanced delivery status update broadcasted:', { 
+      messageSid, 
+      status: deliveryStatus,
+      errorCode,
+      participantSid
+    });
+    
+  } catch (error) {
+    console.error('❌ Error processing delivery update:', error);
+  }
 }

@@ -212,7 +212,7 @@ export function Sidebar({ loggedInAgent, className }: SidebarProps) {
             Logout
           </Button>
         )}
-        {isCollapsed && (
+        {isCollapsed && !isHovered && (
           <Button
             variant="ghost"
             size="icon"

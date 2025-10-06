@@ -13,8 +13,6 @@ import {
   Users, 
   Plus,
   MoreVertical,
-  Shield,
-  User,
   Trash2
 } from 'lucide-react';
 import {
@@ -43,7 +41,6 @@ export default function AgentsPage() {
   const [newAgent, setNewAgent] = useState({
     username: '',
     password: '',
-    role: 'agent' as 'admin' | 'agent',
     permissions: {
       dashboard: true,
       agents: false,
@@ -63,7 +60,7 @@ export default function AgentsPage() {
         const response = await fetch('/api/agents');
         if (response.ok) {
           const data = await response.json();
-          setAgents(data || []);
+          setAgents(data.agents || []);
         } else {
           toast({
             title: "Error",
@@ -247,29 +244,6 @@ export default function AgentsPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Role</Label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        value="agent"
-                        checked={newAgent.role === 'agent'}
-                        onChange={(e) => setNewAgent(prev => ({ ...prev, role: e.target.value as 'admin' | 'agent' }))}
-                      />
-                      <span>Agent</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        value="admin"
-                        checked={newAgent.role === 'admin'}
-                        onChange={(e) => setNewAgent(prev => ({ ...prev, role: e.target.value as 'admin' | 'agent' }))}
-                      />
-                      <span>Admin</span>
-                    </label>
-                  </div>
-                </div>
-                <div className="grid gap-2">
                   <Label>Permissions</Label>
                   <div className="space-y-2">
                     {Object.entries(newAgent.permissions).map(([permission, enabled]) => (
@@ -327,19 +301,6 @@ export default function AgentsPage() {
                   </Avatar>
                   <div>
                     <h3 className="font-semibold text-lg">{agent.username}</h3>
-                    <div className="flex items-center gap-2">
-                      {agent.role === 'admin' ? (
-                        <Badge variant="default" className="bg-purple-500">
-                          <Shield className="w-3 h-3 mr-1" />
-                          Admin
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">
-                          <User className="w-3 h-3 mr-1" />
-                          Agent
-                        </Badge>
-                      )}
-                    </div>
                   </div>
                 </div>
                 <DropdownMenu>
@@ -364,7 +325,7 @@ export default function AgentsPage() {
                 <div>
                   <h4 className="text-sm font-medium mb-2">Permissions</h4>
                   <div className="flex flex-wrap gap-1">
-                    {Object.entries(agent.permissions).map(([permission, enabled]) => (
+                    {Object.entries(agent.permissions || {}).map(([permission, enabled]) => (
                       enabled && (
                         <Badge key={permission} variant="outline" className="text-xs">
                           {permission}
