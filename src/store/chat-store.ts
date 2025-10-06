@@ -111,17 +111,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     console.log('🔥 Updated count:', updatedMessages.length);
     
     // Update last message preview for the conversation and auto-reopen if closed
-    const updatedConversations = state.conversations.map(conv => 
-      conv.id === conversationId 
-        ? { 
-            ...conv, 
-            lastMessagePreview: message.text || '[Media]', 
-            updatedAt: message.timestamp,
-            // Auto-reopen closed conversations when new messages are received
-            status: conv.status === 'closed' ? 'open' : conv.status
-          }
-        : conv
-    );
+    const updatedConversations = state.conversations.map(conv => {
+      if (conv.id === conversationId) {
+        const wasClosed = conv.status === 'closed';
+        const isBeingReopened = wasClosed;
+        
+        return { 
+          ...conv, 
+          lastMessagePreview: message.text || '[Media]', 
+          updatedAt: message.timestamp,
+          // Auto-reopen closed conversations when new messages are received
+          status: wasClosed ? 'open' : conv.status
+          // Note: isNew will be determined by the API based on agent replies
+        };
+      }
+      return conv;
+    });
 
     // Auto-reopen in database if conversation was closed
     const conversation = state.conversations.find(conv => conv.id === conversationId);
@@ -230,8 +235,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         : msg
     );
     
+    // Remove green indicator from conversation since agent has now replied
+    const updatedConversations = state.conversations.map(conv => 
+      conv.id === conversationId 
+        ? { ...conv, isNew: false }
+        : conv
+    );
+    
     return {
-      messages: { ...state.messages, [conversationId]: updatedMessages }
+      messages: { ...state.messages, [conversationId]: updatedMessages },
+      conversations: updatedConversations
     };
   }),
   
@@ -263,14 +276,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         },
 
         // Update conversation status
-        updateConversationStatus: (conversationId, status) => set((state) => ({
-          conversations: state.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, status, updatedAt: new Date().toISOString() }
-              : conv
-          ),
-          statuses: { ...state.statuses, [conversationId]: status }
-        })),
+        updateConversationStatus: (conversationId, status) => set((state) => {
+          const updatedConversations = state.conversations.map(conv => {
+            if (conv.id === conversationId) {
+              // If conversation is being reopened from closed, we'll let the API handle
+              // whether it should be marked as new (based on agent replies)
+              return { 
+                ...conv, 
+                status, 
+                updatedAt: new Date().toISOString()
+                // Note: isNew will be updated by the API response
+              };
+            }
+            return conv;
+          });
+          
+          return {
+            conversations: updatedConversations,
+            statuses: { ...state.statuses, [conversationId]: status }
+          };
+        }),
 
         // Update conversation priority
         updateConversationPriority: (conversationId, priority) => set((state) => ({

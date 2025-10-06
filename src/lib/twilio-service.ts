@@ -63,6 +63,36 @@ async function getConversationPinStatusFromDatabase(conversationId: string): Pro
   }
 }
 
+async function getConversationNewStatusFromDatabase(conversationId: string): Promise<boolean> {
+  try {
+    const db = await getDatabase();
+    const conversation = await db.getConversation(conversationId);
+    
+    // Only mark as new if:
+    // 1. It's marked as new in database (is_new = 1)
+    // 2. It's an open conversation (not closed)
+    // 3. It has no agent replies yet
+    const isNewInDb = conversation?.is_new === 1;
+    const isOpen = conversation?.status === 'open';
+    const hasAgentReplies = await db.hasAgentReplies(conversationId);
+    
+    const shouldBeNew = isNewInDb && isOpen && !hasAgentReplies;
+    
+    console.log('🆕 Conversation new status check:', {
+      conversationId,
+      isNewInDb,
+      isOpen,
+      hasAgentReplies,
+      shouldBeNew
+    });
+    
+    return shouldBeNew;
+  } catch (error) {
+    console.error('Error loading conversation new status from database:', error);
+    return false; // Default to not new if error
+  }
+}
+
 // A map to cache agent and customer details to avoid repeated lookups
 const userCache = new Map<string, Agent | Customer>();
 
@@ -233,10 +263,11 @@ export async function listConversationsLite(limit = 30, after?: string) {
         lastMessagePreview = 'No messages yet';
       }
 
-      // Load status and pin status from database
-      const [status, isPinned] = await Promise.all([
+      // Load status, pin status, and new status from database
+      const [status, isPinned, isNew] = await Promise.all([
         getConversationStatusFromDatabase(c.sid),
-        getConversationPinStatusFromDatabase(c.sid)
+        getConversationPinStatusFromDatabase(c.sid),
+        getConversationNewStatusFromDatabase(c.sid)
       ]);
 
       const conversationItem = {
@@ -255,6 +286,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         agentStatus: agentStatus,
         status: status,
         isPinned: isPinned,
+        isNew: isNew,
       };
       // Created conversation item
       return conversationItem;
@@ -922,6 +954,10 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
             });
             
             console.log('✅ Sent message stored in database:', messageId);
+            
+            // Mark conversation as not new since agent has now replied
+            await db.updateConversation(conversationSid, { is_new: 0 });
+            console.log('✅ Conversation marked as not new (agent replied)');
             
             // Broadcast the sent message via SSE for real-time updates
             try {

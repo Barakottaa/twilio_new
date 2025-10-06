@@ -49,6 +49,7 @@ interface ConversationItem {
   agentStatus?: string;
   status?: 'open' | 'closed' | 'pending';
   isPinned?: boolean;
+  isNew?: boolean;
 }
 
 interface OptimizedChatListProps {
@@ -277,7 +278,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       );
     }
 
-    // Sort: pinned conversations first, then by updatedAt, with stable secondary sort
+    // Sort: pinned conversations first, then new conversations, then by updatedAt, with stable secondary sort
     filtered.sort((a, b) => {
       // Pinned conversations first (use store state)
       const aPinned = isConversationPinned(a.id);
@@ -285,6 +286,15 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
+      
+      // Then new conversations (if not pinned)
+      if (!aPinned && !bPinned) {
+        const aNew = a.isNew === true;
+        const bNew = b.isNew === true;
+        
+        if (aNew && !bNew) return -1;
+        if (!aNew && bNew) return 1;
+      }
       
       // Then by updatedAt (most recent first)
       const timeDiff = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
@@ -362,32 +372,61 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                 ? "bg-secondary border-primary" 
                 : "bg-card hover:bg-muted/50"
             }`}
-            onClick={() => {
+            onClick={async () => {
               console.log('Selecting conversation:', conversation.id);
               setSelectedConversation(conversation.id);
+              
+              // Mark conversation as read if it's new
+              if (conversation.isNew) {
+                try {
+                  const response = await fetch(`/api/conversations/${conversation.id}/mark-read`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                  
+                  if (response.ok) {
+                    console.log('✅ Conversation marked as read:', conversation.id);
+                    // Update the conversation in the store to remove the new indicator
+                    const updatedConversations = conversations.map(conv => 
+                      conv.id === conversation.id ? { ...conv, isNew: false } : conv
+                    );
+                    setConversations(updatedConversations);
+                  }
+                } catch (error) {
+                  console.error('Error marking conversation as read:', error);
+                }
+              }
             }}
           >
             <div className="flex items-start gap-3">
-              <Avatar className="h-10 w-10 flex-shrink-0">
-                <AvatarImage 
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.title)}&background=random`}
-                  alt={conversation.title}
-                  width={40}
-                  height={40}
-                />
-                <AvatarFallback>
-                  {(() => {
-                    // Generate proper initials from conversation title
-                    const words = conversation.title.trim().split(' ');
-                    if (words.length >= 2) {
-                      return (words[0][0] + words[1][0]).toUpperCase();
-                    } else if (words.length === 1) {
-                      return words[0].substring(0, 2).toUpperCase();
-                    }
-                    return conversation.title.charAt(0).toUpperCase();
-                  })()}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-10 w-10 flex-shrink-0">
+                  <AvatarImage 
+                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(conversation.title)}&background=random`}
+                    alt={conversation.title}
+                    width={40}
+                    height={40}
+                  />
+                  <AvatarFallback>
+                    {(() => {
+                      // Generate proper initials from conversation title
+                      const words = conversation.title.trim().split(' ');
+                      if (words.length >= 2) {
+                        return (words[0][0] + words[1][0]).toUpperCase();
+                      } else if (words.length === 1) {
+                        return words[0].substring(0, 2).toUpperCase();
+                      }
+                      return conversation.title.charAt(0).toUpperCase();
+                    })()}
+                  </AvatarFallback>
+                </Avatar>
+                {/* New conversation indicator */}
+                {conversation.isNew && (
+                  <div className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background animate-pulse" title="New conversation" />
+                )}
+              </div>
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">

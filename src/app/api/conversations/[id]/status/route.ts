@@ -36,8 +36,25 @@ export async function PATCH(
       });
       console.log('🔍 Created new conversation in database with status:', conversation);
     } else {
+      // Check if conversation is being reopened from closed
+      const wasClosed = conversation.status === 'closed';
+      const isBeingReopened = status === 'open' && wasClosed;
+      
       // Update existing conversation status
       conversation = await db.updateConversationStatus(conversationId, status);
+      
+      // If being reopened, check if it should be marked as new
+      if (isBeingReopened) {
+        // Only mark as new if it has no agent replies
+        const hasAgentReplies = await db.hasAgentReplies(conversationId);
+        if (!hasAgentReplies) {
+          await db.updateConversation(conversationId, { is_new: 1 });
+          console.log('🔍 Conversation reopened and marked as new (no agent replies):', conversationId);
+        } else {
+          console.log('🔍 Conversation reopened but not marked as new (has agent replies):', conversationId);
+        }
+      }
+      
       console.log('🔍 Updated conversation status in database:', conversation);
     }
 

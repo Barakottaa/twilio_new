@@ -23,6 +23,8 @@ export interface DatabaseInterface {
   assignConversationToAgent(conversationId: string, agentId: string | null): Promise<any>;
   updateConversationStatus(conversationId: string, status: string): Promise<any>;
   updateConversationPinStatus(conversationId: string, isPinned: boolean): Promise<any>;
+  markConversationAsRead(conversationId: string): Promise<any>;
+  hasAgentReplies(conversationId: string): Promise<boolean>;
   
   // Message methods
   createMessage(data: any): Promise<any>;

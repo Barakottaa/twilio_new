@@ -286,14 +286,35 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     
     // Check for duplicate messages to prevent showing the same message twice
     const existingMessages = store.messages[messageData.conversationSid] || [];
-    const isDuplicate = existingMessages.some(msg => 
-      msg.text === newMessage.text && 
-      msg.sender === newMessage.sender &&
-      Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 5000 // Within 5 seconds
-    );
+    
+    // Check for duplicates using multiple criteria
+    const isDuplicate = existingMessages.some(msg => {
+      // Check by Twilio message SID first (most reliable)
+      if (msg.twilioMessageSid && messageData.messageSid && msg.twilioMessageSid === messageData.messageSid) {
+        return true;
+      }
+      
+      // Check by exact same content, sender, and timestamp (within 2 seconds)
+      if (msg.text === newMessage.text && 
+          msg.sender === newMessage.sender &&
+          Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 2000) {
+        return true;
+      }
+      
+      // Check by message ID if available
+      if (msg.id === newMessage.id) {
+        return true;
+      }
+      
+      return false;
+    });
     
     if (isDuplicate) {
-      console.log('🔄 Duplicate message detected, skipping:', newMessage.text);
+      console.log('🔄 Duplicate message detected, skipping:', {
+        text: newMessage.text,
+        twilioSid: messageData.messageSid,
+        messageId: newMessage.id
+      });
       return;
     }
     
@@ -347,8 +368,22 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           
           if (!conversationExists) {
             console.log('✅ Adding new conversation to store:', newConversation.id);
-            const updatedConversations = [newConversation, ...currentConversations];
+            
+            // Mark conversation as new
+            const newConversationWithFlag = { ...newConversation, isNew: true };
+            const updatedConversations = [newConversationWithFlag, ...currentConversations];
             store.setConversations(updatedConversations);
+            
+            // Show notification for new conversation
+            import('@/lib/notification-service').then(({ notificationService }) => {
+              notificationService.showNewConversationNotification(
+                newConversation.title,
+                newConversation.customerPhone
+              ).catch(error => {
+                console.error('❌ Error showing notification:', error);
+              });
+            });
+            
             console.log('✅ New conversation added to store');
           } else {
             console.log('ℹ️ Conversation already exists in store:', newConversation.id);

@@ -99,6 +99,7 @@ class SQLiteDatabaseService {
         status TEXT DEFAULT 'open',
         priority TEXT DEFAULT 'normal',
         is_pinned INTEGER DEFAULT 0,
+        is_new INTEGER DEFAULT 1,
         twilio_conversation_sid TEXT UNIQUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -138,6 +139,15 @@ class SQLiteDatabaseService {
     } catch (error) {
       // Column already exists, ignore error
       console.log('is_pinned column already exists or migration failed:', error);
+    }
+
+    // Add migration for is_new column if it doesn't exist
+    try {
+      this.db.exec(`ALTER TABLE conversations ADD COLUMN is_new INTEGER DEFAULT 1`);
+      console.log('✅ Added is_new column to conversations table');
+    } catch (error) {
+      // Column already exists, ignore error
+      console.log('is_new column already exists or migration failed:', error);
     }
 
     // Add migrations for media columns in messages table
@@ -643,6 +653,23 @@ class SQLiteDatabaseService {
 
   async updateConversationPinStatus(conversationId: string, isPinned: boolean): Promise<any> {
     return await this.updateConversation(conversationId, { is_pinned: isPinned ? 1 : 0 });
+  }
+
+  async markConversationAsRead(conversationId: string): Promise<any> {
+    return await this.updateConversation(conversationId, { is_new: 0 });
+  }
+
+  async hasAgentReplies(conversationId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+    
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM messages 
+      WHERE conversation_id = ? AND sender_type = 'agent'
+    `);
+    const result = stmt.get(conversationId);
+    return (result as any).count > 0;
   }
 
   async getAllConversations(): Promise<any[]> {
