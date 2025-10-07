@@ -230,54 +230,76 @@ export async function listConversationsLite(limit = 30, after?: string) {
         console.log('🔍 Error checking database assignment:', error);
       }
       
-      // Note: We intentionally ignore Twilio participants now
-      // Database is the single source of truth for assignments
-      
-      // Get the last message for preview and timestamp
-      let lastMessagePreview = '';
-      let lastMessageTimestamp = c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString();
-      let isUnreplied = false;
-      try {
-        // Get messages in descending order (newest first) and take the first one
-        const messages = await c.messages().list({ limit: 1, order: 'desc' });
-        if (messages.length > 0) {
-          const lastMessage = messages[0];
-          if (lastMessage.body) {
-            lastMessagePreview = lastMessage.body.length > 50 
-              ? lastMessage.body.substring(0, 50) + '...' 
-              : lastMessage.body;
-          } else if (lastMessage.media) {
-            lastMessagePreview = '[Media]';
-          } else {
-            lastMessagePreview = '[Message]';
-          }
-          // Use the last message's timestamp for updatedAt
-          lastMessageTimestamp = lastMessage.dateCreated?.toISOString?.() ?? lastMessageTimestamp;
-          
-          // Check if last message is from customer (unreplied)
-          const isLastMessageFromCustomer = lastMessage.author && 
-            (lastMessage.author.startsWith('whatsapp:') || 
-             lastMessage.author.includes('customer') ||
-             !lastMessage.author.includes('agent'));
-          isUnreplied = isLastMessageFromCustomer && status === 'open';
-        }
-      } catch (error) {
-        console.log('Could not fetch last message for conversation:', c.sid);
-        lastMessagePreview = 'No messages yet';
-      }
-
-      // Load status, pin status, and new status from database
+      // Load status, pin status, and new status from database EARLY so we can use `status` when determining unreplied state
       const [status, isPinned, isNew] = await Promise.all([
         getConversationStatusFromDatabase(c.sid),
         getConversationPinStatusFromDatabase(c.sid),
         getConversationNewStatusFromDatabase(c.sid)
       ]);
 
+      // Get the last message for preview and timestamp
+      let lastMessagePreview = '';
+      let lastMessageTimestamp = c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString();
+      let isLastMessageFromCustomer = false;
+
+      // First try to get last message from database using better-sqlite3 directly (fast & avoids missing adapter methods)
+      try {
+        const Database = require('better-sqlite3');
+        const dbConn = new Database('./database.sqlite');
+        const stmt = dbConn.prepare(`SELECT sender_type, content, media_content_type, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1`);
+        const row = stmt.get(c.sid);
+        dbConn.close();
+
+        if (row) {
+          if (row.content) {
+            lastMessagePreview = row.content.length > 50 ? `${row.content.slice(0, 50)}...` : row.content;
+          } else if (row.media_content_type) {
+            lastMessagePreview = '[Media]';
+          } else {
+            lastMessagePreview = '[Message]';
+          }
+          lastMessageTimestamp = row.created_at;
+          isLastMessageFromCustomer = row.sender_type === 'customer';
+          console.log(`✅ Got last message from database for ${c.sid}: ${lastMessagePreview}`);
+        } else {
+          console.log(`📭 No messages in database for ${c.sid}`);
+        }
+      } catch (dbErr) {
+        console.log('⚠️ DB error while fetching last msg, will try Twilio:', dbErr);
+      }
+
+      // If still no preview, fallback to Twilio API (network may be slower, so we try database first)
+      if (!lastMessagePreview) {
+        try {
+          const twilioMsgs = await c.messages().list({ limit: 1, order: 'desc' });
+          if (twilioMsgs.length) {
+            const lastMsg = twilioMsgs[0];
+            if (lastMsg.body) {
+              lastMessagePreview = lastMsg.body.length > 50 ? `${lastMsg.body.slice(0, 50)}...` : lastMsg.body;
+            } else if (lastMsg.media) {
+              lastMessagePreview = '[Media]';
+            } else {
+              lastMessagePreview = '[Message]';
+            }
+            lastMessageTimestamp = lastMsg.dateCreated?.toISOString?.() ?? lastMessageTimestamp;
+            isLastMessageFromCustomer = lastMsg.author && (lastMsg.author.startsWith('whatsapp:') || !lastMsg.author.includes('agent'));
+            console.log(`✅ Got last message from Twilio for ${c.sid}: ${lastMessagePreview}`);
+          }
+        } catch (twErr) {
+          console.log('Could not fetch last message for conversation:', c.sid, twErr);
+          lastMessagePreview = 'No messages yet';
+        }
+      }
+
+      // Determine unreplied after we have both isLastMessageFromCustomer and status
+      const isUnreplied = isLastMessageFromCustomer && status === 'open';
+
+      // Build conversation item
       const conversationItem = {
         id: c.sid,
         title: customerName,
-        lastMessagePreview: lastMessagePreview,
-        unreadCount: 0, // Twilio doesn't provide this easily, defaulting to 0
+        lastMessagePreview,
+        unreadCount: 0,
         createdAt: c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
         updatedAt: lastMessageTimestamp,
         customerId: customerParticipant?.identity || 'unknown',
@@ -287,12 +309,11 @@ export async function listConversationsLite(limit = 30, after?: string) {
         customerEmail: customerEmail,
         agentName: agentName,
         agentStatus: agentStatus,
-        status: status,
-        isPinned: isPinned,
-        isNew: isNew,
-        isUnreplied: isUnreplied,
+        status,
+        isPinned,
+        isNew,
+        isUnreplied,
       };
-      // Created conversation item
       return conversationItem;
     } catch (error) {
       console.error('Error fetching participants for conversation:', c.sid, error);
