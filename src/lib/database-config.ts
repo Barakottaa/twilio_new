@@ -31,6 +31,13 @@ export interface DatabaseInterface {
   getMessage(id: string): Promise<any>;
   getMessageByTwilioSid(twilioMessageSid: string): Promise<any>;
   updateMessageDeliveryStatus(twilioMessageSid: string, deliveryStatus: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered'): Promise<any>;
+  
+  // Comment methods
+  createComment(data: any): Promise<any>;
+  getComment(id: string): Promise<any>;
+  getCommentsByConversation(conversationId: string): Promise<any[]>;
+  updateComment(id: string, content: string): Promise<any>;
+  deleteComment(id: string): Promise<boolean>;
 }
 
 // Database configuration

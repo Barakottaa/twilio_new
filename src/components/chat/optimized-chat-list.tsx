@@ -50,6 +50,7 @@ interface ConversationItem {
   status?: 'open' | 'closed' | 'pending';
   isPinned?: boolean;
   isNew?: boolean;
+  isUnreplied?: boolean;
 }
 
 interface OptimizedChatListProps {
@@ -84,11 +85,35 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     isLoading,
     error,
     isConversationPinned,
-    updateConversationStatus
+    updateConversationStatus,
+    assignments,
+    loadAssignmentsFromDatabase
   } = useChatStore();
   
   // Use conversations from store instead of local state
   const [hasMore, setHasMore] = useState(false);
+  
+  // Debug: Log conversation data to see real-time updates
+  console.log('🔍 OptimizedChatList - Current conversations from store:', conversations.map(conv => ({
+    id: conv.id,
+    title: conv.title,
+    lastMessagePreview: conv.lastMessagePreview,
+    isUnreplied: conv.isUnreplied,
+    updatedAt: conv.updatedAt
+  })));
+  
+  // Debug: Check specifically for Abdelrahman Baraka conversation
+  const abdelrahmanConv = conversations.find(conv => conv.title === 'Abdelrahman Baraka');
+  if (abdelrahmanConv) {
+    console.log('🔍 OptimizedChatList - Abdelrahman Baraka conversation details:', {
+      id: abdelrahmanConv.id,
+      title: abdelrahmanConv.title,
+      lastMessagePreview: abdelrahmanConv.lastMessagePreview,
+      isUnreplied: abdelrahmanConv.isUnreplied,
+      status: abdelrahmanConv.status,
+      updatedAt: abdelrahmanConv.updatedAt
+    });
+  }
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -131,16 +156,19 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     setShowAgentDialog(true);
   };
 
-  // Load initial conversations
+  // Load initial conversations and assignments
   useEffect(() => {
     console.log('🔍 OptimizedChatList - agentId:', agentId);
     if (agentId) {
-      console.log('🔍 Auto-loading conversations...');
-      loadConversations();
+      console.log('🔍 Auto-loading assignments first, then conversations...');
+      // Load assignments first, then conversations
+      loadAssignmentsFromDatabase().then(() => {
+        loadConversations();
+      });
     } else {
       console.log('🔍 No agentId, not loading conversations');
     }
-  }, [agentId]);
+  }, [agentId, loadAssignmentsFromDatabase]);
 
   const loadConversations = async (cursor?: string) => {
     try {
@@ -212,6 +240,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           updatedAt: conv.updatedAt,
           customerId: conv.customer.id,
           agentId: conv.agent.id,
+          isUnreplied: false, // Default to false, will be overridden by store data if available
         }));
         
         if (cursor) {
@@ -244,20 +273,47 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     }
   };
 
+
   // Filter conversations based on active tab, status, and search query
   const filteredConversations = useMemo(() => {
+    console.log('🔍 Filtering conversations:', { 
+      activeTab, 
+      conversationsCount: conversations.length, 
+      assignmentsCount: Object.keys(assignments).length,
+      assignments: assignments 
+    });
     let filtered = conversations;
 
-    // Apply tab filter first
+    // Apply tab filter first - use store assignments as source of truth
     if (activeTab === 'assigned') {
-      filtered = filtered.filter(conv => conv.agentId === agentId);
+      // Only show conversations assigned to the current agent (from store)
+      filtered = filtered.filter(conv => {
+        const assignment = assignments[conv.id];
+        const isAssigned = assignment && assignment.id === agentId;
+        console.log('🔍 Assigned filter check:', {
+          conversationId: conv.id,
+          conversationTitle: conv.title,
+          assignment,
+          agentId,
+          conversationStatus: conv.status,
+          isAssigned
+        });
+        return isAssigned;
+      });
     } else if (activeTab === 'unassigned') {
-      filtered = filtered.filter(conv => 
-        !conv.agentId || 
-        conv.agentId === 'unassigned' || 
-        conv.agentId === 'unknown' ||
-        conv.agentName === 'Unassigned'
-      );
+      // Show conversations with no assignment in store (database source of truth)
+      // Include both open and closed unassigned conversations
+      filtered = filtered.filter(conv => {
+        const assignment = assignments[conv.id];
+        const isUnassigned = !assignment;
+        console.log('🔍 Unassigned filter check:', {
+          conversationId: conv.id,
+          conversationTitle: conv.title,
+          assignment,
+          isUnassigned
+        });
+        return isUnassigned;
+      });
     }
     // 'all' tab shows all conversations, no additional filtering needed
 
@@ -269,16 +325,19 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(conv => 
-        conv.title.toLowerCase().includes(query) ||
-        conv.customerPhone?.includes(query) ||
-        conv.customerEmail?.toLowerCase().includes(query) ||
-        conv.agentName?.toLowerCase().includes(query) ||
-        conv.lastMessagePreview?.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(conv => {
+        const assignment = assignments[conv.id];
+        const assignedAgentName = assignment?.name || '';
+        
+        return conv.title.toLowerCase().includes(query) ||
+               conv.customerPhone?.includes(query) ||
+               conv.customerEmail?.toLowerCase().includes(query) ||
+               assignedAgentName.toLowerCase().includes(query) ||
+               conv.lastMessagePreview?.toLowerCase().includes(query);
+      });
     }
 
-    // Sort: pinned conversations first, then new conversations, then by updatedAt, with stable secondary sort
+    // Sort: pinned conversations first, then open conversations, then new conversations, then by updatedAt, with stable secondary sort
     filtered.sort((a, b) => {
       // Pinned conversations first (use store state)
       const aPinned = isConversationPinned(a.id);
@@ -287,8 +346,17 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
       
-      // Then new conversations (if not pinned)
+      // Then open conversations (if not pinned)
       if (!aPinned && !bPinned) {
+        const aOpen = a.status === 'open';
+        const bOpen = b.status === 'open';
+        
+        if (aOpen && !bOpen) return -1;
+        if (!aOpen && bOpen) return 1;
+      }
+      
+      // Then new conversations (if not pinned and same status)
+      if (!aPinned && !bPinned && a.status === b.status) {
         const aNew = a.isNew === true;
         const bNew = b.isNew === true;
         
@@ -430,9 +498,21 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-medium text-sm truncate">
-                    {conversation.title}
-                  </h3>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <h3 className="font-medium text-sm truncate">
+                      {conversation.title}
+                    </h3>
+                    {(() => {
+                      console.log('🔍 Rendering unreplied dot for:', {
+                        title: conversation.title,
+                        isUnreplied: conversation.isUnreplied,
+                        shouldShow: conversation.isUnreplied
+                      });
+                      return conversation.isUnreplied && (
+                        <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" title="Unreplied message" />
+                      );
+                    })()}
+                  </div>
                   <div className="flex items-center gap-1">
                     {isConversationPinned(conversation.id) && (
                       <Pin className="h-3 w-3 text-yellow-500" />

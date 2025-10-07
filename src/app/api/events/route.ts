@@ -16,12 +16,12 @@ export async function GET(req: NextRequest) {
   }
   
   const stream = new ReadableStream({
-    start(ctrl) {
+    async start(ctrl) {
       controller = ctrl;
       console.log('🔌 SSE stream started, adding connection');
       
       // Add this connection to our set
-      addConnection(controller);
+      await addConnection(controller);
       
       // Send initial connection message
       const data = JSON.stringify({ type: 'connected', message: 'Connected to real-time updates' });

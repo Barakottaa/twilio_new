@@ -340,6 +340,25 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     
     // Append message using Twilio ConversationSid as the key
     store.appendMessage(messageData.conversationSid, newMessage);
+    
+    // Show notification for incoming customer messages
+    if (!isAgentMessage) {
+      console.log('🔔 Showing notification for incoming customer message');
+      
+      // Get conversation title for notification
+      const conversation = store.conversations.find(conv => conv.id === messageData.conversationSid);
+      const conversationTitle = conversation?.title || `Customer ${messageData.from?.replace('whatsapp:', '') || 'Unknown'}`;
+      
+      // Show notification
+      import('@/lib/notification-service').then(({ notificationService }) => {
+        notificationService.showNewMessageNotification(
+          conversationTitle,
+          newMessage.text || '[Media]'
+        ).catch(error => {
+          console.error('❌ Error showing message notification:', error);
+        });
+      });
+    }
   };
 
   const handleNewConversation = async (conversationData: RealtimeConversationData) => {

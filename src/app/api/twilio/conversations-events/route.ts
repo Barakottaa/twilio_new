@@ -442,7 +442,7 @@ async function handleDeliveryUpdated(params: { [key: string]: string }) {
     }
     
     // Broadcast enhanced delivery status update to connected clients
-    broadcastMessage('deliveryStatusUpdate', {
+    await broadcastMessage('deliveryStatusUpdate', {
       conversationSid,
       messageSid,
       status: deliveryStatus,

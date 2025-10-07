@@ -3,15 +3,18 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Paperclip } from 'lucide-react';
+import { Send, Paperclip, UserPlus, Loader2 } from 'lucide-react';
 
 interface MessageInputProps {
   onSendMessage: (text: string) => void;
   disabled?: boolean;
   disabledReason?: string;
+  onAssignToMe?: () => void;
+  showAssignButton?: boolean;
+  isAssigning?: boolean;
 }
 
-export function MessageInput({ onSendMessage, disabled = false, disabledReason }: MessageInputProps) {
+export function MessageInput({ onSendMessage, disabled = false, disabledReason, onAssignToMe, showAssignButton = false, isAssigning = false }: MessageInputProps) {
   const [text, setText] = useState('');
 
   const handleSend = () => {
@@ -34,7 +37,30 @@ export function MessageInput({ onSendMessage, disabled = false, disabledReason }
     <div className="p-4 border-t bg-card">
       {disabled && disabledReason && (
         <div className="mb-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
-          <p className="text-sm text-orange-800">{disabledReason}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-orange-800">{disabledReason}</p>
+            {showAssignButton && onAssignToMe && (
+              <div className="ml-2">
+                {isAssigning ? (
+                  // Skeleton loading animation that matches button size
+                  <div className="inline-flex items-center px-3 py-1.5 border border-orange-300 rounded-md bg-orange-50">
+                    <div className="h-4 w-4 bg-orange-300 rounded-full animate-spin mr-2"></div>
+                    <div className="h-4 w-20 bg-orange-300 rounded animate-pulse"></div>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={onAssignToMe}
+                    size="sm"
+                    variant="outline"
+                    className="text-orange-800 border-orange-300 hover:bg-orange-100"
+                  >
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    Assign to Me
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <div className="flex items-center gap-2">

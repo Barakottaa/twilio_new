@@ -17,6 +17,8 @@ import { StatusToggle } from '@/components/ui/status-toggle';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ContactDialog } from './contact-dialog';
 import { AgentAssignmentDialog } from './agent-assignment-dialog';
+import { CommentSection } from './comment-section';
+import { CommentModal } from './comment-modal';
 
 interface ConversationItem {
   id: string;
@@ -44,6 +46,7 @@ interface OptimizedChatHeaderProps {
   onToggleStatus?: (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => void;
   onChangePriority?: (conversationId: string, newPriority: 'low' | 'medium' | 'high') => void;
   onDeleteConversation?: (conversationId: string) => void;
+  loggedInAgent?: { id: string; name: string };
 }
 
 export function OptimizedChatHeader({ 
@@ -53,11 +56,18 @@ export function OptimizedChatHeader({
   onAssignAgent, 
   onToggleStatus, 
   onChangePriority,
-  onDeleteConversation
+  onDeleteConversation,
+  loggedInAgent
 }: OptimizedChatHeaderProps) {
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [showAgentDialog, setShowAgentDialog] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
+  
+  // Use passed loggedInAgent or fallback to store
+  const agentFromStore = useChatStore(state => state.me);
+  const currentAgent = loggedInAgent || agentFromStore;
   
   const handleSyncMessages = async () => {
     if (!conversationId || isSyncing) return;
@@ -98,7 +108,8 @@ export function OptimizedChatHeader({
   const title = (conversation?.title ?? convFromStore?.title ?? 'Unknown Contact').trim();
   const status = (conversation?.status ?? statusFromStore ?? 'open') as 'open'|'closed'|'pending';
   const priority = conversation?.priority ?? convFromStore?.priority;
-  const agentName = conversation?.agentName ?? assigned?.name ?? 'Unassigned';
+  // Show agent name ONLY from store assignment (database source of truth)
+  const agentName = assigned?.name ?? 'Unassigned';
   const customerPhone = conversation?.customerPhone ?? convFromStore?.customerPhone;
   const customerEmail = conversation?.customerEmail ?? convFromStore?.customerEmail;
   const lastMessagePreview = conversation?.lastMessagePreview ?? convFromStore?.lastMessagePreview ?? '';
@@ -109,8 +120,11 @@ export function OptimizedChatHeader({
   console.log('🔍 OptimizedChatHeader - conversation:', conversation);
   console.log('🔍 OptimizedChatHeader - conversationId:', conversationId);
   console.log('🔍 OptimizedChatHeader - convFromStore:', convFromStore);
+  console.log('🔍 OptimizedChatHeader - assigned from store:', assigned);
+  console.log('🔍 OptimizedChatHeader - agentName (final):', agentName);
   console.log('🔍 OptimizedChatHeader - title:', title);
   console.log('🔍 OptimizedChatHeader - hasAnyData:', hasAnyData);
+  console.log('🔍 OptimizedChatHeader - all store assignments:', useChatStore.getState().assignments);
   console.log('🔍 OptimizedChatHeader - all store conversations:', useChatStore.getState().conversations);
   
   if (!hasAnyData) {
@@ -199,6 +213,17 @@ export function OptimizedChatHeader({
                 <span className="text-orange-600">⚠️ Unassigned</span>
               )}
             </div>
+            
+            {/* Comment Section */}
+            {id && currentAgent && (
+              <div className="mt-2">
+                <CommentSection 
+                  conversationId={id}
+                  onOpenModal={() => setShowCommentModal(true)}
+                  refreshTrigger={commentRefreshTrigger}
+                />
+              </div>
+            )}
           </div>
           
           {unreadCount > 0 && (
@@ -251,22 +276,6 @@ export function OptimizedChatHeader({
                 </>
               )}
               
-              {onChangePriority && (
-                <>
-                  <DropdownMenuItem onClick={() => onChangePriority(id, 'high')}>
-                    <AlertCircle className="h-4 w-4 mr-2 text-red-600" />
-                    Set High Priority
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChangePriority(id, 'medium')}>
-                    <AlertCircle className="h-4 w-4 mr-2 text-yellow-600" />
-                    Set Medium Priority
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChangePriority(id, 'low')}>
-                    <AlertCircle className="h-4 w-4 mr-2 text-green-600" />
-                    Set Low Priority
-                  </DropdownMenuItem>
-                </>
-              )}
               
               <DropdownMenuItem onClick={() => setShowContactDialog(true)}>
                 <User className="h-4 w-4 mr-2" />
@@ -349,6 +358,18 @@ export function OptimizedChatHeader({
           // The dialog already updates the store, so we just need to close it
         }}
       />
+      
+      {/* Comment Modal */}
+      {currentAgent && (
+        <CommentModal
+          isOpen={showCommentModal}
+          onClose={() => setShowCommentModal(false)}
+          conversationId={id}
+          agentId={currentAgent.id}
+          agentName={currentAgent.name}
+          onCommentUpdate={() => setCommentRefreshTrigger(prev => prev + 1)}
+        />
+      )}
     </div>
   );
 }

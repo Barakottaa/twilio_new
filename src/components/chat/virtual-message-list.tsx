@@ -14,6 +14,7 @@ interface VirtualMessageListProps {
   onLoadOlder: () => void;
   className?: string;
   contactName?: string;
+  agentName?: string;
 }
 
 export function VirtualMessageList({
@@ -23,7 +24,8 @@ export function VirtualMessageList({
   hasMore,
   onLoadOlder,
   className = '',
-  contactName
+  contactName,
+  agentName
 }: VirtualMessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(false);
@@ -108,11 +110,12 @@ export function VirtualMessageList({
               message={message} 
               avatarUrl={`https://ui-avatars.com/api/?name=${encodeURIComponent(
                 message.sender === 'agent' 
-                  ? (message.senderId === 'admin_001' ? 'Admin' : 'Agent')
+                  ? (agentName || (message.senderId === 'admin_001' ? 'Admin' : 'Agent'))
                   : (contactName || 'Customer')
               )}&background=random`}
               showAvatar={true}
               contactName={contactName}
+              agentName={agentName}
             />
           </div>
         ))}

@@ -12,9 +12,10 @@ interface MessageBubbleProps {
   avatarUrl: string;
   showAvatar: boolean;
   contactName?: string;
+  agentName?: string;
 }
 
-export function MessageBubble({ message, avatarUrl, showAvatar, contactName }: MessageBubbleProps) {
+export function MessageBubble({ message, avatarUrl, showAvatar, contactName, agentName }: MessageBubbleProps) {
   const isAgent = message.sender === 'agent';
   const [formattedTimestamp, setFormattedTimestamp] = useState('');
 
@@ -22,6 +23,27 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName }: M
   const getInitials = () => {
     // For agent messages, use agent name instead of contact name
     if (isAgent) {
+      // Use the passed agentName prop first
+      if (agentName && agentName.length >= 2) {
+        return agentName.substring(0, 2).toUpperCase();
+      }
+      
+      // Try to get agent name from the store as fallback
+      try {
+        const { useChatStore } = require('@/store/chat-store');
+        const store = useChatStore.getState();
+        const me = store.me;
+        
+        // If this message is from the current logged-in agent, use their name
+        if (me && message.senderId === me.id) {
+          if (me.name && me.name.length >= 2) {
+            return me.name.substring(0, 2).toUpperCase();
+          }
+        }
+      } catch (error) {
+        // Fallback if store is not available
+      }
+      
       // Try to extract agent name from senderId (e.g., "admin_001" -> "AD")
       if (message.senderId) {
         if (message.senderId === 'admin_001') {
@@ -34,6 +56,9 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName }: M
           }
         } else if (message.senderId.startsWith('admin_')) {
           return 'AD'; // Admin
+        } else if (message.senderId.includes('agent_')) {
+          // Handle agent_xxx format
+          return 'AG'; // Agent
         }
       }
       return 'AG'; // Default agent fallback

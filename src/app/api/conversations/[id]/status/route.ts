@@ -43,6 +43,12 @@ export async function PATCH(
       // Update existing conversation status
       conversation = await db.updateConversationStatus(conversationId, status);
       
+      // If being closed, unassign the conversation
+      if (status === 'closed') {
+        await db.updateConversation(conversationId, { agent_id: null });
+        console.log('🔍 Conversation closed and unassigned:', conversationId);
+      }
+      
       // If being reopened, check if it should be marked as new
       if (isBeingReopened) {
         // Only mark as new if it has no agent replies

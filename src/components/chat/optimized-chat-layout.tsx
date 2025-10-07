@@ -27,10 +27,14 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     setSelectedConversation,
     isLoading,
     error,
-    loadAssignmentsFromDatabase
+    loadAssignmentsFromDatabase,
+    setAssignment
   } = useChatStore();
   
   const { toast } = useToast();
+  
+  // Handle assigning conversation to current user
+  const [isAssigning, setIsAssigning] = useState(false);
   
   // Use the messages hook for both fetching and real-time updates
   const {
@@ -57,37 +61,108 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   });
 
   // Check assignment status from the store
-  const assignedAgent = useChatStore(state => 
-    selectedConversationId ? state.assignments[selectedConversationId] : null
-  );
+  const assignedAgent = useChatStore(state => {
+    const assignment = selectedConversationId ? state.assignments[selectedConversationId] : null;
+    console.log('🔍 Getting assignment for conversation:', selectedConversationId, 'assignment:', assignment, 'all assignments:', state.assignments);
+    return assignment;
+  });
+  
+  // Get conversation status to determine if assignment should be considered
+  const conversationStatus = useChatStore(state => {
+    const status = selectedConversationId ? state.statuses[selectedConversationId] : 'open';
+    console.log('🔍 Getting status for conversation:', selectedConversationId, 'status:', status);
+    return status;
+  });
   
   // Check if the conversation is assigned to the current user
   const isAssignedToCurrentUser = assignedAgent?.id === loggedInAgent.id;
   const isUnassigned = !assignedAgent;
   const isAssignedToOtherAgent = assignedAgent && assignedAgent.id !== loggedInAgent.id;
   
+  // Message input should be disabled if not assigned to current user (regardless of conversation status)
   const messageInputDisabled = !isAssignedToCurrentUser;
+  
   const messageInputDisabledReason = isUnassigned 
-    ? "This conversation is not assigned to any agent. Please assign it to yourself first."
+    ? "This conversation is not assigned to any agent."
     : isAssignedToOtherAgent 
     ? `This conversation is assigned to ${assignedAgent?.name}. Only the assigned agent can send messages.`
     : "You cannot send messages to this conversation.";
+  
+  // Show assign button for unassigned or assigned-to-other conversations (regardless of conversation status)
+  const showAssignButton = isUnassigned || isAssignedToOtherAgent;
 
   // Load assignments from database on mount
   useEffect(() => {
+    console.log('🔍 OptimizedChatLayout - Loading assignments on mount...');
     loadAssignmentsFromDatabase();
   }, [loadAssignmentsFromDatabase]);
+
+  // Load assignments when conversation changes
+  useEffect(() => {
+    if (selectedConversationId) {
+      console.log('🔍 OptimizedChatLayout - Loading assignments for conversation:', selectedConversationId);
+      loadAssignmentsFromDatabase();
+    }
+  }, [selectedConversationId, loadAssignmentsFromDatabase]);
+
+  const handleAssignToMe = async () => {
+    if (!selectedConversationId || isAssigning) return;
+    
+    setIsAssigning(true);
+    try {
+      const response = await fetch(`/api/conversations/${selectedConversationId}/assign`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ agentId: loggedInAgent.id }),
+      });
+
+      if (response.ok) {
+        // Refresh assignments from database to ensure consistency
+        await loadAssignmentsFromDatabase();
+        
+        toast({
+          title: "Conversation Assigned",
+          description: "This conversation has been assigned to you.",
+        });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.details || errorData.error || 'Failed to assign conversation';
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error assigning conversation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast({
+        title: "Assignment Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
 
   // Debug assignment status
   console.log('🔍 Assignment Status:', {
     selectedConversationId,
     assignedAgent,
+    assignedAgentId: assignedAgent?.id,
+    assignedAgentName: assignedAgent?.name,
     loggedInAgent: loggedInAgent,
     loggedInAgentId: loggedInAgent.id,
+    loggedInAgentName: loggedInAgent.name,
     isAssignedToCurrentUser,
     isUnassigned,
     isAssignedToOtherAgent,
-    messageInputDisabled
+    messageInputDisabled,
+    messageInputDisabledReason,
+    showAssignButton,
+    conversationStatus,
+    allAssignments: useChatStore.getState().assignments,
+    allStatuses: useChatStore.getState().statuses
   });
 
   // Management functions
@@ -120,10 +195,9 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         throw new Error(`Failed to update conversation status: ${response.status} ${errorText}`);
       }
 
-      // Update the store
-      console.log('🔍 Updating store with new status:', newStatus);
-      const { updateConversationStatus } = useChatStore.getState();
-      updateConversationStatus(conversationId, newStatus);
+      // Refresh assignments and statuses from database to ensure consistency
+      console.log('🔍 Refreshing assignments and statuses from database...');
+      await loadAssignmentsFromDatabase();
 
       toast({
         title: "Status Updated",
@@ -276,18 +350,71 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       // Message sent successfully
       
       // Update the message with the real ID and "sent" status
-      const { updateMessageAfterSend } = useChatStore.getState();
+      const { updateMessageAfterSend, setStatus } = useChatStore.getState();
       updateMessageAfterSend(selectedConversationId, tempMessageId, {
         id: result.messageId || tempMessageId,
         twilioMessageSid: result.twilioMessageSid,
         deliveryStatus: 'sent' as const
       });
       
+      // Set a timeout to update delivery status to "delivered" if no webhook is received
+      setTimeout(() => {
+        const { updateMessageStatus } = useChatStore.getState();
+        const messages = useChatStore.getState().messages[selectedConversationId] || [];
+        const message = messages.find(msg => msg.id === (result.messageId || tempMessageId));
+        if (message && message.deliveryStatus === 'sent') {
+          console.log('🔍 Auto-updating message status to delivered (fallback)');
+          updateMessageStatus(selectedConversationId, message.id, 'delivered');
+        }
+      }, 3000); // Wait 3 seconds before auto-updating to delivered
+      
+      // Update conversation status to "open" if it was closed (agent is now participating)
+      const currentStatus = useChatStore.getState().statuses[selectedConversationId];
+      if (currentStatus === 'closed') {
+        console.log('🔍 Agent sent message to closed conversation, reopening...');
+        setStatus(selectedConversationId, 'open');
+        
+        // Also update in database
+        try {
+          await fetch(`/api/conversations/${selectedConversationId}/status`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: 'open' }),
+          });
+        } catch (error) {
+          console.error('Failed to update conversation status in database:', error);
+        }
+      }
+      
+      // Ensure the conversation is assigned to the current agent when they send a message
+      const currentAssignment = useChatStore.getState().assignments[selectedConversationId];
+      if (!currentAssignment || currentAssignment.id !== loggedInAgent.id) {
+        console.log('🔍 Agent sent message, ensuring assignment to current agent...');
+        
+        // Update in database
+        try {
+          await fetch(`/api/conversations/${selectedConversationId}/assign`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ agentId: loggedInAgent.id }),
+          });
+          
+          // Refresh assignments from database to ensure consistency
+          await loadAssignmentsFromDatabase();
+        } catch (error) {
+          console.error('Failed to update conversation assignment in database:', error);
+        }
+      }
+      
       // Update the conversation list with the new last message
       const currentConversations = useChatStore.getState().conversations;
       const updatedConversations = currentConversations.map(conv => 
         conv.id === selectedConversationId 
-          ? { ...conv, lastMessagePreview: text.trim(), updatedAt: new Date().toISOString() }
+          ? { ...conv, lastMessagePreview: text.trim(), updatedAt: new Date().toISOString(), status: 'open' }
           : conv
       );
       setConversations(updatedConversations);
@@ -378,7 +505,9 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                      onToggleStatus={handleToggleStatus}
                      onChangePriority={handleChangePriority}
                      onDeleteConversation={handleDeleteConversation}
+                     loggedInAgent={loggedInAgent}
                    />
+
 
             {/* Messages Area - Takes remaining space */}
             <div className="flex-1 overflow-hidden">
@@ -390,6 +519,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                 onLoadOlder={loadOlder}
                 className="h-full"
                 contactName={selectedConversation?.title}
+                agentName={loggedInAgent.name}
               />
             </div>
 
@@ -399,6 +529,9 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                 onSendMessage={handleSendMessage}
                 disabled={messageInputDisabled}
                 disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
+                onAssignToMe={handleAssignToMe}
+                showAssignButton={showAssignButton}
+                isAssigning={isAssigning}
               />
             </div>
           </>

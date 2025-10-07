@@ -8,6 +8,10 @@ interface PriorityBadgeProps {
 }
 
 const priorityConfig = {
+  normal: {
+    label: 'Normal',
+    className: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+  },
   low: {
     label: 'Low',
     className: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
@@ -27,7 +31,7 @@ const priorityConfig = {
 };
 
 export function PriorityBadge({ priority, className }: PriorityBadgeProps) {
-  const config = priorityConfig[priority];
+  const config = priorityConfig[priority || 'normal'];
   
   return (
     <Badge className={cn(config.className, className)}>

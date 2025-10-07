@@ -69,13 +69,31 @@ export function useMessages(conversationId?: string): UseMessagesResult {
           const current = useChatStore.getState().messages[conversationId] ?? EMPTY_MESSAGES;
           const apiMessages = data.messages ?? EMPTY_MESSAGES;
           
-          // Merge API messages with existing real-time messages
-          // Remove duplicates based on message ID
-          const existingIds = new Set(current.map(m => m.id));
-          const newApiMessages = apiMessages.filter(m => !existingIds.has(m.id));
-          const merged = [...newApiMessages, ...current];
+          // Create a map of existing messages by ID for quick lookup
+          const existingMessagesMap = new Map(current.map(m => [m.id, m]));
           
-          setMessages(conversationId, merged);
+          // Merge API messages with existing real-time messages
+          // API messages take precedence for ordering, but preserve real-time messages that aren't in API
+          const mergedMessages: Message[] = [];
+          const processedIds = new Set<string>();
+          
+          // First, add all API messages (they represent the authoritative order)
+          apiMessages.forEach(apiMsg => {
+            mergedMessages.push(apiMsg);
+            processedIds.add(apiMsg.id);
+          });
+          
+          // Then, add any real-time messages that aren't in the API response
+          current.forEach(rtMsg => {
+            if (!processedIds.has(rtMsg.id)) {
+              mergedMessages.push(rtMsg);
+            }
+          });
+          
+          // Sort by timestamp to ensure proper chronological order
+          mergedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          
+          setMessages(conversationId, mergedMessages);
         }
 
         setNextBefore(data.nextBefore ?? null);

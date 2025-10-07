@@ -15,13 +15,13 @@ export class NotificationService {
   }
 
   private async checkPermission(): Promise<void> {
-    if ('Notification' in window) {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
       this.permission = Notification.permission;
     }
   }
 
   public async requestPermission(): Promise<boolean> {
-    if (!('Notification' in window)) {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
       console.log('❌ This browser does not support notifications');
       return false;
     }
@@ -46,13 +46,15 @@ export class NotificationService {
   }
 
   public async showNotification(title: string, options: NotificationOptions = {}): Promise<void> {
-    if (!('Notification' in window)) {
+    console.log('🔔 showNotification called:', { title, options, permission: this.permission });
+    
+    if (typeof window === 'undefined' || !('Notification' in window)) {
       console.log('❌ This browser does not support notifications');
       return;
     }
 
     if (this.permission !== 'granted') {
-      console.log('❌ Notification permission not granted');
+      console.log('❌ Notification permission not granted. Current permission:', this.permission);
       return;
     }
 
@@ -72,7 +74,9 @@ export class NotificationService {
 
       // Handle click to focus window
       notification.onclick = () => {
-        window.focus();
+        if (typeof window !== 'undefined') {
+          window.focus();
+        }
         notification.close();
       };
 
@@ -100,11 +104,14 @@ export class NotificationService {
   }
 
   public async showNewMessageNotification(conversationTitle: string, messagePreview: string): Promise<void> {
+    console.log('🔔 showNewMessageNotification called:', { conversationTitle, messagePreview });
+    
     const title = `New message from ${conversationTitle}`;
     const body = messagePreview.length > 50 
       ? messagePreview.substring(0, 50) + '...'
       : messagePreview;
 
+    console.log('🔔 Showing notification:', { title, body });
     await this.showNotification(title, {
       body,
       tag: `message-${conversationTitle}`, // Prevents duplicate notifications for same conversation
@@ -117,7 +124,7 @@ export class NotificationService {
   }
 
   public isSupported(): boolean {
-    return 'Notification' in window;
+    return typeof window !== 'undefined' && 'Notification' in window;
   }
 
   public getPermission(): NotificationPermission {

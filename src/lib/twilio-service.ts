@@ -202,10 +202,10 @@ export async function listConversationsLite(limit = 30, after?: string) {
       }
       
       let agentName = 'Unassigned';
-      let agentId = 'unassigned';
+      let agentId = null; // Always start as unassigned
       let agentStatus = 'offline';
       
-      // First, check if there's an assignment in our database
+      // ONLY check database for assignments - ignore Twilio participants
       try {
         // Only import database on server side
         if (typeof window === 'undefined') {
@@ -220,29 +220,23 @@ export async function listConversationsLite(limit = 30, after?: string) {
               agentId = agent.id;
               agentName = agent.username;
               agentStatus = 'online';
-              // Found database assignment
+              console.log('🔍 Database assignment found:', { conversationId: c.sid, agentId, agentName });
             }
+          } else {
+            console.log('🔍 No database assignment for conversation:', c.sid);
           }
         }
       } catch (error) {
         console.log('🔍 Error checking database assignment:', error);
       }
       
-      // If no database assignment found, check Twilio participants
-      if (agentId === 'unassigned' && agentParticipant) {
-        agentId = agentParticipant.identity || 'unassigned';
-        try {
-          const attributes = agentParticipant.attributes ? 
-            JSON.parse(agentParticipant.attributes) : {};
-          agentName = attributes.display_name || agentParticipant.identity || 'Unassigned';
-          agentStatus = attributes.status || 'offline';
-        } catch {
-          agentName = agentParticipant.identity || 'Unassigned';
-        }
-      }
+      // Note: We intentionally ignore Twilio participants now
+      // Database is the single source of truth for assignments
       
-      // Get the last message for preview
+      // Get the last message for preview and timestamp
       let lastMessagePreview = '';
+      let lastMessageTimestamp = c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString();
+      let isUnreplied = false;
       try {
         // Get messages in descending order (newest first) and take the first one
         const messages = await c.messages().list({ limit: 1, order: 'desc' });
@@ -257,6 +251,15 @@ export async function listConversationsLite(limit = 30, after?: string) {
           } else {
             lastMessagePreview = '[Message]';
           }
+          // Use the last message's timestamp for updatedAt
+          lastMessageTimestamp = lastMessage.dateCreated?.toISOString?.() ?? lastMessageTimestamp;
+          
+          // Check if last message is from customer (unreplied)
+          const isLastMessageFromCustomer = lastMessage.author && 
+            (lastMessage.author.startsWith('whatsapp:') || 
+             lastMessage.author.includes('customer') ||
+             !lastMessage.author.includes('agent'));
+          isUnreplied = isLastMessageFromCustomer && status === 'open';
         }
       } catch (error) {
         console.log('Could not fetch last message for conversation:', c.sid);
@@ -276,7 +279,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         lastMessagePreview: lastMessagePreview,
         unreadCount: 0, // Twilio doesn't provide this easily, defaulting to 0
         createdAt: c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
-        updatedAt: c.dateUpdated?.toISOString?.() ?? c.dateCreated?.toISOString?.() ?? new Date().toISOString(),
+        updatedAt: lastMessageTimestamp,
         customerId: customerParticipant?.identity || 'unknown',
         agentId: agentId,
         // Additional information for enhanced display
@@ -287,6 +290,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
         status: status,
         isPinned: isPinned,
         isNew: isNew,
+        isUnreplied: isUnreplied,
       };
       // Created conversation item
       return conversationItem;
@@ -867,6 +871,14 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
     }));
 
     const sortedChats = serializedChats.sort((a,b) => {
+      // First, prioritize open conversations
+      const aOpen = a.status === 'open';
+      const bOpen = b.status === 'open';
+      
+      if (aOpen && !bOpen) return -1;
+      if (!aOpen && bOpen) return 1;
+      
+      // Then sort by timestamp (most recent first)
       const aTimestamp = a.messages[a.messages.length - 1]?.timestamp || '0';
       const bTimestamp = b.messages[b.messages.length - 1]?.timestamp || '0';
       return bTimestamp.localeCompare(aTimestamp);
@@ -1006,20 +1018,37 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
 
 export async function reassignTwilioConversation(conversationSid: string, newAgentId: string) {
   try {
+    console.log('🔄 Reassigning conversation:', { conversationSid, newAgentId });
     const twilioClient = await getTwilioClient();
     const participants = await twilioClient.conversations.v1.conversations(conversationSid).participants.list();
     
-    // Find and remove the current agent
-    const currentAgent = participants.find(p => p.identity?.startsWith('agent-'));
+    console.log('📋 Current participants:', participants.map(p => ({ identity: p.identity, sid: p.sid })));
+    
+    // Find and remove the current agent (look for various agent ID formats)
+    const currentAgent = participants.find(p => 
+      p.identity && (
+        p.identity.startsWith('agent-') || 
+        p.identity.startsWith('agent_') ||
+        p.identity.startsWith('admin_') ||
+        p.identity === 'admin_001' ||
+        p.identity.includes('agent')
+      )
+    );
+    
     if (currentAgent) {
+      console.log('🗑️ Removing current agent:', currentAgent.identity);
       await twilioClient.conversations.v1.conversations(conversationSid).participants(currentAgent.sid).remove();
+    } else {
+      console.log('ℹ️ No current agent found to remove');
     }
     
     // Add the new agent
+    console.log('➕ Adding new agent:', newAgentId);
     await twilioClient.conversations.v1.conversations(conversationSid).participants.create({ identity: newAgentId });
+    console.log('✅ Agent assignment completed');
 
   } catch (error) {
-    console.error(`Error reassigning conversation ${conversationSid} to ${newAgentId}:`, error);
-    throw new Error("Failed to reassign agent in Twilio.");
+    console.error(`❌ Error reassigning conversation ${conversationSid} to ${newAgentId}:`, error);
+    throw new Error(`Failed to reassign agent in Twilio: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

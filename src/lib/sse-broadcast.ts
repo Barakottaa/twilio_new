@@ -7,10 +7,19 @@ const connections = new Map<ReadableStreamDefaultController, { id: string, times
 // Store recent messages for new connections (last 10 messages)
 const recentMessages: Array<{ type: string, data: any, timestamp: number }> = [];
 
-export function addConnection(controller: ReadableStreamDefaultController) {
+export async function addConnection(controller: ReadableStreamDefaultController) {
   const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   connections.set(controller, { id: connectionId, timestamp: Date.now() });
   console.log(`🔌 SSE connection added: ${connectionId}. Total connections: ${connections.size}`);
+  
+  // Process recovery queue when connection is established
+  try {
+    const { messageRecoveryService } = await import('./message-recovery');
+    await messageRecoveryService.processRecoveryQueue();
+    console.log('🔄 Recovery queue processed for new connection');
+  } catch (error) {
+    console.error('❌ Failed to process recovery queue:', error);
+  }
   
   // Send recent messages to new connection (within last 60 seconds)
   const encoder = new TextEncoder();
@@ -42,7 +51,7 @@ export function removeConnection(controller: ReadableStreamDefaultController) {
 }
 
 // Function to broadcast messages to all connected clients
-export function broadcastMessage(type: string, data: any) {
+export async function broadcastMessage(type: string, data: any) {
   console.log(`📡 BROADCAST MESSAGE CALLED - Type: ${type}, Data:`, data);
   
   const encoder = new TextEncoder();
@@ -88,6 +97,24 @@ export function broadcastMessage(type: string, data: any) {
   
   if (connections.size === 0) {
     console.log('⚠️ No active connections to broadcast to - message queued for next connection');
+    
+    // Add to recovery queue if it's a newMessage
+    if (type === 'newMessage') {
+      try {
+        const { messageRecoveryService } = await import('./message-recovery');
+        messageRecoveryService.addToRecoveryQueue({
+          conversationSid: data.conversationSid,
+          messageSid: data.messageSid,
+          body: data.body,
+          author: data.author,
+          dateCreated: data.dateCreated,
+          index: data.index
+        });
+        console.log('🔄 Message added to recovery queue');
+      } catch (error) {
+        console.error('❌ Failed to add message to recovery queue:', error);
+      }
+    }
     return;
   }
   

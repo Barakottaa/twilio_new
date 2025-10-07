@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import path from 'path';
 import type { Agent, Contact } from '@/types';
 
 interface DatabaseRecord {
@@ -52,7 +53,10 @@ class SQLiteDatabaseService {
 
   private async initialize(): Promise<void> {
     try {
-      this.db = new Database('./database.sqlite');
+      // Use absolute path to ensure database is found regardless of working directory
+      const dbPath = process.env.SQLITE_DB_PATH || path.join(process.cwd(), 'database.sqlite');
+      console.log('🔍 Database path:', dbPath);
+      this.db = new Database(dbPath);
       console.log('✅ SQLite database connected successfully');
       await this.createTables();
     } catch (err) {
@@ -119,6 +123,14 @@ class SQLiteDatabaseService {
         media_data TEXT,
         chat_service_sid TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS comments (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT REFERENCES conversations(id),
+        agent_id TEXT REFERENCES agents(id),
+        content TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 
@@ -134,20 +146,34 @@ class SQLiteDatabaseService {
 
     // Add migration for is_pinned column if it doesn't exist
     try {
-      this.db.exec(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
-      console.log('✅ Added is_pinned column to conversations table');
+      // Check if column exists first
+      const pinnedCheck = this.db.prepare(`PRAGMA table_info(conversations)`).all();
+      const hasPinnedColumn = pinnedCheck.some((col: any) => col.name === 'is_pinned');
+      
+      if (!hasPinnedColumn) {
+        this.db.exec(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
+        console.log('✅ Added is_pinned column to conversations table');
+      } else {
+        console.log('✅ is_pinned column already exists');
+      }
     } catch (error) {
-      // Column already exists, ignore error
-      console.log('is_pinned column already exists or migration failed:', error);
+      console.log('is_pinned column migration failed:', error);
     }
 
     // Add migration for is_new column if it doesn't exist
     try {
-      this.db.exec(`ALTER TABLE conversations ADD COLUMN is_new INTEGER DEFAULT 1`);
-      console.log('✅ Added is_new column to conversations table');
+      // Check if column exists first
+      const newCheck = this.db.prepare(`PRAGMA table_info(conversations)`).all();
+      const hasNewColumn = newCheck.some((col: any) => col.name === 'is_new');
+      
+      if (!hasNewColumn) {
+        this.db.exec(`ALTER TABLE conversations ADD COLUMN is_new INTEGER DEFAULT 1`);
+        console.log('✅ Added is_new column to conversations table');
+      } else {
+        console.log('✅ is_new column already exists');
+      }
     } catch (error) {
-      // Column already exists, ignore error
-      console.log('is_new column already exists or migration failed:', error);
+      console.log('is_new column migration failed:', error);
     }
 
     // Add migrations for media columns in messages table
@@ -160,13 +186,20 @@ class SQLiteDatabaseService {
       { name: 'delivery_status', sql: 'ALTER TABLE messages ADD COLUMN delivery_status TEXT CHECK (delivery_status IN (\'sending\', \'sent\', \'delivered\', \'read\', \'failed\', \'undelivered\'))' }
     ];
 
+    // Check existing columns first
+    const messagesCheck = this.db.prepare(`PRAGMA table_info(messages)`).all();
+    const existingColumns = messagesCheck.map((col: any) => col.name);
+
     for (const col of mediaColumns) {
       try {
-        this.db.exec(col.sql);
-        console.log(`✅ Added ${col.name} column to messages table`);
+        if (!existingColumns.includes(col.name)) {
+          this.db.exec(col.sql);
+          console.log(`✅ Added ${col.name} column to messages table`);
+        } else {
+          console.log(`✅ ${col.name} column already exists`);
+        }
       } catch (error) {
-        // Column already exists, ignore error
-        console.log(`${col.name} column already exists or migration failed`);
+        console.log(`${col.name} column migration failed:`, error);
       }
     }
 
@@ -676,7 +709,7 @@ class SQLiteDatabaseService {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    const stmt = this.db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC');
+    const stmt = this.db.prepare('SELECT * FROM conversations ORDER BY CASE WHEN status = "open" THEN 0 ELSE 1 END, updated_at DESC');
     return stmt.all();
   }
 
@@ -755,6 +788,67 @@ class SQLiteDatabaseService {
     }
     
     return await this.getMessageByTwilioSid(twilioMessageSid);
+  }
+
+  // Comment operations
+  async createComment(data: {
+    id: string;
+    conversation_id: string;
+    agent_id: string;
+    content: string;
+  }): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare(`
+      INSERT INTO comments (id, conversation_id, agent_id, content, created_at, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `);
+    
+    const result = stmt.run(data.id, data.conversation_id, data.agent_id, data.content);
+    return result;
+  }
+
+  async getComment(id: string): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare('SELECT * FROM comments WHERE id = ?');
+    const result = stmt.get(id);
+    return result;
+  }
+
+  async getCommentsByConversation(conversationId: string): Promise<any[]> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare(`
+      SELECT c.*, a.username as agent_name 
+      FROM comments c 
+      LEFT JOIN agents a ON c.agent_id = a.id 
+      WHERE c.conversation_id = ? 
+      ORDER BY c.created_at DESC
+    `);
+    const results = stmt.all(conversationId);
+    return results;
+  }
+
+  async updateComment(id: string, content: string): Promise<any> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare('UPDATE comments SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    const result = stmt.run(content, id);
+    return result;
+  }
+
+  async deleteComment(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare('DELETE FROM comments WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
   }
 }
 

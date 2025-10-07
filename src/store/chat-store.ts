@@ -17,6 +17,9 @@ interface ConversationItem {
   agentStatus?: string;
   status?: 'open' | 'closed' | 'pending';
   priority?: 'low' | 'medium' | 'high';
+  isPinned?: boolean;
+  isNew?: boolean;
+  isUnreplied?: boolean;
 }
 
 interface ChatState {
@@ -84,7 +87,35 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   // Note: Pin status is now stored in database, not in local state
 
   // Actions
-  setConversations: (conversations) => set({ conversations }),
+  setConversations: (newConversations) => set((state) => {
+    console.log('🔍 setConversations called with:', newConversations.length, 'conversations');
+    
+    // Merge new conversations with existing ones to preserve real-time updates
+    const mergedConversations = newConversations.map((newConv: any) => {
+      const existingConv = state.conversations.find(conv => conv.id === newConv.id);
+      if (existingConv) {
+        // Preserve real-time updates from existing conversation
+        return {
+          ...newConv,
+          lastMessagePreview: existingConv.lastMessagePreview || newConv.lastMessagePreview,
+          updatedAt: existingConv.updatedAt || newConv.updatedAt,
+          isUnreplied: existingConv.isUnreplied !== undefined ? existingConv.isUnreplied : newConv.isUnreplied,
+          unreadCount: existingConv.unreadCount || newConv.unreadCount,
+          isNew: existingConv.isNew !== undefined ? existingConv.isNew : newConv.isNew
+        };
+      }
+      return newConv;
+    });
+    
+    console.log('🔍 setConversations - merged conversations:', mergedConversations.map(conv => ({
+      id: conv.id,
+      title: conv.title,
+      lastMessagePreview: conv.lastMessagePreview,
+      isUnreplied: conv.isUnreplied
+    })));
+    
+    return { conversations: mergedConversations };
+  }),
   
   setSelectedConversation: (id) => {
     console.log('🔍 ChatStore - setSelectedConversation:', id);
@@ -110,27 +141,56 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     
     console.log('🔥 Updated count:', updatedMessages.length);
     
-    // Update last message preview for the conversation and auto-reopen if closed
+    // Check if this is an incoming message (from customer) vs outgoing (from agent)
+    const isIncomingMessage = message.sender === 'customer';
+    
+    // Update last message preview for the conversation
     const updatedConversations = state.conversations.map(conv => {
       if (conv.id === conversationId) {
         const wasClosed = conv.status === 'closed';
-        const isBeingReopened = wasClosed;
+        const newIsUnreplied = isIncomingMessage ? true : 
+                              !isIncomingMessage ? false : conv.isUnreplied;
+        
+        console.log('🔍 appendMessage - updating conversation:', {
+          conversationId,
+          conversationTitle: conv.title,
+          isIncomingMessage,
+          wasClosed,
+          newStatus: (wasClosed && isIncomingMessage) ? 'open' : conv.status,
+          newIsUnreplied,
+          messageText: message.text
+        });
         
         return { 
           ...conv, 
           lastMessagePreview: message.text || '[Media]', 
           updatedAt: message.timestamp,
-          // Auto-reopen closed conversations when new messages are received
-          status: wasClosed ? 'open' : conv.status
-          // Note: isNew will be determined by the API based on agent replies
+          // Only auto-reopen closed conversations when INCOMING messages are received
+          status: (wasClosed && isIncomingMessage) ? 'open' : conv.status,
+          // Mark as unreplied if this is an incoming message and conversation is open
+          // Clear unreplied status if this is an outgoing agent message
+          isUnreplied: newIsUnreplied
         };
       }
       return conv;
     });
 
-    // Auto-reopen in database if conversation was closed
+    // Log the final updated conversation state
+    const updatedConv = updatedConversations.find(conv => conv.id === conversationId);
+    if (updatedConv) {
+      console.log('🔍 appendMessage - final conversation state:', {
+        conversationId,
+        title: updatedConv.title,
+        lastMessagePreview: updatedConv.lastMessagePreview,
+        isUnreplied: updatedConv.isUnreplied,
+        status: updatedConv.status,
+        updatedAt: updatedConv.updatedAt
+      });
+    }
+
+    // Auto-reopen in database if conversation was closed AND this is an incoming message
     const conversation = state.conversations.find(conv => conv.id === conversationId);
-    if (conversation && conversation.status === 'closed') {
+    if (conversation && conversation.status === 'closed' && isIncomingMessage) {
       // Call auto-reopen function asynchronously
       get().autoReopenConversation(conversationId);
     }
@@ -154,23 +214,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     
     const updatedMessages = [...currentMessages, ...uniqueNewMessages];
     
-    // Update last message preview with the newest message and auto-reopen if closed
+    // Update last message preview with the newest message
     const lastMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
+    const isIncomingMessage = lastMessage.sender === 'customer';
+    
     const updatedConversations = state.conversations.map(conv => 
       conv.id === conversationId && lastMessage
         ? { 
             ...conv, 
             lastMessagePreview: lastMessage.text || '[Media]', 
             updatedAt: lastMessage.timestamp,
-            // Auto-reopen closed conversations when new messages are received
-            status: conv.status === 'closed' ? 'open' : conv.status
+            // Only auto-reopen closed conversations when INCOMING messages are received
+            status: (conv.status === 'closed' && isIncomingMessage) ? 'open' : conv.status
           }
         : conv
     );
 
-    // Auto-reopen in database if conversation was closed
+    // Auto-reopen in database if conversation was closed AND this is an incoming message
     const conversation = state.conversations.find(conv => conv.id === conversationId);
-    if (conversation && conversation.status === 'closed') {
+    if (conversation && conversation.status === 'closed' && isIncomingMessage) {
       // Call auto-reopen function asynchronously
       get().autoReopenConversation(conversationId);
     }
@@ -210,6 +272,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   
   // Message status updates
   updateMessageStatus: (conversationId, messageId, status) => set((state) => {
+    console.log('🔍 ChatStore - updateMessageStatus:', { conversationId, messageId, status });
     const messages = state.messages[conversationId] || [];
     const updatedMessages = messages.map(msg => 
       msg.id === messageId 
@@ -223,6 +286,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   }),
   
   updateMessageAfterSend: (conversationId, tempMessageId, updates) => set((state) => {
+    console.log('🔍 ChatStore - updateMessageAfterSend:', { conversationId, tempMessageId, updates });
     const messages = state.messages[conversationId] || [];
     const updatedMessages = messages.map(msg => 
       msg.id === tempMessageId 
@@ -249,26 +313,36 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   }),
   
   // assignment & status actions
-  setAssignment: (conversationId, agent) => set((state) => ({
-    assignments: { ...state.assignments, [conversationId]: agent }
-  })),
+  setAssignment: (conversationId, agent) => set((state) => {
+    console.log('🔍 ChatStore - setAssignment:', { conversationId, agent, previousAssignment: state.assignments[conversationId] });
+    return {
+      assignments: { ...state.assignments, [conversationId]: agent }
+    };
+  }),
   
-  setStatus: (conversationId, status) => set((state) => ({
-    statuses: { ...state.statuses, [conversationId]: status }
-  })),
+  setStatus: (conversationId, status) => set((state) => {
+    console.log('🔍 ChatStore - setStatus:', { conversationId, status, previousStatus: state.statuses[conversationId] });
+    return {
+      statuses: { ...state.statuses, [conversationId]: status }
+    };
+  }),
   
         setMe: (agent) => set({ me: agent }),
 
         // Load assignments from database via API
         loadAssignmentsFromDatabase: async () => {
           try {
+            console.log('🔍 Loading assignments from database...');
             const response = await fetch('/api/assignments');
             if (response.ok) {
               const data = await response.json();
+              console.log('🔍 Raw API response:', data);
+              console.log('🔍 Raw assignments object:', data.assignments);
+              console.log('🔍 Raw statuses object:', data.statuses);
               set({ assignments: data.assignments, statuses: data.statuses });
               console.log('🔍 Loaded assignments from database:', { assignments: data.assignments, statuses: data.statuses });
             } else {
-              console.error('Failed to load assignments from database');
+              console.error('Failed to load assignments from database:', response.status, response.statusText);
             }
           } catch (error) {
             console.error('Error loading assignments from database:', error);
@@ -277,6 +351,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
         // Update conversation status
         updateConversationStatus: (conversationId, status) => set((state) => {
+          console.log('🔍 ChatStore - updateConversationStatus:', { conversationId, status, previousStatus: state.statuses[conversationId] });
           const updatedConversations = state.conversations.map(conv => {
             if (conv.id === conversationId) {
               // If conversation is being reopened from closed, we'll let the API handle
@@ -293,7 +368,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           
           return {
             conversations: updatedConversations,
-            statuses: { ...state.statuses, [conversationId]: status }
+            statuses: { ...state.statuses, [conversationId]: status as "open" | "closed" }
           };
         }),
 
