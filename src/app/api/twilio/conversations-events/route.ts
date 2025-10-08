@@ -101,8 +101,12 @@ async function handleMessageAdded(params: { [key: string]: string }) {
     console.log('🔄 Processing message from conversation events...');
     
     // Extract phone number from author (handle spaces after colon)
-    const phoneMatch = author?.match(/whatsapp:\s*\+?(\d+)/);
-    const phone = phoneMatch ? phoneMatch[1] : null;
+    const phoneMatch = author?.match(/whatsapp:\s*(\+?\d+)/);
+    const rawPhone = phoneMatch ? phoneMatch[1] : null;
+    
+    // Normalize phone number to always include + prefix
+    const { normalizePhoneNumber } = await import('@/lib/utils');
+    const phone = rawPhone ? normalizePhoneNumber(rawPhone) : null;
     
     console.log('📱 Phone extracted from Author:', phone);
     

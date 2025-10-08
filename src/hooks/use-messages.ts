@@ -65,35 +65,12 @@ export function useMessages(conversationId?: string): UseMessagesResult {
           const merged = [...data.messages, ...current];
           setMessages(conversationId, merged);
         } else {
-          // ✅ Merge with existing messages to preserve real-time updates
-          const current = useChatStore.getState().messages[conversationId] ?? EMPTY_MESSAGES;
+          // ✅ Use API messages as the source of truth to prevent duplicates
           const apiMessages = data.messages ?? EMPTY_MESSAGES;
           
-          // Create a map of existing messages by ID for quick lookup
-          const existingMessagesMap = new Map(current.map(m => [m.id, m]));
-          
-          // Merge API messages with existing real-time messages
-          // API messages take precedence for ordering, but preserve real-time messages that aren't in API
-          const mergedMessages: Message[] = [];
-          const processedIds = new Set<string>();
-          
-          // First, add all API messages (they represent the authoritative order)
-          apiMessages.forEach(apiMsg => {
-            mergedMessages.push(apiMsg);
-            processedIds.add(apiMsg.id);
-          });
-          
-          // Then, add any real-time messages that aren't in the API response
-          current.forEach(rtMsg => {
-            if (!processedIds.has(rtMsg.id)) {
-              mergedMessages.push(rtMsg);
-            }
-          });
-          
-          // Sort by timestamp to ensure proper chronological order
-          mergedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          
-          setMessages(conversationId, mergedMessages);
+          // Simply use API messages directly - they are the authoritative source
+          // Real-time messages will be added via SSE and handled by the store's deduplication
+          setMessages(conversationId, apiMessages);
         }
 
         setNextBefore(data.nextBefore ?? null);

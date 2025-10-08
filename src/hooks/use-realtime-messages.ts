@@ -204,12 +204,13 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     if (messageData.profileName && messageData.from && !isAgentMessage) {
       
       // Add contact to in-memory mapping
-      const phoneNumber = messageData.from.replace('whatsapp:', '');
+      const { normalizePhoneNumber } = await import('@/lib/utils');
+      const phoneNumber = normalizePhoneNumber(messageData.from);
       const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(messageData.profileName)}&background=random`;
       
       // Import and use addContact function
       import('@/lib/contact-mapping').then(({ addContact }) => {
-        addContact(phoneNumber, messageData.profileName, avatar);
+        addContact(phoneNumber, messageData.profileName || 'Unknown', avatar);
       });
       
       // Also create contact in database
@@ -237,7 +238,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     }
     
     // Process media data properly
-    const hasMedia = messageData.numMedia > 0 || messageData.mediaMessages?.length > 0 || messageData.media?.length > 0;
+    const hasMedia = (messageData.numMedia || 0) > 0 || (messageData.mediaMessages?.length || 0) > 0 || (messageData.media?.length || 0) > 0;
     const mediaMessages = messageData.mediaMessages || [];
     const mediaArray = messageData.media || [];
     
@@ -249,7 +250,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       // If no text but has media, use a descriptive message
       const firstMedia = mediaMessages[0] || mediaArray[0];
       if (firstMedia) {
-        const mediaType = firstMedia.mediaType || getMediaTypeFromContentType(firstMedia.contentType);
+        const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
         messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
         console.log('🔍 Generated media text:', messageText);
       }
@@ -265,16 +266,16 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       deliveryStatus: isAgentMessage ? 'sent' : undefined,
       twilioMessageSid: messageData.messageSid,
       // Legacy media fields for backward compatibility
-      mediaType: mediaMessages[0]?.mediaType || getMediaTypeFromContentType(mediaMessages[0]?.mediaContentType),
-      mediaUrl: mediaMessages[0]?.mediaUrl,
-      mediaContentType: mediaMessages[0]?.mediaContentType,
-      mediaFileName: mediaMessages[0]?.mediaFileName,
-      mediaCaption: mediaMessages[0]?.mediaCaption,
+      mediaType: mediaMessages[0] ? getMediaTypeFromContentType(mediaMessages[0].contentType) : undefined,
+      mediaUrl: mediaMessages[0]?.url,
+      mediaContentType: mediaMessages[0]?.contentType,
+      mediaFileName: mediaMessages[0]?.fileName,
+      mediaCaption: mediaMessages[0]?.caption,
       // New media array format
       media: mediaArray.length > 0 ? mediaArray : mediaMessages.map(msg => ({
-        url: msg.mediaUrl,
-        contentType: msg.mediaContentType,
-        filename: msg.mediaFileName
+        url: msg.url,
+        contentType: msg.contentType,
+        filename: msg.fileName
       })),
     };
     

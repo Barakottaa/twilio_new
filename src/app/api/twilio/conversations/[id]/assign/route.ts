@@ -3,10 +3,10 @@ import { getDatabase } from '@/lib/database-config';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id;
+    const { id: conversationId } = await params;
     const { agentId } = await req.json();
 
     console.log('🔍 Assigning agent:', { conversationId, agentId });

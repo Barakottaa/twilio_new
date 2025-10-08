@@ -82,7 +82,6 @@ export function getDisplayName(phoneNumber: string): string {
 
 // Initialize with empty contacts - we'll get real data from Twilio webhook
 export function initializeSampleContacts() {
-  console.log('🔄 Contact mapping initialized - no mock data');
   // No mock data - we'll get real contact info from Twilio webhook
 }
 

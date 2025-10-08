@@ -127,10 +127,31 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     
     const currentMessages = state.messages[conversationId] || [];
     
-    // Check if message already exists to prevent duplicates
-    const messageExists = currentMessages.some(m => m.id === message.id);
+    // Enhanced duplicate detection using multiple criteria
+    const messageExists = currentMessages.some(m => {
+      // Check by message ID
+      if (m.id === message.id) return true;
+      
+      // Check by Twilio message SID if available
+      if (m.twilioMessageSid && message.twilioMessageSid && m.twilioMessageSid === message.twilioMessageSid) return true;
+      
+      // Check by exact same content, sender, and timestamp (within 5 seconds)
+      if (m.text === message.text && 
+          m.sender === message.sender &&
+          m.senderId === message.senderId &&
+          Math.abs(new Date(m.timestamp).getTime() - new Date(message.timestamp).getTime()) < 5000) {
+        return true;
+      }
+      
+      return false;
+    });
+    
     if (messageExists) {
-      console.log('🔥 Message already exists, skipping');
+      console.log('🔥 Duplicate message detected, skipping:', {
+        messageId: message.id,
+        twilioSid: message.twilioMessageSid,
+        text: message.text
+      });
       return state; // No change needed
     }
     

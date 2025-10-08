@@ -17,6 +17,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
+    
+    // Normalize phone number to prevent duplicates
+    if (data.phoneNumber) {
+      const { normalizePhoneNumber } = await import('@/lib/utils');
+      data.phoneNumber = normalizePhoneNumber(data.phoneNumber);
+    }
+    
     const contact = await createContact(data);
 
     if (!contact) {

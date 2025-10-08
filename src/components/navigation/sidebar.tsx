@@ -18,7 +18,8 @@ import {
   X,
   Home,
   LogOut,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
 import type { Agent } from '@/types';
 

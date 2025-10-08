@@ -40,8 +40,12 @@ export async function POST(req: NextRequest) {
         }
 
         // Extract phone number from author for contact creation
-        const phoneMatch = twilioMsg.author?.match(/whatsapp:\+?(\d+)/);
-        const phone = phoneMatch ? phoneMatch[1] : null;
+        const phoneMatch = twilioMsg.author?.match(/whatsapp:(\+?\d+)/);
+        const rawPhone = phoneMatch ? phoneMatch[1] : null;
+        
+        // Normalize phone number to always include + prefix
+        const { normalizePhoneNumber } = await import('@/lib/utils');
+        const phone = rawPhone ? normalizePhoneNumber(rawPhone) : null;
 
         let contactId = null;
         if (phone) {

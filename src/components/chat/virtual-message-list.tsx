@@ -15,6 +15,7 @@ interface VirtualMessageListProps {
   className?: string;
   contactName?: string;
   agentName?: string;
+  conversationId?: string; // Add conversationId to detect conversation changes
 }
 
 export function VirtualMessageList({
@@ -25,48 +26,91 @@ export function VirtualMessageList({
   onLoadOlder,
   className = '',
   contactName,
-  agentName
+  agentName,
+  conversationId
 }: VirtualMessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(false);
+  const [previousConversationId, setPreviousConversationId] = React.useState<string | undefined>(undefined);
+  const [userHasScrolled, setUserHasScrolled] = React.useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // VirtualMessageList render
+  // Helper function to scroll to bottom
+  const scrollToBottom = React.useCallback(() => {
+    const container = containerRef.current;
+    if (container) {
+      console.log('🔄 Executing scroll to bottom');
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, []);
   
-  // Auto-scroll to bottom when messages change or conversation is first loaded (latest messages are at bottom)
+  // Auto-scroll to bottom when conversation changes (new conversation selected)
   useEffect(() => {
-    if (messages.length > 0 && !isLoadingMore) {
-      const container = containerRef.current;
-      if (container) {
-        // Use setTimeout to ensure DOM is updated
-        setTimeout(() => {
-          container.scrollTop = container.scrollHeight; // Scroll to bottom where latest messages are
-        }, 100);
+    if (conversationId && conversationId !== previousConversationId) {
+      console.log('🔄 Conversation changed, scrolling to bottom:', { 
+        previousConversationId, 
+        newConversationId: conversationId 
+      });
+      setPreviousConversationId(conversationId);
+      setUserHasScrolled(false); // Reset scroll state for new conversation
+      
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
       }
+      
+      // Try multiple times to ensure scroll happens
+      scrollToBottom(); // Immediate
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollToBottom(); // After 100ms
+      }, 100);
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollToBottom(); // After 500ms
+      }, 500);
     }
-  }, [messages.length, isLoadingMore]);
+  }, [conversationId, previousConversationId, scrollToBottom]);
 
-  // Auto-scroll to bottom when new messages arrive (latest messages are at bottom)
+  // Auto-scroll to bottom when messages are first loaded for a conversation
   useEffect(() => {
-    if (messages.length > 0 && !isLoadingMore && shouldScrollToBottom) {
-      const container = containerRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight; // Scroll to bottom where latest messages are
-        setShouldScrollToBottom(false);
+    if (messages.length > 0 && !isLoading && !isLoadingMore && conversationId && !userHasScrolled) {
+      console.log('🔄 Messages loaded, scrolling to bottom:', { 
+        messageCount: messages.length, 
+        conversationId 
+      });
+      
+      // Use a small delay to ensure DOM is updated
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    }
+  }, [messages.length, isLoading, isLoadingMore, conversationId, userHasScrolled, scrollToBottom]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
       }
-    }
-  }, [messages.length, isLoadingMore, shouldScrollToBottom]);
-
-  // Detect when new messages are added (not when loading older ones)
-  useEffect(() => {
-    if (messages.length > 0 && !isLoadingMore) {
-      setShouldScrollToBottom(true);
-    }
-  }, [messages.length, isLoadingMore]);
+    };
+  }, []);
 
   // Handle scroll to detect when user reaches top to load older messages
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
     const isAtTop = container.scrollTop === 0;
+    const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10; // 10px threshold
+    
+    // Mark that user has manually scrolled
+    if (!isAtBottom) {
+      setUserHasScrolled(true);
+    } else {
+      // If user scrolls back to bottom, allow auto-scroll again
+      setUserHasScrolled(false);
+    }
     
     if (isAtTop && hasMore && !isLoadingMore) {
       onLoadOlder();
@@ -132,3 +176,4 @@ export function VirtualMessageList({
     </div>
   );
 }
+

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { status } = await req.json(); // "open" | "closed"
-  const conversationId = params.id;
+  const { id: conversationId } = await params;
 
   // TODO: persist status (DB or Twilio attributes)
   // Example Twilio attributes update as above.

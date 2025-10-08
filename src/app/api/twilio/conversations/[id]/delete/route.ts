@@ -4,10 +4,10 @@ import { getDatabase } from '@/lib/database-config';
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id;
+    const { id: conversationId } = await params;
 
     console.log('🔍 Deleting conversation:', conversationId);
 

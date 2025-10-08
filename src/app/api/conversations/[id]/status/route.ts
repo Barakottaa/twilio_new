@@ -4,10 +4,10 @@ import type { ConversationStatus } from '@/types';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id;
+    const { id: conversationId } = await params;
     const { status } = await request.json();
 
     // Validate status

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 // import { getTwilio } from "@/lib/twilio"; // if you have a helper
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { assigneeId } = await req.json();
-  const conversationId = params.id;
+  const { id: conversationId } = await params;
 
   // TODO: persist the assignee. Two common options:
   // A) DB table "conversations" → update assigned_agent_id

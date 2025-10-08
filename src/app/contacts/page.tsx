@@ -14,16 +14,13 @@ import {
   MoreVertical, 
   UserCheck, 
   Plus,
-  Phone,
-  Mail,
-  Clock,
   MessageSquare,
   Edit,
   Trash2,
   Send,
   RefreshCw
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,8 +53,7 @@ export default function ContactsPage() {
   const [messageText, setMessageText] = useState('');
   const [newContact, setNewContact] = useState<Partial<Customer>>({
     name: '',
-    phoneNumber: '',
-    lastSeen: new Date().toISOString()
+    phoneNumber: ''
   });
 
   // Fetch contacts function
@@ -104,8 +100,6 @@ export default function ContactsPage() {
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name);
-        case 'lastSeen':
-          return new Date(b.lastSeen || 0).getTime() - new Date(a.lastSeen || 0).getTime();
         case 'phoneNumber':
           return (a.phoneNumber || '').localeCompare(b.phoneNumber || '');
         default:
@@ -132,8 +126,7 @@ export default function ContactsPage() {
           setContacts(prev => [...prev, contact]);
           setNewContact({
             name: '',
-            phoneNumber: '',
-            lastSeen: new Date().toISOString()
+            phoneNumber: ''
           });
           setIsAddDialogOpen(false);
           toast({
@@ -243,8 +236,7 @@ export default function ContactsPage() {
     setEditingContact(contact);
     setNewContact({
       name: contact.name || '',
-      phoneNumber: contact.phoneNumber || '',
-      lastSeen: contact.lastSeen || new Date().toISOString()
+      phoneNumber: contact.phoneNumber || ''
     });
   };
 
@@ -270,8 +262,7 @@ export default function ContactsPage() {
           setEditingContact(null);
           setNewContact({
             name: '',
-            phoneNumber: '',
-            lastSeen: new Date().toISOString()
+            phoneNumber: ''
           });
           toast({
             title: "Success",
@@ -365,18 +356,7 @@ export default function ContactsPage() {
     setMessageDialogOpen(true);
   };
 
-  const getLastSeenStatus = (lastSeen: string | undefined) => {
-    if (!lastSeen) return { text: 'Never', color: 'text-gray-500' };
-    
-    const now = new Date();
-    const lastSeenDate = new Date(lastSeen);
-    const diffInMinutes = (now.getTime() - lastSeenDate.getTime()) / (1000 * 60);
-    
-    if (diffInMinutes < 5) return { text: 'Online', color: 'text-green-600' };
-    if (diffInMinutes < 60) return { text: `${Math.floor(diffInMinutes)}m ago`, color: 'text-green-500' };
-    if (diffInMinutes < 1440) return { text: `${Math.floor(diffInMinutes / 60)}h ago`, color: 'text-yellow-500' };
-    return { text: `${Math.floor(diffInMinutes / 1440)}d ago`, color: 'text-gray-500' };
-  };
+  // Removed getLastSeenStatus function - no longer needed
 
   if (isLoading) {
     return (
@@ -462,6 +442,36 @@ export default function ContactsPage() {
                     onChange={(e) => setNewContact(prev => ({ ...prev, phoneNumber: e.target.value }))}
                     placeholder="+1234567890"
                   />
+                  {/* Quick Prefix Buttons */}
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewContact(prev => ({ ...prev, phoneNumber: '+2' }))}
+                      className="text-xs"
+                    >
+                      🇪🇬 +2 (Egypt)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewContact(prev => ({ ...prev, phoneNumber: '+1' }))}
+                      className="text-xs"
+                    >
+                      🇺🇸 +1 (US/Canada)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewContact(prev => ({ ...prev, phoneNumber: '+44' }))}
+                      className="text-xs"
+                    >
+                      🇬🇧 +44 (UK)
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -502,7 +512,6 @@ export default function ContactsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="lastSeen">Last Seen</SelectItem>
                 <SelectItem value="phoneNumber">Phone Number</SelectItem>
               </SelectContent>
             </Select>
@@ -513,22 +522,18 @@ export default function ContactsPage() {
       {/* Contacts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAndSortedContacts.map((contact) => {
-          const lastSeenStatus = getLastSeenStatus(contact.lastSeen);
-          
           return (
             <Card key={contact.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={contact.avatar} alt={contact.name} />
-                      <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
                     <div>
                       <h3 className="font-semibold text-lg">{contact.name}</h3>
-                      <p className={`text-sm ${lastSeenStatus.color}`}>
-                        {lastSeenStatus.text}
-                      </p>
+                      {contact.phoneNumber && (
+                        <p className="text-sm text-muted-foreground">
+                          {contact.phoneNumber}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <DropdownMenu>
@@ -538,9 +543,15 @@ export default function ContactsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                             <DropdownMenuItem asChild>
+                               <Link href={`/?chat=${contact.id}`}>
+                                 <MessageSquare className="w-4 h-4 mr-2" />
+                                 Start Chat
+                               </Link>
+                             </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openMessageDialog(contact)}>
-                        <Send className="w-4 h-4 mr-2" />
-                        Send Message
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Send Quick Message
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => window.open(`/?chat=${contact.id}`, '_blank')}>
                         <MessageSquare className="w-4 h-4 mr-2" />
@@ -561,24 +572,7 @@ export default function ContactsPage() {
                   </DropdownMenu>
                 </div>
 
-                <div className="space-y-3">
-                  {contact.phoneNumber && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{contact.phoneNumber}</span>
-                    </div>
-                  )}
-                  
-                  
-                  {contact.lastSeen && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">
-                        Last seen {formatDistanceToNow(new Date(contact.lastSeen), { addSuffix: true })}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                {/* Removed phone number and last seen details - now shown in header */}
               </CardContent>
             </Card>
           );
@@ -619,6 +613,36 @@ export default function ContactsPage() {
                 onChange={(e) => setNewContact(prev => ({ ...prev, phoneNumber: e.target.value }))}
                 placeholder="+1234567890"
               />
+              {/* Quick Prefix Buttons */}
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewContact(prev => ({ ...prev, phoneNumber: '+2' }))}
+                  className="text-xs"
+                >
+                  🇪🇬 +2 (Egypt)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewContact(prev => ({ ...prev, phoneNumber: '+1' }))}
+                  className="text-xs"
+                >
+                  🇺🇸 +1 (US/Canada)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewContact(prev => ({ ...prev, phoneNumber: '+44' }))}
+                  className="text-xs"
+                >
+                  🇬🇧 +44 (UK)
+                </Button>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">

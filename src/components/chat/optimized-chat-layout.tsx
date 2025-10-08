@@ -11,6 +11,7 @@ import { OptimizedChatList } from './optimized-chat-list';
 import { VirtualMessageList } from './virtual-message-list';
 import { MessageInput } from './message-input';
 import { OptimizedChatHeader } from './optimized-chat-header';
+import { TemplateSelector } from './template-selector';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -35,6 +36,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   
   // Handle assigning conversation to current user
   const [isAssigning, setIsAssigning] = useState(false);
+  const [lastCustomerMessage, setLastCustomerMessage] = useState<string | undefined>();
   
   // Use the messages hook for both fetching and real-time updates
   const {
@@ -104,6 +106,40 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       loadAssignmentsFromDatabase();
     }
   }, [selectedConversationId, loadAssignmentsFromDatabase]);
+
+  // Find last customer message for 24-hour window check
+  useEffect(() => {
+    if (selectedConversationId && messages.length > 0) {
+      console.log('🔍 Finding last customer message from messages:', messages.length);
+      
+      // Filter customer messages and sort by timestamp (most recent first)
+      const customerMessages = messages
+        .filter((msg: any) => {
+          const isCustomer = (msg.sender === 'contact') || 
+                           (msg.sender === 'customer') || 
+                           (msg.senderType === 'customer') ||
+                           (msg.author && !msg.author.startsWith('agent') && !msg.author.startsWith('admin'));
+          return isCustomer;
+        })
+        .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      console.log('👤 Customer messages found:', customerMessages.length);
+      if (customerMessages.length > 0) {
+        const lastCustomerMsg = customerMessages[0]; // Most recent customer message
+        console.log('✅ Last customer message:', {
+          text: lastCustomerMsg.text,
+          timestamp: lastCustomerMsg.timestamp,
+          sender: lastCustomerMsg.sender
+        });
+        setLastCustomerMessage(lastCustomerMsg.timestamp);
+      } else {
+        console.log('❌ No customer messages found');
+        setLastCustomerMessage(undefined);
+      }
+    } else {
+      setLastCustomerMessage(undefined);
+    }
+  }, [selectedConversationId, messages]);
 
   const handleAssignToMe = async () => {
     if (!selectedConversationId || isAssigning) return;
@@ -285,10 +321,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     }
   }, [toast, selectedConversationId]);
 
-  // Initialize real-time messages
-  useRealtimeMessages({
-    loggedInAgentId: loggedInAgent.id
-  });
+  // Real-time messages are already initialized above - removing duplicate call
 
   const handleSendMessage = async (text: string) => {
     
@@ -520,8 +553,27 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                 className="h-full"
                 contactName={selectedConversation?.title}
                 agentName={loggedInAgent.name}
+                conversationId={selectedConversationId}
               />
             </div>
+
+            {/* Template Selector - Only shows when outside 24-hour window */}
+            {selectedConversation && (
+              <TemplateSelector
+                conversationId={selectedConversationId || ''}
+                customerPhone={selectedConversation.customer?.phoneNumber || ''}
+                customerName={selectedConversation.customer?.name || selectedConversation.title || 'Customer'}
+                lastCustomerMessage={lastCustomerMessage}
+                onMessageSent={(message) => {
+                  toast({
+                    title: "Template sent",
+                    description: "Template message sent successfully.",
+                  });
+                  // Refresh messages to show the new message
+                  refreshMessages();
+                }}
+              />
+            )}
 
             {/* Message Input - Always at bottom */}
             <div className="flex-shrink-0">
