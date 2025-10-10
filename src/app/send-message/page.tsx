@@ -249,28 +249,33 @@ function SendMessageContent() {
                 <div
                   key={contact.id}
                   onClick={() => handleContactSelect(contact)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                  className={`group p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
                     selectedContact?.id === contact.id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:bg-muted/50'
+                      ? 'border-primary bg-gradient-to-r from-primary/10 to-primary/5 shadow-md'
+                      : 'border-border hover:bg-gradient-to-r hover:from-muted/50 hover:to-muted/30 hover:border-muted-foreground/10 hover:shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={contact.avatar} alt={contact.name} />
-                      <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <Avatar className="h-12 w-12 ring-2 ring-offset-2 ring-offset-background transition-all duration-200 group-hover:ring-primary/30">
+                        <AvatarImage src={contact.avatar} alt={contact.name} />
+                        <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold text-sm">
+                          {contact.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-background rounded-full"></div>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{contact.name}</h3>
+                      <h3 className="font-semibold text-base text-foreground truncate mb-1">{contact.name}</h3>
                       {contact.phoneNumber && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {contact.phoneNumber}
-                        </p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-4 w-4 text-primary" />
+                          <span className="font-medium">{contact.phoneNumber}</span>
+                        </div>
                       )}
                     </div>
                     {selectedContact?.id === contact.id && (
-                      <Badge variant="default" className="text-xs">
+                      <Badge className="bg-gradient-to-r from-primary to-primary/80 text-white text-xs font-bold px-3 py-1">
                         Selected
                       </Badge>
                     )}

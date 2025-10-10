@@ -561,7 +561,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
             {selectedConversation && (
               <TemplateSelector
                 conversationId={selectedConversationId || ''}
-                customerPhone={selectedConversation.customer?.phoneNumber || ''}
+                customerPhone={selectedConversation.customerPhone || ''}
                 customerName={selectedConversation.customer?.name || selectedConversation.title || 'Customer'}
                 lastCustomerMessage={lastCustomerMessage}
                 onMessageSent={(message) => {

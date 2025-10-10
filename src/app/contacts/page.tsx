@@ -18,6 +18,7 @@ import {
   Edit,
   Trash2,
   Send,
+  Phone,
   RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
@@ -523,56 +524,89 @@ export default function ContactsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAndSortedContacts.map((contact) => {
           return (
-            <Card key={contact.id} className="hover:shadow-md transition-shadow">
+            <Card key={contact.id} className="group hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
               <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-bold text-lg ring-2 ring-offset-2 ring-offset-background ring-primary/20 group-hover:ring-primary/40 transition-all duration-300">
+                        {contact.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-background rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      </div>
+                    </div>
                     <div>
-                      <h3 className="font-semibold text-lg">{contact.name}</h3>
+                      <h3 className="font-bold text-xl text-foreground mb-1">{contact.name}</h3>
                       {contact.phoneNumber && (
-                        <p className="text-sm text-muted-foreground">
-                          {contact.phoneNumber}
-                        </p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-4 w-4 text-primary" />
+                          <span className="font-medium">{contact.phoneNumber}</span>
+                        </div>
                       )}
                     </div>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-primary/10">
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                             <DropdownMenuItem asChild>
-                               <Link href={`/?chat=${contact.id}`}>
-                                 <MessageSquare className="w-4 h-4 mr-2" />
-                                 Start Chat
+                    <DropdownMenuContent align="end" className="w-48">
+                             <DropdownMenuItem asChild className="cursor-pointer">
+                               <Link href={`/?chat=${contact.id}`} className="flex items-center">
+                                 <MessageSquare className="w-4 h-4 mr-3 text-primary" />
+                                 <span className="font-medium">Start Chat</span>
                                </Link>
                              </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openMessageDialog(contact)}>
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Send Quick Message
+                      <DropdownMenuItem onClick={() => openMessageDialog(contact)} className="cursor-pointer">
+                        <MessageSquare className="w-4 h-4 mr-3 text-blue-600" />
+                        <span className="font-medium">Send Quick Message</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(`/?chat=${contact.id}`, '_blank')}>
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Start Chat
+                      <DropdownMenuItem onClick={() => window.open(`/?chat=${contact.id}`, '_blank')} className="cursor-pointer">
+                        <MessageSquare className="w-4 h-4 mr-3 text-green-600" />
+                        <span className="font-medium">Open in New Tab</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEditContact(contact)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Contact
+                      <DropdownMenuItem onClick={() => handleEditContact(contact)} className="cursor-pointer">
+                        <Edit className="w-4 h-4 mr-3 text-orange-600" />
+                        <span className="font-medium">Edit Contact</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDeleteContact(contact.id)}
-                        className="text-red-600"
+                        className="text-red-600 cursor-pointer"
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete Contact
+                        <Trash2 className="w-4 h-4 mr-3" />
+                        <span className="font-medium">Delete Contact</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
 
-                {/* Removed phone number and last seen details - now shown in header */}
+                {/* Contact Stats and Actions */}
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="font-medium">Online</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MessageSquare className="w-4 h-4" />
+                        <span className="font-medium">Active Chat</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white font-medium px-4 py-2 rounded-full shadow-md hover:shadow-lg transition-all duration-200"
+                        onClick={() => window.open(`/?chat=${contact.id}`, '_blank')}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Chat
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           );

@@ -116,6 +116,15 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
             mediaMessages: data.data.mediaMessages,
             media: data.data.media
           });
+          
+          // Check current conversation selection
+          import('@/store/chat-store').then(({ useChatStore }) => {
+            const store = useChatStore.getState();
+            console.log('📨 Current selected conversation:', store.selectedConversationId);
+            console.log('📨 Message conversation:', data.data.conversationSid);
+            console.log('📨 Is message for current conversation?', store.selectedConversationId === data.data.conversationSid);
+          });
+          
           console.log('📨 Calling handleNewMessage...');
           handleNewMessage(data.data as RealtimeMessageData);
         } else if (data.type === 'newConversation') {
@@ -140,17 +149,18 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
             clearTimeout(reconnectTimeoutRef.current);
           }
           
-          // Only reconnect if the connection is actually closed
-          if (eventSource.readyState === EventSource.CLOSED) {
-            // Attempt to reconnect more aggressively in development
-            const reconnectDelay = process.env.NODE_ENV === 'development' ? 2000 : 5000;
-            reconnectTimeoutRef.current = setTimeout(() => {
-              console.log(`🔄 Attempting to reconnect SSE after ${reconnectDelay}ms...`);
-              connectSSE();
-            }, reconnectDelay);
-          } else {
-            console.log('🔍 SSE connection is not closed, not attempting reconnect yet');
+          // Close the current connection properly
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
           }
+          
+          // Always attempt to reconnect after an error
+          const reconnectDelay = process.env.NODE_ENV === 'development' ? 1000 : 3000;
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log(`🔄 Attempting to reconnect SSE after ${reconnectDelay}ms...`);
+            connectSSE();
+          }, reconnectDelay);
         };
 
     return eventSource;
@@ -162,23 +172,39 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     // Add periodic connection health check
     const healthCheckInterval = setInterval(() => {
       if (eventSourceRef.current) {
-        if (eventSourceRef.current.readyState === EventSource.CLOSED) {
+        const state = eventSourceRef.current.readyState;
+        if (state === EventSource.CLOSED) {
           console.log('🔍 SSE connection is closed, attempting to reconnect...');
           connectSSE();
-        } else if (eventSourceRef.current.readyState === EventSource.CONNECTING) {
+        } else if (state === EventSource.CONNECTING) {
           console.log('🔍 SSE connection is still connecting...');
-        } else {
+        } else if (state === EventSource.OPEN) {
           console.log('✅ SSE connection is healthy');
         }
+      } else {
+        console.log('🔍 No SSE connection found, attempting to connect...');
+        connectSSE();
       }
-    }, 10000); // Check every 10 seconds
+    }, 5000); // Check every 5 seconds (more frequent)
+    
+    // Add connection status logging
+    const statusInterval = setInterval(() => {
+      if (eventSourceRef.current) {
+        const states = ['CONNECTING', 'OPEN', 'CLOSED'];
+        console.log(`📊 SSE Status: ${states[eventSourceRef.current.readyState]} (${eventSourceRef.current.readyState})`);
+      }
+    }, 30000); // Log status every 30 seconds
 
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
       clearInterval(healthCheckInterval);
-      eventSource.close();
+      clearInterval(statusInterval);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
     };
   }, []);
 
@@ -340,7 +366,21 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     }
     
     // Append message using Twilio ConversationSid as the key
+    console.log('🔥 About to append message to store:', {
+      conversationSid: messageData.conversationSid,
+      messageText: newMessage.text,
+      messageId: newMessage.id,
+      sender: newMessage.sender
+    });
+    
     store.appendMessage(messageData.conversationSid, newMessage);
+    
+    console.log('🔥 Message appended to store successfully');
+    
+    // Verify the message was added
+    const updatedMessages = store.messages[messageData.conversationSid] || [];
+    console.log('🔥 Messages in store after append:', updatedMessages.length);
+    console.log('🔥 Last message in store:', updatedMessages[updatedMessages.length - 1]);
     
     // Show notification for incoming customer messages
     if (!isAgentMessage) {
@@ -451,4 +491,5 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     }
   };
 }
+
 

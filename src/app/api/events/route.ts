@@ -8,6 +8,15 @@ export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController | null = null;
   
+  // Add CORS headers for SSE
+  const headers = new Headers({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control',
+  });
+  
   // Limit connections to prevent memory issues
   const maxConnections = 10;
   if (getConnectionCount() >= maxConnections) {
@@ -35,13 +44,17 @@ export async function GET(req: NextRequest) {
             const heartbeatData = JSON.stringify({ type: 'heartbeat', timestamp: Date.now() });
             controller.enqueue(encoder.encode(`data: ${heartbeatData}\n\n`));
             console.log('💓 Heartbeat sent to connection');
+          } else {
+            // Controller is null, connection is closed
+            clearInterval(heartbeat);
+            removeConnection(controller);
           }
         } catch (error) {
           console.error('❌ Error sending heartbeat:', error);
           clearInterval(heartbeat);
           if (controller) removeConnection(controller);
         }
-      }, 15000); // Send heartbeat every 15 seconds (more frequent)
+      }, 10000); // Send heartbeat every 10 seconds (more frequent)
       
       // Handle client disconnect
       req.signal.addEventListener('abort', () => {
@@ -61,11 +74,8 @@ export async function GET(req: NextRequest) {
 
   return new Response(stream, {
     headers: {
-      'Content-Type': 'text/event-stream',
+      ...headers,
       'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control',
       'X-Accel-Buffering': 'no', // Disable nginx buffering
     },
   });

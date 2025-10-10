@@ -12,33 +12,48 @@ export async function GET(req: NextRequest) {
 
     console.log('🔍 Found templates:', templates.length);
 
-    // Map templates to our interface (simplified - no approval status fetching)
+    // Define business-initiated templates based on your Twilio console
+    // Only 'welcome_template' has the green checkmark for WhatsApp business initiated
+    const businessInitiatedTemplateNames = [
+      'welcome_template'
+    ];
+
+    // Map templates to our interface
     const mappedTemplates = templates.map(template => {
+      const templateName = template.friendlyName || '';
+      const whatsappBusinessInitiated = businessInitiatedTemplateNames.includes(templateName);
+
       return {
         sid: template.sid,
-        friendlyName: template.friendlyName || 'Unnamed Template',
+        friendlyName: templateName,
         language: template.language || 'en',
-        status: 'available', // Default status since we can't fetch approval status
+        status: 'available',
         category: 'unknown',
         contentSid: template.sid,
         dateCreated: template.dateCreated,
         dateUpdated: template.dateUpdated,
+        whatsappBusinessInitiated,
         rawTemplate: template
       };
     });
 
+    // Filter for only business-initiated templates
+    const businessInitiatedTemplates = mappedTemplates.filter(template => template.whatsappBusinessInitiated);
+
     console.log('📋 Template summary:', {
       total: mappedTemplates.length,
-      templates: mappedTemplates.map(t => ({ 
+      businessInitiated: businessInitiatedTemplates.length,
+      templates: businessInitiatedTemplates.map(t => ({ 
         name: t.friendlyName, 
-        language: t.language
+        language: t.language,
+        businessInitiated: t.whatsappBusinessInitiated
       }))
     });
 
     return NextResponse.json({
       success: true,
-      templates: mappedTemplates,
-      count: mappedTemplates.length,
+      templates: businessInitiatedTemplates, // Only return business-initiated templates
+      count: businessInitiatedTemplates.length,
       timestamp: new Date().toISOString()
     });
 

@@ -31,6 +31,7 @@ import { StatusToggle } from '@/components/ui/status-toggle';
 import { PriorityBadge } from '@/components/ui/priority-badge';
 import { ConversationTabFilter, TabFilterType } from './conversation-tab-filter';
 import { AgentAssignmentDialog } from './agent-assignment-dialog';
+import { NewConversationTemplateModal } from './new-conversation-template-modal';
 import type { StatusFilter } from './conversation-status-priority-filter';
 
 interface ConversationItem {
@@ -432,6 +433,17 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       />
       
       <div className="flex-1 overflow-y-auto scrollbar-hover">
+        {/* Show new conversation modal when no search results found */}
+        {searchQuery.trim() && filteredConversations.length === 0 && (
+          <NewConversationTemplateModal 
+            searchQuery={searchQuery}
+            onMessageSent={() => {
+              // Refresh conversations after sending template
+              loadConversations();
+            }}
+          />
+        )}
+        
         {filteredConversations.map((conversation) => (
           <div
             key={conversation.id}

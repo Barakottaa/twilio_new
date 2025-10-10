@@ -150,17 +150,27 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       console.log('🔥 Duplicate message detected, skipping:', {
         messageId: message.id,
         twilioSid: message.twilioMessageSid,
-        text: message.text
+        text: message.text,
+        currentMessagesCount: currentMessages.length
       });
+      console.log('🔥 Current messages in store:', currentMessages.map(m => ({ id: m.id, text: m.text, timestamp: m.timestamp })));
       return state; // No change needed
     }
     
     console.log('🔥 Appending new message. Current count:', currentMessages.length);
+    console.log('🔥 New message details:', {
+      id: message.id,
+      text: message.text,
+      sender: message.sender,
+      timestamp: message.timestamp,
+      twilioSid: message.twilioMessageSid
+    });
     
     // Create a new array with the new message to ensure React detects the change
     const updatedMessages = [...currentMessages, message];
     
     console.log('🔥 Updated count:', updatedMessages.length);
+    console.log('🔥 Last message in updated array:', updatedMessages[updatedMessages.length - 1]);
     
     // Check if this is an incoming message (from customer) vs outgoing (from agent)
     const isIncomingMessage = message.sender === 'customer';

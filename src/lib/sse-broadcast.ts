@@ -1,11 +1,14 @@
 // src/lib/sse-broadcast.ts
 // Server-Sent Events broadcast utility
 
-// Store active connections with metadata
-const connections = new Map<ReadableStreamDefaultController, { id: string, timestamp: number }>();
+// Persist across Next.js (and Vite) dev hot-reloads by stashing on globalThis
+const g = globalThis as unknown as {
+  __SSE_CONNECTIONS__?: Map<ReadableStreamDefaultController, { id: string; timestamp: number }>
+  __SSE_RECENT_MESSAGES__?: Array<{ type: string; data: any; timestamp: number }>
+};
 
-// Store recent messages for new connections (last 10 messages)
-const recentMessages: Array<{ type: string, data: any, timestamp: number }> = [];
+export const connections = g.__SSE_CONNECTIONS__ ||= new Map();
+export const recentMessages = g.__SSE_RECENT_MESSAGES__ ||= [];
 
 export async function addConnection(controller: ReadableStreamDefaultController) {
   const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

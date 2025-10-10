@@ -163,7 +163,12 @@ export function TemplateSelector({
                   {templates.map((template) => (
                     <SelectItem key={template.sid} value={template.sid}>
                       <div className="flex flex-col">
-                        <span className="font-medium">{template.friendlyName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{template.friendlyName}</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            ✓ Business
+                          </span>
+                        </div>
                         <span className="text-xs text-muted-foreground">
                           {template.language}
                         </span>
@@ -174,7 +179,9 @@ export function TemplateSelector({
                   {/* Show message if no templates */}
                   {templates.length === 0 && !isLoading && (
                     <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                      No templates found. Create one in Twilio Console.
+                      No WhatsApp business-initiated templates found. 
+                      <br />
+                      <span className="text-xs">Only approved business-initiated templates are shown.</span>
                     </div>
                   )}
                 </SelectContent>

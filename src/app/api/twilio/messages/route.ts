@@ -41,6 +41,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log('📨 Received message request:', body);
+    
     const { 
       conversationId, 
       customerPhone, 
@@ -50,7 +52,17 @@ export async function POST(req: NextRequest) {
       contentVariables 
     } = body;
 
+    console.log('🔍 Parsed request data:', {
+      conversationId,
+      customerPhone,
+      message,
+      isTemplate,
+      contentSid,
+      contentVariables
+    });
+
     if (!conversationId || !customerPhone) {
+      console.log('❌ Missing required fields:', { conversationId, customerPhone });
       return NextResponse.json({ 
         error: 'conversationId and customerPhone are required' 
       }, { status: 400 });
@@ -69,11 +81,35 @@ export async function POST(req: NextRequest) {
       const message = await twilioClient.messages.create({
         contentSid: contentSid,
         contentVariables: contentVariables ? JSON.stringify(contentVariables) : undefined,
-        from: 'whatsapp:+14155238886', // Your Twilio WhatsApp number
+        from: process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886', // Use environment variable or fallback to sandbox
         to: `whatsapp:${customerPhone}`,
       });
 
       console.log('✅ Template message sent:', message.sid);
+
+      // Store the message in our database so it appears in the chat
+      try {
+        const { sqliteDb } = await import('@/lib/sqlite-database');
+        const db = sqliteDb;
+        
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        await db.createMessage({
+          id: messageId,
+          conversation_id: conversationId,
+          sender_id: 'admin_001', // Default admin user
+          sender_type: 'agent',
+          content: message.body || 'Template message sent',
+          message_type: 'text',
+          twilio_message_sid: message.sid,
+          delivery_status: 'sent',
+          created_at: new Date().toISOString()
+        });
+        
+        console.log('✅ Template message stored in database:', messageId);
+      } catch (dbError) {
+        console.error('⚠️ Failed to store template message in database:', dbError);
+        // Don't fail the request if database storage fails
+      }
 
       return NextResponse.json({
         success: true,
@@ -92,7 +128,7 @@ export async function POST(req: NextRequest) {
 
       const twilioMessage = await twilioClient.messages.create({
         body: message,
-        from: 'whatsapp:+14155238886', // Your Twilio WhatsApp number
+        from: process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886', // Use environment variable or fallback to sandbox
         to: `whatsapp:${customerPhone}`,
       });
 

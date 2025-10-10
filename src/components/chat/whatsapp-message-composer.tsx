@@ -115,8 +115,7 @@ export function WhatsAppMessageComposer({
         },
         body: JSON.stringify({
           message: messageText.trim(),
-          isTemplate,
-          customerPhone
+          author: 'admin' // Default author for regular messages
         }),
       });
 
