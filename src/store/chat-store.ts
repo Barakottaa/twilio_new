@@ -274,9 +274,28 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     };
   }),
   
-  setMessages: (conversationId, messages) => set((state) => ({
-    messages: { ...state.messages, [conversationId]: messages }
-  })),
+  setMessages: (conversationId, messages) => set((state) => {
+    const currentMessages = state.messages[conversationId] || [];
+    
+    // If no current messages, just set the new messages
+    if (currentMessages.length === 0) {
+      return {
+        messages: { ...state.messages, [conversationId]: messages }
+      };
+    }
+    
+    // Merge messages, keeping live messages that might not be in the API response yet
+    const existingMessageIds = new Set(currentMessages.map(m => m.id));
+    const newMessages = messages.filter(m => !existingMessageIds.has(m.id));
+    const mergedMessages = [...currentMessages, ...newMessages];
+    
+    // Sort by timestamp to maintain chronological order
+    mergedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    
+    return {
+      messages: { ...state.messages, [conversationId]: mergedMessages }
+    };
+  }),
   
   updateLastMessage: (conversationId, message) => set((state) => {
     const updatedConversations = state.conversations.map(conv => 
