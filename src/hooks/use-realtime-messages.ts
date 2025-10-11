@@ -89,32 +89,35 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         reconnectAttemptsRef.current += 1;
         console.log(`🔄 SSE connection attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}`);
 
+        // Check if we're online before attempting connection
+        if (!navigator.onLine) {
+          console.log('⚠️ Network is offline, waiting for connection...');
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectSSE();
+          }, 5000);
+          return;
+        }
+
         // Connecting to SSE...
         console.log('🔌 Creating new EventSource connection to /api/events');
-        const eventSource = new EventSource('/api/events');
-        eventSourceRef.current = eventSource;
+        let eventSource: EventSource;
+        try {
+          const eventsUrl = `${window.location.origin}/api/events`;
+          console.log('🔌 EventSource URL:', eventsUrl);
+          eventSource = new EventSource(eventsUrl);
+          eventSourceRef.current = eventSource;
+        } catch (error) {
+          console.error('❌ Failed to create EventSource:', error);
+          // Retry after a delay
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectSSE();
+          }, 5000);
+          return;
+        }
         
-        // Add immediate state check
-        console.log('🔍 EventSource created, initial state:', eventSource.readyState);
-        
-        // Add a small delay to ensure connection is established
-        setTimeout(() => {
-          if (eventSource.readyState === EventSource.OPEN) {
-            console.log('✅ SSE connection confirmed as OPEN after 100ms');
-          } else if (eventSource.readyState === EventSource.CONNECTING) {
-            console.log('⏳ SSE connection still CONNECTING after 100ms');
-          } else {
-            console.log('❌ SSE connection CLOSED after 100ms');
-          }
-        }, 100);
 
     eventSource.onopen = () => {
       console.log('✅ SSE connection opened successfully');
-      console.log('🔍 Connection details:', {
-        url: eventSource.url,
-        readyState: eventSource.readyState,
-        withCredentials: eventSource.withCredentials
-      });
       // Reset reconnection attempts on successful connection
       reconnectAttemptsRef.current = 0;
     };
@@ -126,7 +129,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         if (data.type === 'connected') {
           console.log('📡 SSE connected:', data.message);
         } else if (data.type === 'heartbeat') {
-          console.log('💓 SSE heartbeat received');
+          // Heartbeat received - connection is alive
         } else if (data.type === 'newMessage') {
           console.log('📨 New message via SSE:', data.data);
           console.log('📨 Message details:', {
@@ -165,14 +168,6 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
 
         eventSource.onerror = (error) => {
           console.error('❌ SSE connection error:', error);
-          console.log('🔍 SSE readyState on error:', eventSource.readyState);
-          console.log('🔍 SSE URL:', eventSource.url);
-          console.log('🔍 EventSource states:', {
-            CONNECTING: EventSource.CONNECTING,
-            OPEN: EventSource.OPEN,
-            CLOSED: EventSource.CLOSED,
-            currentState: eventSource.readyState
-          });
           
           // Clear any existing reconnect timeout
           if (reconnectTimeoutRef.current) {
@@ -185,20 +180,22 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
             eventSourceRef.current = null;
           }
           
-          // Only reconnect if we're not already in a reconnection loop
-          if (eventSource.readyState === EventSource.CLOSED) {
-            const reconnectDelay = process.env.NODE_ENV === 'development' ? 2000 : 5000;
-            console.log(`🔄 Connection closed, attempting to reconnect after ${reconnectDelay}ms...`);
-            reconnectTimeoutRef.current = setTimeout(() => {
-              connectSSE();
-            }, reconnectDelay);
-          } else {
-            console.log('🔍 Connection not fully closed, waiting before reconnect...');
-            const reconnectDelay = 5000;
-            reconnectTimeoutRef.current = setTimeout(() => {
-              connectSSE();
-            }, reconnectDelay);
-          }
+          // Implement exponential backoff for reconnection
+          const baseDelay = 1000; // Start with 1 second
+          const maxDelay = 30000; // Max 30 seconds
+          const backoffMultiplier = 1.5;
+          const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+          
+          const reconnectDelay = Math.min(
+            baseDelay * Math.pow(backoffMultiplier, reconnectAttemptsRef.current) + jitter,
+            maxDelay
+          );
+          
+          console.log(`🔄 Connection error, attempting to reconnect after ${Math.round(reconnectDelay)}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})...`);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectSSE();
+          }, reconnectDelay);
         };
 
     return eventSource;
@@ -207,6 +204,24 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
   useEffect(() => {
     const eventSource = connectSSE();
     
+    // Add network status monitoring
+    const handleOnline = () => {
+      console.log('🌐 Network is back online, reconnecting SSE...');
+      reconnectAttemptsRef.current = 0; // Reset attempts when back online
+      connectSSE();
+    };
+    
+    const handleOffline = () => {
+      console.log('🌐 Network is offline, closing SSE connection...');
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
     // Add periodic connection health check
     const healthCheckInterval = setInterval(() => {
       if (eventSourceRef.current) {
@@ -214,37 +229,20 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         if (state === EventSource.CLOSED) {
           console.log('🔍 SSE connection is closed, attempting to reconnect...');
           connectSSE();
-        } else if (state === EventSource.CONNECTING) {
-          // Limit noisy logs by only reporting CONNECTING state every minute
-          const now = Date.now();
-          const lastLog = (eventSourceRef.current as any)._lastConnectingLog ?? 0;
-          if (now - lastLog > 60000) {
-            console.log('🔍 SSE connection is still connecting...');
-            (eventSourceRef.current as any)._lastConnectingLog = now;
-          }
-        } else if (state === EventSource.OPEN) {
-          console.log('✅ SSE connection is healthy');
         }
       } else {
         console.log('🔍 No SSE connection found, attempting to connect...');
         connectSSE();
       }
-    }, 5000); // Check every 5 seconds (more frequent)
-    
-    // Add connection status logging
-    const statusInterval = setInterval(() => {
-      if (eventSourceRef.current) {
-        const states = ['CONNECTING', 'OPEN', 'CLOSED'];
-        console.log(`📊 SSE Status: ${states[eventSourceRef.current.readyState]} (${eventSourceRef.current.readyState})`);
-      }
-    }, 30000); // Log status every 30 seconds
+    }, 10000); // Check every 10 seconds
 
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
       clearInterval(healthCheckInterval);
-      clearInterval(statusInterval);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;

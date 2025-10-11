@@ -19,7 +19,6 @@ export async function addConnection(controller: ReadableStreamDefaultController)
   try {
     const { messageRecoveryService } = await import('./message-recovery');
     await messageRecoveryService.processRecoveryQueue();
-    console.log('🔄 Recovery queue processed for new connection');
   } catch (error) {
     console.error('❌ Failed to process recovery queue:', error);
   }
@@ -29,17 +28,13 @@ export async function addConnection(controller: ReadableStreamDefaultController)
   const now = Date.now();
   const recentThreshold = 60000; // 60 seconds (increased from 5)
   
-  console.log(`📨 Checking recent messages for new connection. Queue size: ${recentMessages.length}`);
-  
   const messagesToSend = recentMessages.filter(msg => now - msg.timestamp < recentThreshold);
-  console.log(`📨 Found ${messagesToSend.length} recent messages to send (threshold: ${recentThreshold}ms)`);
   
   messagesToSend.forEach(msg => {
     try {
       const message = JSON.stringify({ type: msg.type, data: msg.data });
       const eventData = `data: ${message}\n\n`;
       controller.enqueue(encoder.encode(eventData));
-      console.log(`📨 Sent recent message to new connection: ${connectionId}`, msg.data);
     } catch (error) {
       console.error(`❌ Error sending recent message to ${connectionId}:`, error);
     }
@@ -55,7 +50,6 @@ export function removeConnection(controller: ReadableStreamDefaultController) {
 
 // Function to broadcast messages to all connected clients
 export async function broadcastMessage(type: string, data: any) {
-  console.log(`📡 BROADCAST MESSAGE CALLED - Type: ${type}, Data:`, data);
   
   const encoder = new TextEncoder();
   
@@ -96,10 +90,7 @@ export async function broadcastMessage(type: string, data: any) {
   // Clean up stale connections first
   cleanupStaleConnections();
   
-  console.log(`📡 Broadcasting ${type} to ${connections.size} connections`);
-  
   if (connections.size === 0) {
-    console.log('⚠️ No active connections to broadcast to - message queued for next connection');
     
     // Add to recovery queue if it's a newMessage
     if (type === 'newMessage') {
@@ -113,7 +104,6 @@ export async function broadcastMessage(type: string, data: any) {
           dateCreated: data.dateCreated,
           index: data.index
         });
-        console.log('🔄 Message added to recovery queue');
       } catch (error) {
         console.error('❌ Failed to add message to recovery queue:', error);
       }
@@ -124,12 +114,13 @@ export async function broadcastMessage(type: string, data: any) {
   connections.forEach((connectionInfo, controller) => {
     try {
       controller.enqueue(encoder.encode(eventData));
-      console.log(`✅ Message sent to connection: ${connectionInfo.id}`);
     } catch (error) {
-      console.log(`❌ Error sending to connection ${connectionInfo.id}:`, error);
       // Remove dead connections
-      connections.delete(controller);
-      console.log(`🧹 Removed dead connection: ${connectionInfo.id}. Remaining: ${connections.size}`);
+      try {
+        connections.delete(controller);
+      } catch (deleteError) {
+        console.error(`❌ Error removing dead connection ${connectionInfo.id}:`, deleteError);
+      }
     }
   });
 }
@@ -141,7 +132,6 @@ function cleanupStaleConnections() {
   
   for (const [controller, connectionInfo] of connections.entries()) {
     if (now - connectionInfo.timestamp > staleThreshold) {
-      console.log(`🧹 Cleaning up stale connection: ${connectionInfo.id}`);
       connections.delete(controller);
     }
   }
