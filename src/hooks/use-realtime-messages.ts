@@ -72,27 +72,51 @@ interface UseRealtimeMessagesProps {
 export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProps) {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 10;
 
       const connectSSE = () => {
         if (eventSourceRef.current) {
           eventSourceRef.current.close();
         }
 
+        // Check if we've exceeded max reconnection attempts
+        if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          console.error('❌ Max reconnection attempts reached, stopping SSE reconnection');
+          return;
+        }
+
+        reconnectAttemptsRef.current += 1;
+        console.log(`🔄 SSE connection attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}`);
+
         // Connecting to SSE...
+        console.log('🔌 Creating new EventSource connection to /api/events');
         const eventSource = new EventSource('/api/events');
         eventSourceRef.current = eventSource;
+        
+        // Add immediate state check
+        console.log('🔍 EventSource created, initial state:', eventSource.readyState);
         
         // Add a small delay to ensure connection is established
         setTimeout(() => {
           if (eventSource.readyState === EventSource.OPEN) {
-            // SSE connection confirmed as open
+            console.log('✅ SSE connection confirmed as OPEN after 100ms');
+          } else if (eventSource.readyState === EventSource.CONNECTING) {
+            console.log('⏳ SSE connection still CONNECTING after 100ms');
           } else {
-            // SSE connection not open
+            console.log('❌ SSE connection CLOSED after 100ms');
           }
         }, 100);
 
     eventSource.onopen = () => {
-      // SSE connection opened
+      console.log('✅ SSE connection opened successfully');
+      console.log('🔍 Connection details:', {
+        url: eventSource.url,
+        readyState: eventSource.readyState,
+        withCredentials: eventSource.withCredentials
+      });
+      // Reset reconnection attempts on successful connection
+      reconnectAttemptsRef.current = 0;
     };
 
     eventSource.onmessage = (event) => {
@@ -143,6 +167,12 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           console.error('❌ SSE connection error:', error);
           console.log('🔍 SSE readyState on error:', eventSource.readyState);
           console.log('🔍 SSE URL:', eventSource.url);
+          console.log('🔍 EventSource states:', {
+            CONNECTING: EventSource.CONNECTING,
+            OPEN: EventSource.OPEN,
+            CLOSED: EventSource.CLOSED,
+            currentState: eventSource.readyState
+          });
           
           // Clear any existing reconnect timeout
           if (reconnectTimeoutRef.current) {
@@ -155,12 +185,20 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
             eventSourceRef.current = null;
           }
           
-          // Always attempt to reconnect after an error
-          const reconnectDelay = process.env.NODE_ENV === 'development' ? 1000 : 3000;
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`🔄 Attempting to reconnect SSE after ${reconnectDelay}ms...`);
-            connectSSE();
-          }, reconnectDelay);
+          // Only reconnect if we're not already in a reconnection loop
+          if (eventSource.readyState === EventSource.CLOSED) {
+            const reconnectDelay = process.env.NODE_ENV === 'development' ? 2000 : 5000;
+            console.log(`🔄 Connection closed, attempting to reconnect after ${reconnectDelay}ms...`);
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connectSSE();
+            }, reconnectDelay);
+          } else {
+            console.log('🔍 Connection not fully closed, waiting before reconnect...');
+            const reconnectDelay = 5000;
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connectSSE();
+            }, reconnectDelay);
+          }
         };
 
     return eventSource;
@@ -177,7 +215,13 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           console.log('🔍 SSE connection is closed, attempting to reconnect...');
           connectSSE();
         } else if (state === EventSource.CONNECTING) {
-          console.log('🔍 SSE connection is still connecting...');
+          // Limit noisy logs by only reporting CONNECTING state every minute
+          const now = Date.now();
+          const lastLog = (eventSourceRef.current as any)._lastConnectingLog ?? 0;
+          if (now - lastLog > 60000) {
+            console.log('🔍 SSE connection is still connecting...');
+            (eventSourceRef.current as any)._lastConnectingLog = now;
+          }
         } else if (state === EventSource.OPEN) {
           console.log('✅ SSE connection is healthy');
         }

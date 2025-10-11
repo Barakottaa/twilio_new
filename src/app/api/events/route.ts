@@ -2,6 +2,10 @@
 import { NextRequest } from 'next/server';
 import { addConnection, removeConnection, getConnectionCount } from '@/lib/sse-broadcast';
 
+// Force Node.js runtime for SSE support (edge runtime buffers streams)
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   console.log('🔌 New SSE connection request received');
   
@@ -77,6 +81,7 @@ export async function GET(req: NextRequest) {
       ...headers,
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'X-Accel-Buffering': 'no', // Disable nginx buffering
+      'Connection': 'keep-alive', // Ensure persistent connection, important in dev
     },
   });
 }

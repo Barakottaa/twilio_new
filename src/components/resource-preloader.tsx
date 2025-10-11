@@ -7,14 +7,7 @@ export function ResourcePreloader() {
   useEffect(() => {
     // Preload critical resources
     const preloadResources = () => {
-      // Preload critical fonts
-      const fontLink = document.createElement('link');
-      fontLink.rel = 'preload';
-      fontLink.href = '/fonts/inter-var.woff2';
-      fontLink.as = 'font';
-      fontLink.type = 'font/woff2';
-      fontLink.crossOrigin = 'anonymous';
-      document.head.appendChild(fontLink);
+      // Note: Fonts are loaded via Google Fonts in globals.css, no local preload needed
 
       // Preload critical images
       const criticalImages = [
