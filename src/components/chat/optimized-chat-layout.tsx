@@ -351,6 +351,12 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       deliveryStatus: 'sending' as const
     };
     
+    console.log('📤 Adding temporary message to store:', {
+      tempId: tempMessageId,
+      text: text.trim(),
+      conversationId: selectedConversationId
+    });
+    
     appendMessage(selectedConversationId, newMessage);
     
     try {
@@ -384,6 +390,13 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       
       // Update the message with the real ID and "sent" status
       const { updateMessageAfterSend, setStatus } = useChatStore.getState();
+      console.log('📤 Updating message after successful send:', {
+        tempId: tempMessageId,
+        realId: result.messageId || tempMessageId,
+        twilioSid: result.twilioMessageSid,
+        conversationId: selectedConversationId
+      });
+      
       updateMessageAfterSend(selectedConversationId, tempMessageId, {
         id: result.messageId || tempMessageId,
         twilioMessageSid: result.twilioMessageSid,

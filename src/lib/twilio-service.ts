@@ -992,25 +992,10 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
             await db.updateConversation(conversationSid, { is_new: 0 });
             console.log('✅ Conversation marked as not new (agent replied)');
             
-            // Broadcast the sent message via SSE for real-time updates
-            try {
-                const { broadcastMessage } = await import('@/lib/sse-broadcast');
-                await broadcastMessage('newMessage', {
-                    conversationSid,
-                    messageSid: conversationMessage.sid,
-                    body: text,
-                    author,
-                    dateCreated: new Date().toISOString(),
-                    index: '0',
-                    numMedia: 0,
-                    media: [],
-                    phone: customerWhatsAppNumber.replace('whatsapp:', '')
-                });
-                console.log('✅ Sent message broadcasted via SSE');
-            } catch (sseError) {
-                console.error('❌ Failed to broadcast sent message via SSE:', sseError);
-                // Don't fail the entire operation if SSE broadcast fails
-            }
+            // Note: SSE broadcast is handled by the webhook handler
+            // to avoid duplicate messages. The webhook will broadcast when
+            // Twilio confirms the message was sent.
+            console.log('✅ Message stored in database, webhook will handle SSE broadcast');
         } catch (dbError) {
             console.error('❌ Failed to store sent message in database:', dbError);
             // Don't fail the entire operation if database storage fails

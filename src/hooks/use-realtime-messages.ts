@@ -252,6 +252,13 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
 
   const handleNewMessage = async (messageData: RealtimeMessageData) => {
     console.log('🔥 handleNewMessage CALLED with:', messageData);
+    console.log('🔥 handleNewMessage - message details:', {
+      conversationSid: messageData.conversationSid,
+      messageSid: messageData.messageSid,
+      body: messageData.body,
+      author: messageData.author,
+      dateCreated: messageData.dateCreated
+    });
     console.log('🔥 Current conversation:', messageData.conversationSid);
     console.log('🔥 Author:', messageData.author);
     console.log('🔥 Logged in agent ID:', loggedInAgentId);
@@ -357,9 +364,11 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     const existingMessages = store.messages[messageData.conversationSid] || [];
     
     // Check for duplicates using multiple criteria
-    const isDuplicate = existingMessages.some(msg => {
+    let existingMessageIndex = -1;
+    const isDuplicate = existingMessages.some((msg, index) => {
       // Check by Twilio message SID first (most reliable)
       if (msg.twilioMessageSid && messageData.messageSid && msg.twilioMessageSid === messageData.messageSid) {
+        existingMessageIndex = index;
         return true;
       }
       
@@ -367,11 +376,23 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       if (msg.text === newMessage.text && 
           msg.sender === newMessage.sender &&
           Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 2000) {
+        existingMessageIndex = index;
         return true;
       }
       
       // Check by message ID if available
       if (msg.id === newMessage.id) {
+        existingMessageIndex = index;
+        return true;
+      }
+      
+      // Check if this is a real message replacing a temporary message
+      if (msg.id.startsWith('temp-') && 
+          !newMessage.id.startsWith('temp-') &&
+          msg.text === newMessage.text && 
+          msg.sender === newMessage.sender &&
+          Math.abs(new Date(msg.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 10000) {
+        existingMessageIndex = index;
         return true;
       }
       
@@ -379,12 +400,29 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     });
     
     if (isDuplicate) {
-      console.log('🔄 Duplicate message detected, skipping:', {
-        text: newMessage.text,
-        twilioSid: messageData.messageSid,
-        messageId: newMessage.id
-      });
-      return;
+      if (existingMessageIndex >= 0) {
+        // Replace the existing message with the real message from webhook
+        const updatedMessages = [...existingMessages];
+        updatedMessages[existingMessageIndex] = newMessage;
+        
+        console.log('🔄 Replacing temporary message with real message:', {
+          oldId: existingMessages[existingMessageIndex].id,
+          newId: newMessage.id,
+          twilioSid: messageData.messageSid,
+          text: newMessage.text
+        });
+        
+        store.setMessages(messageData.conversationSid, updatedMessages);
+        console.log('🔄 Message replacement completed');
+        return;
+      } else {
+        console.log('🔄 Duplicate message detected, skipping:', {
+          text: newMessage.text,
+          twilioSid: messageData.messageSid,
+          messageId: newMessage.id
+        });
+        return;
+      }
     }
     
     // Ensure conversation exists in store before adding message
@@ -412,6 +450,14 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       conversationSid: messageData.conversationSid,
       messageText: newMessage.text,
       messageId: newMessage.id,
+      sender: newMessage.sender
+    });
+    
+    console.log('🔄 Appending new message to store:', {
+      conversationSid: messageData.conversationSid,
+      messageId: newMessage.id,
+      twilioSid: messageData.messageSid,
+      text: newMessage.text,
       sender: newMessage.sender
     });
     

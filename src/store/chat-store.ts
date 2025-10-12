@@ -54,6 +54,7 @@ interface ChatActions {
   // Message status updates
   updateMessageStatus: (conversationId: string, messageId: string, status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered') => void;
   updateMessageAfterSend: (conversationId: string, tempMessageId: string, updates: { id: string; twilioMessageSid?: string; deliveryStatus: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered' }) => void;
+  replaceMessage: (conversationId: string, oldMessageId: string, newMessage: Message) => void;
   
   // assignment & status actions
   setAssignment: (conversationId: string, agent: { id: string; name: string } | null) => void;
@@ -128,18 +129,38 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const currentMessages = state.messages[conversationId] || [];
     
     // Enhanced duplicate detection using multiple criteria
-    const messageExists = currentMessages.some(m => {
+    let existingMessageIndex = -1;
+    const messageExists = currentMessages.some((m, index) => {
       // Check by message ID
-      if (m.id === message.id) return true;
+      if (m.id === message.id) {
+        existingMessageIndex = index;
+        return true;
+      }
       
       // Check by Twilio message SID if available
-      if (m.twilioMessageSid && message.twilioMessageSid && m.twilioMessageSid === message.twilioMessageSid) return true;
+      if (m.twilioMessageSid && message.twilioMessageSid && m.twilioMessageSid === message.twilioMessageSid) {
+        existingMessageIndex = index;
+        return true;
+      }
       
       // Check by exact same content, sender, and timestamp (within 5 seconds)
       if (m.text === message.text && 
           m.sender === message.sender &&
           m.senderId === message.senderId &&
           Math.abs(new Date(m.timestamp).getTime() - new Date(message.timestamp).getTime()) < 5000) {
+        existingMessageIndex = index;
+        return true;
+      }
+      
+      // Check if this is a real message replacing a temporary message
+      // (temporary messages have IDs starting with "temp-")
+      if (m.id.startsWith('temp-') && 
+          !message.id.startsWith('temp-') &&
+          m.text === message.text && 
+          m.sender === message.sender &&
+          m.senderId === message.senderId &&
+          Math.abs(new Date(m.timestamp).getTime() - new Date(message.timestamp).getTime()) < 10000) {
+        existingMessageIndex = index;
         return true;
       }
       
@@ -147,14 +168,35 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
     
     if (messageExists) {
-      console.log('🔥 Duplicate message detected, skipping:', {
-        messageId: message.id,
-        twilioSid: message.twilioMessageSid,
-        text: message.text,
-        currentMessagesCount: currentMessages.length
-      });
-      console.log('🔥 Current messages in store:', currentMessages.map(m => ({ id: m.id, text: m.text, timestamp: m.timestamp })));
-      return state; // No change needed
+      if (existingMessageIndex >= 0) {
+        // Replace the existing message (useful for updating temp messages with real IDs)
+        const updatedMessages = [...currentMessages];
+        updatedMessages[existingMessageIndex] = message;
+        
+        console.log('🔥 Replacing existing message:', {
+          oldId: currentMessages[existingMessageIndex].id,
+          newId: message.id,
+          twilioSid: message.twilioMessageSid,
+          text: message.text
+        });
+        
+        return {
+          ...state,
+          messages: {
+            ...state.messages,
+            [conversationId]: updatedMessages
+          }
+        };
+      } else {
+        console.log('🔥 Duplicate message detected, skipping:', {
+          messageId: message.id,
+          twilioSid: message.twilioMessageSid,
+          text: message.text,
+          currentMessagesCount: currentMessages.length
+        });
+        console.log('🔥 Current messages in store:', currentMessages.map(m => ({ id: m.id, text: m.text, timestamp: m.timestamp })));
+        return state; // No change needed
+      }
     }
     
     console.log('🔥 Appending new message. Current count:', currentMessages.length);
@@ -277,20 +319,68 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   setMessages: (conversationId, messages) => set((state) => {
     const currentMessages = state.messages[conversationId] || [];
     
+    console.log('🔥 setMessages called:', { 
+      conversationId, 
+      currentCount: currentMessages.length, 
+      newCount: messages.length 
+    });
+    
     // If no current messages, just set the new messages
     if (currentMessages.length === 0) {
+      console.log('🔥 No current messages, setting new messages directly');
       return {
         messages: { ...state.messages, [conversationId]: messages }
       };
     }
     
-    // Merge messages, keeping live messages that might not be in the API response yet
+    // Enhanced deduplication logic
     const existingMessageIds = new Set(currentMessages.map(m => m.id));
-    const newMessages = messages.filter(m => !existingMessageIds.has(m.id));
+    const existingTwilioSids = new Set(currentMessages.map(m => m.twilioMessageSid).filter(Boolean));
+    
+    const newMessages = messages.filter(newMsg => {
+      // Skip if message ID already exists
+      if (existingMessageIds.has(newMsg.id)) {
+        console.log('🔥 Skipping duplicate message by ID:', newMsg.id);
+        return false;
+      }
+      
+      // Skip if Twilio SID already exists
+      if (newMsg.twilioMessageSid && existingTwilioSids.has(newMsg.twilioMessageSid)) {
+        console.log('🔥 Skipping duplicate message by Twilio SID:', newMsg.twilioMessageSid);
+        return false;
+      }
+      
+      // Skip if same content, sender, and timestamp (within 5 seconds)
+      const isDuplicate = currentMessages.some(existingMsg => 
+        existingMsg.text === newMsg.text && 
+        existingMsg.sender === newMsg.sender &&
+        existingMsg.senderId === newMsg.senderId &&
+        Math.abs(new Date(existingMsg.timestamp).getTime() - new Date(newMsg.timestamp).getTime()) < 5000
+      );
+      
+      if (isDuplicate) {
+        console.log('🔥 Skipping duplicate message by content/sender/timestamp:', {
+          text: newMsg.text,
+          sender: newMsg.sender,
+          timestamp: newMsg.timestamp
+        });
+        return false;
+      }
+      
+      return true;
+    });
+    
     const mergedMessages = [...currentMessages, ...newMessages];
     
     // Sort by timestamp to maintain chronological order
     mergedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    
+    console.log('🔥 setMessages result:', {
+      conversationId,
+      originalCount: currentMessages.length,
+      newMessagesCount: newMessages.length,
+      finalCount: mergedMessages.length
+    });
     
     return {
       messages: { ...state.messages, [conversationId]: mergedMessages }
@@ -360,6 +450,33 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       messages: { ...state.messages, [conversationId]: updatedMessages },
       conversations: updatedConversations
     };
+  }),
+
+  // New method to replace a message completely (useful for webhook updates)
+  replaceMessage: (conversationId, oldMessageId, newMessage) => set((state) => {
+    const messages = state.messages[conversationId] || [];
+    const messageIndex = messages.findIndex(m => m.id === oldMessageId);
+    
+    if (messageIndex >= 0) {
+      const updatedMessages = [...messages];
+      updatedMessages[messageIndex] = newMessage;
+      
+      console.log('🔥 Replaced message:', {
+        oldId: oldMessageId,
+        newId: newMessage.id,
+        twilioSid: newMessage.twilioMessageSid
+      });
+      
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [conversationId]: updatedMessages
+        }
+      };
+    }
+    
+    return state;
   }),
   
   // assignment & status actions
