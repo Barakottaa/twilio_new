@@ -428,7 +428,7 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
       console.log(`✅ Returning ${orderedMessages.length} messages from database (latest ${limit})`);
       return { messages: orderedMessages, nextBefore: undefined };
     } else {
-      console.log('⚠️ No messages found in database');
+      console.log('⚠️ No messages found in database, falling back to Twilio API');
     }
   } catch (error) {
     console.log('⚠️ Error fetching from database, falling back to Twilio:', error);
