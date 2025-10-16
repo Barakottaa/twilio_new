@@ -112,6 +112,40 @@ app.post('/api/send-invoice', async (req, res) => {
   }
 });
 
+// Flexible template endpoint
+app.post('/api/send-template/:templateName', async (req, res) => {
+  try {
+    const { templateName } = req.params;
+    const { phoneNumber, data } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: phoneNumber'
+      });
+    }
+
+    if (!templateName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing template name in URL'
+      });
+    }
+
+    console.log(`📤 Sending ${templateName} template to ${phoneNumber}`);
+    console.log('📊 Template data:', data);
+
+    const result = await birdService.sendTemplate(phoneNumber, templateName.toUpperCase(), data || {});
+    res.json(result);
+  } catch (error) {
+    console.error(`❌ Send ${req.params.templateName} template error:`, error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Bird webhook endpoint
 app.post('/api/bird/webhook', async (req, res) => {
   try {

@@ -26,7 +26,7 @@ class BirdService {
    * @param {Array} parameters - Template parameters
    * @returns {Promise<Object>} - Response object
    */
-  async sendTemplateMessage(phoneNumber, projectId, templateVersion, locale = "ar", parameters = []) {
+  async sendTemplateMessage(phoneNumber, projectId, templateVersion, locale = "ar", parameters = [], templateName = null) {
     try {
       console.log('🕊️ Sending Bird template message:', { 
         phoneNumber, 
@@ -36,6 +36,7 @@ class BirdService {
         parametersCount: parameters.length 
       });
 
+      // Use the correct Bird API structure (workspaces/channels endpoint)
       const payload = {
         receiver: {
           contacts: [
@@ -46,15 +47,25 @@ class BirdService {
           ]
         },
         template: {
-          projectId,
+          projectId: projectId,
           version: templateVersion,
-          locale,
-          parameters
+          locale: locale,
+          parameters: parameters
         }
       };
 
+      const apiUrl = `https://api.bird.com/workspaces/${process.env.BIRD_WORKSPACE_ID}/channels/${process.env.BIRD_CHANNEL_ID}/messages`;
+
+      console.log('📤 Sending POST request to Bird API:');
+      console.log('URL:', apiUrl);
+      console.log('Headers:', {
+        Authorization: `AccessKey ${this.apiKey.substring(0, 10)}...`,
+        'Content-Type': 'application/json'
+      });
+      console.log('Payload:', JSON.stringify(payload, null, 2));
+
       const response = await axios.post(
-        `https://api.bird.com/workspaces/${this.workspaceId}/channels/${this.channelId}/messages`,
+        apiUrl,
         payload,
         {
           headers: {
@@ -162,33 +173,83 @@ class BirdService {
   }
 
   /**
-   * Send invoice template message
+   * Send template message with flexible configuration
    * @param {string} phoneNumber - Recipient phone number
-   * @param {Object} invoiceData - Invoice data
+   * @param {string} templateName - Template name (e.g., 'INVOICE', 'WELCOME', 'REMINDER')
+   * @param {Object} data - Template data
    * @returns {Promise<Object>} - Response object
    */
-  async sendInvoiceTemplate(phoneNumber, invoiceData) {
-    const projectId = process.env.INVOICE_TEMPLATE_PROJECT_ID;
-    const templateVersion = process.env.INVOICE_TEMPLATE_VERSION_ID;
+  async sendTemplate(phoneNumber, templateName, data) {
+    const projectId = process.env[`${templateName}_TEMPLATE_PROJECT_ID`];
+    const templateVersion = process.env[`${templateName}_TEMPLATE_VERSION_ID`];
+    const parameterNames = process.env[`${templateName}_TEMPLATE_PARAMETERS`];
 
     if (!projectId || !templateVersion) {
-      throw new Error('Invoice template configuration missing in environment variables');
+      throw new Error(`${templateName} template configuration missing in environment variables`);
     }
 
-    const parameters = [
-      { type: "string", key: "patient_name", value: invoiceData.patientName || "عبدالرحمن" },
-      { type: "string", key: "lab_no", value: invoiceData.labNo || "1" },
-      { type: "string", key: "total_paid", value: invoiceData.totalPaid || "400" },
-      { type: "string", key: "remaining", value: invoiceData.remaining || "100" }
-    ];
+    if (!parameterNames) {
+      throw new Error(`${templateName} template parameters not defined in environment variables`);
+    }
+
+    // Parse parameter names from comma-separated string
+    const paramNames = parameterNames.split(',').map(name => name.trim());
+    
+    // Build parameters array dynamically
+    const parameters = paramNames.map(paramName => {
+      const value = data[paramName] || this.getDefaultValue(paramName);
+      return {
+        type: "string",
+        key: paramName,
+        value: value
+      };
+    });
+
+    console.log(`📋 Sending ${templateName} template with parameters:`, parameters);
 
     return await this.sendTemplateMessage(
       phoneNumber,
       projectId,
       templateVersion,
       "ar",
-      parameters
+      parameters,
+      templateName
     );
+  }
+
+  /**
+   * Get default values for template parameters
+   * @param {string} paramName - Parameter name
+   * @returns {string} - Default value
+   */
+  getDefaultValue(paramName) {
+    const defaults = {
+      'patient_name': 'عبدالرحمن',
+      'customer_name': 'عميل',
+      'lab_no': '1',
+      'total_paid': '400',
+      'remaining': '100',
+      'total_cost': '400',
+      'appointment_date': new Date().toLocaleDateString('ar-EG'),
+      'appointment_time': '10:00 ص',
+      'doctor_name': 'د. أحمد بركة'
+    };
+    return defaults[paramName] || 'غير محدد';
+  }
+
+  /**
+   * Send invoice template message (backward compatibility)
+   * @param {string} phoneNumber - Recipient phone number
+   * @param {Object} invoiceData - Invoice data
+   * @returns {Promise<Object>} - Response object
+   */
+  async sendInvoiceTemplate(phoneNumber, invoiceData) {
+    return await this.sendTemplate(phoneNumber, 'INVOICE', {
+      patient_name: invoiceData.patientName,
+      lab_no: invoiceData.labNo,
+      total_paid: invoiceData.totalPaid,
+      remaining: invoiceData.remaining
+    });
   }
 
   /**
