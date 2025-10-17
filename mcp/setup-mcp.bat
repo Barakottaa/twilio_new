@@ -34,7 +34,7 @@ if not exist "%APPDATA%\mcp" mkdir "%APPDATA%\mcp"
 
 REM Copy configuration file
 echo 📋 Setting up configuration...
-copy mcp-config.json "%APPDATA%\mcp\config.json"
+copy mcp\mcp-config.json "%APPDATA%\mcp\config.json"
 
 REM Update configuration with current project path
 echo 🔧 Updating configuration for current project...
@@ -53,8 +53,8 @@ echo 3. Start MCP: mcp start
 echo 4. Connect to servers: mcp connect filesystem
 echo.
 echo 📚 Documentation:
-echo - mcp-setup-guide.md
-echo - mcp-development-instructions.md
+echo - mcp\mcp-setup-guide.md
+echo - mcp\mcp-development-instructions.md
 echo.
 echo Press any key to exit...
 pause >nul
