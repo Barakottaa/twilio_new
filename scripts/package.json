@@ -1,0 +1,28 @@
+{
+  "name": "lab-reports-processor",
+  "version": "1.0.0",
+  "description": "Node.js replacement for Oracle Forms lab report processing",
+  "main": "process-lab-reports.js",
+  "scripts": {
+    "start": "node process-lab-reports.js",
+    "test": "node process-lab-reports.js"
+  },
+  "dependencies": {
+    "oracledb": "^6.0.0",
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "oracle",
+    "reports",
+    "whatsapp",
+    "bird",
+    "lab",
+    "pdf"
+  ],
+  "author": "Baraka Lab",
+  "license": "MIT"
+}
