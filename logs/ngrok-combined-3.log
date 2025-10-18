@@ -1,0 +1,52 @@
+2025-10-18T16:11:15: 🚀 Starting ngrok tunnel...
+2025-10-18T16:11:15: 🌐 Starting ngrok tunnel on port 8080...
+2025-10-18T16:11:16: t=2025-10-18T16:11:16+0300 lvl=info msg="no configuration paths supplied"
+2025-10-18T16:11:16: t=2025-10-18T16:11:16+0300 lvl=info msg="using configuration at default config path" path=C:\\Users\\Administrator\\AppData\\Local/ngrok/ngrok.yml
+2025-10-18T16:11:16: t=2025-10-18T16:11:16+0300 lvl=info msg="open config file" path=C:\\Users\\Administrator\\AppData\\Local\\ngrok\\ngrok.yml err=nil
+2025-10-18T16:11:16: t=2025-10-18T16:11:16+0300 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
+2025-10-18T16:11:17: t=2025-10-18T16:11:17+0300 lvl=info msg="client session established" obj=tunnels.session
+2025-10-18T16:11:17: t=2025-10-18T16:11:17+0300 lvl=info msg="tunnel session started" obj=tunnels.session
+2025-10-18T16:11:17: t=2025-10-18T16:11:17+0300 lvl=info msg="update available" obj=updater
+2025-10-18T16:11:17: t=2025-10-18T16:11:17+0300 lvl=info msg="started tunnel" obj=tunnels name=command_line addr=http://localhost:8080 url=https://undegenerated-nonviscidly-marylou.ngrok-free.dev
+2025-10-18T16:11:40: t=2025-10-18T16:11:40+0300 lvl=info msg="join connections" obj=join id=50851b84928d l=[::1]:8080 r=54.171.45.45:11833
+2025-10-18T16:20:55: t=2025-10-18T16:20:55+0300 lvl=info msg="join connections" obj=join id=d6a909f61c19 l=[::1]:8080 r=18.203.71.233:56774
+2025-10-18T16:33:55: t=2025-10-18T16:33:55+0300 lvl=info msg="join connections" obj=join id=aa494d2c857e l=[::1]:8080 r=54.171.45.45:3903
+2025-10-18T17:36:47: 🚀 Starting ngrok tunnel...
+2025-10-18T17:36:47: 🌐 Starting ngrok tunnel on port 8080...
+2025-10-18T17:36:48: t=2025-10-18T17:36:48+0300 lvl=info msg="no configuration paths supplied"
+2025-10-18T17:36:48: t=2025-10-18T17:36:48+0300 lvl=info msg="using configuration at default config path" path=C:\\Users\\Administrator\\AppData\\Local/ngrok/ngrok.yml
+2025-10-18T17:36:48: t=2025-10-18T17:36:48+0300 lvl=info msg="open config file" path=C:\\Users\\Administrator\\AppData\\Local\\ngrok\\ngrok.yml err=nil
+2025-10-18T17:36:48: t=2025-10-18T17:36:48+0300 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
+2025-10-18T17:36:49: t=2025-10-18T17:36:49+0300 lvl=info msg="update available" obj=updater
+2025-10-18T17:36:49: t=2025-10-18T17:36:49+0300 lvl=info msg="client session established" obj=tunnels.session
+2025-10-18T17:36:49: t=2025-10-18T17:36:49+0300 lvl=info msg="tunnel session started" obj=tunnels.session
+2025-10-18T17:36:49: t=2025-10-18T17:36:49+0300 lvl=info msg="started tunnel" obj=tunnels name=command_line addr=http://localhost:8080 url=https://undegenerated-nonviscidly-marylou.ngrok-free.dev
+2025-10-18T17:37:06: t=2025-10-18T17:37:06+0300 lvl=info msg="join connections" obj=join id=48c5bb486ce6 l=[::1]:8080 r=54.171.45.45:19990
+2025-10-18T17:37:41: t=2025-10-18T17:37:41+0300 lvl=info msg="join connections" obj=join id=5a23c5a920cf l=[::1]:8080 r=54.171.45.45:9405
+2025-10-18T20:28:03: 🚀 Starting ngrok tunnel...
+2025-10-18T20:28:03: 🌐 Starting ngrok tunnel on port 8080...
+2025-10-18T20:28:04: t=2025-10-18T20:28:04+0300 lvl=info msg="no configuration paths supplied"
+2025-10-18T20:28:04: t=2025-10-18T20:28:04+0300 lvl=info msg="using configuration at default config path" path=C:\\Users\\Administrator\\AppData\\Local/ngrok/ngrok.yml
+2025-10-18T20:28:04: t=2025-10-18T20:28:04+0300 lvl=info msg="open config file" path=C:\\Users\\Administrator\\AppData\\Local\\ngrok\\ngrok.yml err=nil
+2025-10-18T20:28:04: t=2025-10-18T20:28:04+0300 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
+2025-10-18T20:28:05: t=2025-10-18T20:28:05+0300 lvl=info msg="client session established" obj=tunnels.session
+2025-10-18T20:28:05: t=2025-10-18T20:28:05+0300 lvl=info msg="tunnel session started" obj=tunnels.session
+2025-10-18T20:28:06: t=2025-10-18T20:28:06+0300 lvl=info msg="started tunnel" obj=tunnels name=command_line addr=http://localhost:8080 url=https://undegenerated-nonviscidly-marylou.ngrok-free.dev
+2025-10-18T20:28:09: t=2025-10-18T20:28:09+0300 lvl=warn msg="failed to check for update" obj=updater err="Post \"https://update.equinox.io/check\": context deadline exceeded"
+2025-10-18T20:29:12: t=2025-10-18T20:29:12+0300 lvl=info msg="join connections" obj=join id=70685c587ce4 l=[::1]:8080 r=18.203.71.233:21957
+2025-10-18T20:31:46: t=2025-10-18T20:31:46+0300 lvl=info msg="join connections" obj=join id=6ccfae2eef42 l=[::1]:8080 r=54.171.45.45:36783
+2025-10-18T20:34:19: t=2025-10-18T20:34:19+0300 lvl=info msg="join connections" obj=join id=8da0d9615505 l=[::1]:8080 r=54.171.45.45:64626
+2025-10-18T20:35:51: t=2025-10-18T20:35:51+0300 lvl=info msg="join connections" obj=join id=0373c067e515 l=[::1]:8080 r=54.171.45.45:37383
+2025-10-18T20:36:07: t=2025-10-18T20:36:07+0300 lvl=info msg="join connections" obj=join id=7b71b65da38c l=[::1]:8080 r=54.171.45.45:57717
+2025-10-18T20:36:46: t=2025-10-18T20:36:46+0300 lvl=info msg="join connections" obj=join id=bf09375420d0 l=[::1]:8080 r=54.171.45.45:1618
+2025-10-18T20:41:31: t=2025-10-18T20:41:31+0300 lvl=info msg="join connections" obj=join id=1c564db45d2a l=[::1]:8080 r=18.203.71.233:9968
+2025-10-18T20:46:33: 🚀 Starting ngrok tunnel...
+2025-10-18T20:46:33: 🌐 Starting ngrok tunnel on port 8080...
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="no configuration paths supplied"
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="using configuration at default config path" path=C:\\Users\\Administrator\\AppData\\Local/ngrok/ngrok.yml
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="open config file" path=C:\\Users\\Administrator\\AppData\\Local\\ngrok\\ngrok.yml err=nil
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="starting web service" obj=web addr=127.0.0.1:4040 allow_hosts=[]
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="update available" obj=updater
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="client session established" obj=tunnels.session
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="tunnel session started" obj=tunnels.session
+2025-10-18T20:46:34: t=2025-10-18T20:46:34+0300 lvl=info msg="started tunnel" obj=tunnels name=command_line addr=http://localhost:8080 url=https://undegenerated-nonviscidly-marylou.ngrok-free.dev

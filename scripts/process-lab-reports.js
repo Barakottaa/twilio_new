@@ -23,6 +23,12 @@ const CONFIG = require('./config');
 // Database connection pool
 let pool;
 
+// Process lock file to prevent multiple instances
+const LOCK_FILE = path.join(CONFIG.paths.resultsFolder, '.process_lock');
+
+// Processing state flag to prevent overlapping batches
+let isProcessing = false;
+
 function log(message, level = 'INFO') {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] [${level}] ${message}`;
@@ -50,6 +56,98 @@ function log(message, level = 'INFO') {
   } catch (error) {
     // Don't fail if logging fails
     console.error('Log file write error:', error.message);
+  }
+}
+
+/**
+ * Kill stuck processes and clean up lock files
+ */
+function killStuckProcesses() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      const lockContent = fs.readFileSync(LOCK_FILE, 'utf8');
+      const lockData = JSON.parse(lockContent);
+      const lockTime = new Date(lockData.timestamp);
+      const now = new Date();
+      
+      // If lock is older than 5 minutes, kill the process and remove lock
+      if (now - lockTime > 5 * 60 * 1000) {
+        log(`Detected stuck process (PID: ${lockData.pid}, running for ${Math.round((now - lockTime) / 1000)}s)`, 'WARN');
+        
+        try {
+          // Try to kill the process
+          const { exec } = require('child_process');
+          exec(`taskkill /PID ${lockData.pid} /F`, (error, stdout, stderr) => {
+            if (error) {
+              log(`Failed to kill process ${lockData.pid}: ${error.message}`, 'WARN');
+            } else {
+              log(`Successfully killed stuck process ${lockData.pid}`, 'INFO');
+            }
+          });
+        } catch (killError) {
+          log(`Error killing process: ${killError.message}`, 'WARN');
+        }
+        
+        // Remove the lock file
+        fs.unlinkSync(LOCK_FILE);
+        log(`Removed stale lock file`, 'INFO');
+        return true;
+      } else {
+        log(`Another instance is running (PID: ${lockData.pid}, started: ${lockData.timestamp})`, 'WARN');
+        return false;
+      }
+    }
+    return true;
+  } catch (error) {
+    log(`Error checking for stuck processes: ${error.message}`, 'WARN');
+    // If we can't read the lock file, remove it
+    try {
+      if (fs.existsSync(LOCK_FILE)) {
+        fs.unlinkSync(LOCK_FILE);
+        log(`Removed corrupted lock file`, 'INFO');
+      }
+    } catch (removeError) {
+      log(`Failed to remove corrupted lock file: ${removeError.message}`, 'WARN');
+    }
+    return true;
+  }
+}
+
+/**
+ * Process lock management to prevent multiple instances
+ */
+function acquireLock() {
+  try {
+    // First, check for and kill any stuck processes
+    if (!killStuckProcesses()) {
+      return false;
+    }
+    
+    // Create lock file
+    const lockData = {
+      pid: process.pid,
+      timestamp: new Date().toISOString(),
+      hostname: require('os').hostname()
+    };
+    
+    fs.writeFileSync(LOCK_FILE, JSON.stringify(lockData, null, 2));
+    log(`Process lock acquired (PID: ${process.pid})`);
+    return true;
+    
+  } catch (error) {
+    log(`Failed to acquire process lock: ${error.message}`, 'ERROR');
+    return false;
+  }
+}
+
+function releaseLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      fs.unlinkSync(LOCK_FILE);
+      log(`Process lock released (PID: ${process.pid})`);
+    }
+  } catch (error) {
+    log(`Failed to release process lock: ${error.message}`, 'ERROR');
   }
 }
 
@@ -108,24 +206,6 @@ function cleanupOldPDFs() {
   }
 }
 
-// Get eligible registrations (equivalent to c_reg cursor)
-async function getEligibleRegistrations() {
-  const connection = await pool.getConnection();
-  try {
-    const query = `
-      SELECT DISTINCT reg_key
-      FROM LDM.reg_with_balance
-      WHERE branch_code = :branchCode
-      AND worklist_printed = :worklistPrinted
-      ORDER BY reg_key
-    `;
-    
-    const result = await connection.execute(query, [CONFIG.processing.branchCode, 2]);
-    return result.rows.map(row => row.REG_KEY);
-  } finally {
-    await connection.close();
-  }
-}
 
 // Get group codes for a reg_key (equivalent to c_grp cursor)
 async function getGroupCodes(regKey) {
@@ -202,7 +282,7 @@ async function getPatientPhone(regKey) {
 // Generate PDF report using Oracle Reports (equivalent to RUN_PRODUCT)
 async function generateReport(reportPath, parameters) {
   return new Promise((resolve, reject) => {
-    // Build the exact command string
+    // Build the exact command string - always generate in main folder
     let cmd = `C:\\orant\\BIN\\RWRUN60.EXE report="${reportPath}" userid=${CONFIG.database.user}/${CONFIG.database.password}@${CONFIG.database.connectString} destype=PRINTER desname=PDF paramform=NO BATCH=YES`;
     
     // Add parameters
@@ -243,7 +323,7 @@ async function generateReport(reportPath, parameters) {
 }
 
 // Wait for PDFs to be generated
-async function waitForPDFs(expectedCount = 1, timeoutSeconds = 60) {
+async function waitForPDFs(expectedCount = 1, timeoutSeconds = 60, startTime = Date.now()) {
   log(`Waiting for ${expectedCount} PDF(s) to be generated...`);
   
   let elapsed = 0;
@@ -253,7 +333,13 @@ async function waitForPDFs(expectedCount = 1, timeoutSeconds = 60) {
   while (elapsed < timeoutSeconds) {
     try {
       const files = fs.readdirSync(CONFIG.paths.resultsFolder)
-        .filter(file => file.endsWith('.pdf'));
+        .filter(file => {
+          if (!file.endsWith('.pdf')) return false;
+          const filePath = path.join(CONFIG.paths.resultsFolder, file);
+          const stats = fs.statSync(filePath);
+          // Only count PDFs created after our start time (within last 5 minutes to be safe)
+          return stats.mtime.getTime() > (startTime - 300000);
+        });
       
       const currentCount = files.length;
       const currentSize = files.reduce((total, file) => {
@@ -290,11 +376,11 @@ async function waitForPDFs(expectedCount = 1, timeoutSeconds = 60) {
 }
 
 // Merge PDFs using Ghostscript
-async function mergePDFs() {
+async function mergePDFs(sourceDir = CONFIG.paths.resultsFolder) {
   return new Promise((resolve, reject) => {
-    const files = fs.readdirSync(CONFIG.paths.resultsFolder)
+    const files = fs.readdirSync(sourceDir)
       .filter(file => file.endsWith('.pdf'))
-      .map(file => path.join(CONFIG.paths.resultsFolder, file));
+      .map(file => path.join(sourceDir, file));
     
     if (files.length === 0) {
       reject(new Error('No PDF files found to merge'));
@@ -305,7 +391,7 @@ async function mergePDFs() {
       // Only one file, just rename it
       const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
       const mergedName = `BL-${timestamp}.pdf`;
-      const mergedPath = path.join(CONFIG.paths.resultsFolder, mergedName);
+      const mergedPath = path.join(sourceDir, mergedName);
       
       fs.copyFileSync(files[0], mergedPath);
       fs.unlinkSync(files[0]);
@@ -317,7 +403,7 @@ async function mergePDFs() {
     // Multiple files, merge with Ghostscript
     const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
     const mergedName = `BL-${timestamp}.pdf`;
-    const mergedPath = path.join(CONFIG.paths.resultsFolder, mergedName);
+    const mergedPath = path.join(sourceDir, mergedName);
     
     const gsPath = 'C:\\Program Files\\gs\\gs10.06.0\\bin\\gswin64.exe';
     const args = [
@@ -461,19 +547,50 @@ function formatPhoneNumber(patientNo) {
 
 // Update registration status (equivalent to UPDATE reg SET worklist_printed = 1)
 async function updateRegistrationStatus(regKey) {
-  const connection = await pool.getConnection();
+  log(`Starting database update for reg_key: ${regKey}`);
+  
+  // Use a direct connection instead of pool to avoid pool issues
+  let connection;
   try {
+    log(`Creating direct database connection for reg_key: ${regKey}`);
+    connection = await oracledb.getConnection({
+      user: CONFIG.database.user,
+      password: CONFIG.database.password,
+      connectString: CONFIG.database.connectString
+    });
+    
+    log(`Direct connection acquired for reg_key: ${regKey}`);
+    
+    // Set auto-commit to true to avoid transaction issues
+    connection.autoCommit = true;
+    
     const query = `
       UPDATE reg
       SET worklist_printed = 1
       WHERE reg_key = :regKey
     `;
     
-    await connection.execute(query, [regKey]);
-    await connection.commit();
+    log(`Executing update query for reg_key: ${regKey}`);
+    const result = await connection.execute(query, [regKey]);
+    log(`Update query executed, rows affected: ${result.rowsAffected}`);
+    
+    // No need to commit since autoCommit is true
     log(`Marked registration ${regKey} as processed`);
+    
+  } catch (error) {
+    log(`Database update failed for reg_key ${regKey}: ${error.message}`, 'ERROR');
+    log(`Error details: ${JSON.stringify(error, null, 2)}`, 'ERROR');
+    throw error;
   } finally {
-    await connection.close();
+    if (connection) {
+      try {
+        log(`Closing direct database connection for reg_key: ${regKey}`);
+        await connection.close();
+        log(`Database connection closed successfully for reg_key: ${regKey}`);
+      } catch (closeError) {
+        log(`Error closing database connection: ${closeError.message}`, 'WARN');
+      }
+    }
   }
 }
 
@@ -481,6 +598,9 @@ async function updateRegistrationStatus(regKey) {
 async function processRegistration(regKey) {
   try {
     log(`Processing registration: ${regKey}`);
+    
+    // 0. Clean main folder before generating reports for this REG_KEY
+    cleanupOldPDFs();
     
     // 1. Generate group reports (test_type 1/2) - equivalent to c_grp loop
     const groupCodes = await getGroupCodes(regKey);
@@ -517,27 +637,58 @@ async function processRegistration(regKey) {
       }
     }
     
-    // 3. Wait for all PDFs to be generated
+    // 3. Wait for all PDFs to be generated in main folder
     const expectedCount = groupCodes.length + megaCodes.length;
     log(`Expected ${expectedCount} PDF files (${groupCodes.length} group + ${megaCodes.length} mega)`);
     
-    const generatedFiles = await waitForPDFs(expectedCount, 120);
+    // Add a small delay to ensure Oracle Reports has finished writing
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const generatedFiles = await waitForPDFs(expectedCount, 30, Date.now()); // Reduced timeout to 30 seconds
     
     if (generatedFiles.length === 0) {
+      log(`No PDFs found, checking main folder contents...`, 'WARN');
+      const allFiles = fs.readdirSync(CONFIG.paths.resultsFolder);
+      log(`Main folder contains: ${allFiles.join(', ')}`, 'WARN');
       throw new Error('No PDFs were generated');
     }
     
-    // 4. Merge PDFs
-    const mergedPath = await mergePDFs();
-    log(`PDFs merged successfully: ${mergedPath}`);
+    log(`Found ${generatedFiles.length} PDF files: ${generatedFiles.join(', ')}`);
     
-    // 5. Get patient phone and send WhatsApp
+    // 4. Get patient phone and create patient folder
     const patientPhone = await getPatientPhone(regKey);
     if (patientPhone) {
       const phoneE164 = formatPhoneNumber(patientPhone);
       log(`Patient phone: ${patientPhone} -> ${phoneE164}`);
       
       if (phoneE164) {
+        // Create patient-specific folder with reg_key
+        const patientFolder = path.join(CONFIG.paths.resultsFolder, `${phoneE164}&${regKey}`);
+        if (!fs.existsSync(patientFolder)) {
+          fs.mkdirSync(patientFolder, { recursive: true });
+          log(`Created patient folder: ${patientFolder}`);
+        }
+        
+        // Move all generated PDFs to patient folder for merging
+        const patientPdfFiles = [];
+        generatedFiles.forEach(file => {
+          const sourcePath = path.join(CONFIG.paths.resultsFolder, file);
+          const destPath = path.join(patientFolder, file);
+          fs.copyFileSync(sourcePath, destPath);
+          patientPdfFiles.push(destPath);
+        });
+        log(`Moved ${generatedFiles.length} PDF files to patient folder`);
+        
+        // Merge PDFs in patient folder
+        const mergedPath = await mergePDFs(patientFolder);
+        log(`PDFs merged successfully: ${mergedPath}`);
+        
+        // Delete original PDFs from main folder
+        generatedFiles.forEach(file => {
+          fs.unlinkSync(path.join(CONFIG.paths.resultsFolder, file));
+        });
+        log(`Deleted ${generatedFiles.length} original PDF files from main folder`);
+        
         try {
           await sendWhatsAppTemplate(phoneE164, mergedPath);
         } catch (error) {
@@ -551,8 +702,30 @@ async function processRegistration(regKey) {
       log(`No patient phone found for reg_key: ${regKey}, skipping WhatsApp`, 'WARN');
     }
     
-    // 6. Update database to mark as processed
-    await updateRegistrationStatus(regKey);
+    // 5. Update database to mark as processed
+    log(`About to update database for reg_key: ${regKey}`);
+    
+    // Test database connection first
+    try {
+      log(`Testing database connection before update...`);
+      const testConnection = await oracledb.getConnection({
+        user: CONFIG.database.user,
+        password: CONFIG.database.password,
+        connectString: CONFIG.database.connectString
+      });
+      await testConnection.close();
+      log(`Database connection test successful`);
+    } catch (testError) {
+      log(`Database connection test failed: ${testError.message}`, 'ERROR');
+      throw testError;
+    }
+    
+    await Promise.race([
+      updateRegistrationStatus(regKey),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database update timeout after 30 seconds')), 30000)
+      )
+    ]);
     
     log(`Registration ${regKey} processed successfully`);
     
@@ -562,16 +735,17 @@ async function processRegistration(regKey) {
   }
 }
 
-// Main function (equivalent to the main procedure)
-async function main() {
+// Process a single batch of registrations
+async function processBatch() {
+  // Check if already processing
+  if (isProcessing) {
+    log('Batch processing already in progress, skipping this cycle', 'WARN');
+    return 0;
+  }
+  
   try {
-    log('Starting lab reports processing...');
-    
-    // Initialize database
-    await initializeDatabase();
-    
-    // 0. Delete old PDFs ONCE at the start (equivalent to HOST command)
-    cleanupOldPDFs();
+    isProcessing = true;
+    log('Starting batch processing...');
     
     // Get all unprocessed registrations from all branches (worklist_printed = 2)
     const connection = await oracledb.getConnection();
@@ -589,32 +763,81 @@ async function main() {
       log(`Found ${registrations.length} unprocessed registrations: ${registrations.join(', ')}`);
       
       if (registrations.length === 0) {
-        log('No unprocessed registrations found');
-        return;
+        log('No unprocessed registrations found in this batch');
+        return 0;
       }
       
       // Process each registration
+      let processedCount = 0;
       for (const regKey of registrations) {
+        log(`\n=== Processing Registration: ${regKey} ===`);
         try {
-          log(`\n=== Processing Registration: ${regKey} ===`);
           await processRegistration(regKey);
           log(`=== Completed Registration: ${regKey} ===\n`);
+          processedCount++;
         } catch (error) {
           log(`Error processing registration ${regKey}: ${error.message}`, 'ERROR');
           // Continue with next registration even if one fails
         }
       }
       
-      log(`Processing completed. Processed ${registrations.length} registrations.`);
+      log(`Batch processing completed. Processed ${processedCount} registrations.`);
+      return processedCount;
       
     } finally {
       await connection.close();
     }
     
   } catch (error) {
+    log(`Batch processing error: ${error.message}`, 'ERROR');
+    throw error;
+  } finally {
+    isProcessing = false;
+  }
+}
+
+// Main function - runs continuously with 2-minute intervals
+async function main() {
+  try {
+    log('Starting lab reports processor (continuous mode)...');
+    
+    // Check for process lock to prevent multiple instances
+    if (!acquireLock()) {
+      log('Another instance is already running. Exiting.', 'WARN');
+      process.exit(0);
+    }
+    
+    // Initialize database
+    await initializeDatabase();
+    
+    // Main processing loop
+    while (true) {
+      try {
+        const processedCount = await processBatch();
+        
+        if (processedCount === 0) {
+          log('No records to process. Waiting 2 minutes before next check...');
+        } else {
+          log('Waiting 2 minutes before next batch...');
+        }
+        
+        // Wait 2 minutes (120 seconds) before next batch
+        await new Promise(resolve => setTimeout(resolve, 2 * 60 * 1000));
+        
+      } catch (error) {
+        log(`Error in processing loop: ${error.message}`, 'ERROR');
+        log('Waiting 2 minutes before retry...');
+        await new Promise(resolve => setTimeout(resolve, 2 * 60 * 1000));
+      }
+    }
+    
+  } catch (error) {
     log(`Fatal error: ${error.message}`, 'ERROR');
     process.exit(1);
   } finally {
+    // Always release the process lock
+    releaseLock();
+    
     if (pool) {
       await pool.close();
       log('Database connection pool closed');

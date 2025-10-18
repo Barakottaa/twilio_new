@@ -119,8 +119,7 @@ module.exports = {
       kill_timeout: 30000,
       listen_timeout: 10000,
       instances: 1,
-      exec_mode: 'fork',
-      cron_restart: '*/2 * * * *'
+      exec_mode: 'fork'
     }
   ]
 };

@@ -1,0 +1,16 @@
+2025-10-18T16:11:16: 🔄 Proxy server running on port 8080
+2025-10-18T16:11:16: 📡 Main app: http://localhost:8080/
+2025-10-18T16:11:16: 🕊️ Bird service: http://localhost:8080/bird/
+2025-10-18T16:11:16: 🌐 Use ngrok: ngrok http 8080
+2025-10-18T17:36:48: 🔄 Proxy server running on port 8080
+2025-10-18T17:36:48: 📡 Main app: http://localhost:8080/
+2025-10-18T17:36:48: 🕊️ Bird service: http://localhost:8080/bird/
+2025-10-18T17:36:48: 🌐 Use ngrok: ngrok http 8080
+2025-10-18T20:28:04: 🔄 Proxy server running on port 8080
+2025-10-18T20:28:04: 📡 Main app: http://localhost:8080/
+2025-10-18T20:28:04: 🕊️ Bird service: http://localhost:8080/bird/
+2025-10-18T20:28:04: 🌐 Use ngrok: ngrok http 8080
+2025-10-18T20:46:33: 🔄 Proxy server running on port 8080
+2025-10-18T20:46:33: 📡 Main app: http://localhost:8080/
+2025-10-18T20:46:33: 🕊️ Bird service: http://localhost:8080/bird/
+2025-10-18T20:46:33: 🌐 Use ngrok: ngrok http 8080

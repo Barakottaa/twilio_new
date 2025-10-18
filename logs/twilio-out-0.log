@@ -1,0 +1,748 @@
+2025-10-18T16:11:00: 🚀 Starting Twilio App...
+2025-10-18T16:11:00: 📁 Working directory: D:\New folder\twilio_new
+2025-10-18T16:11:01: 
+2025-10-18T16:11:01: > nextn@0.1.0 dev
+2025-10-18T16:11:01: > next dev -p 3000
+2025-10-18T16:11:01: 
+2025-10-18T16:11:02:    ▲ Next.js 15.3.3
+2025-10-18T16:11:02:    - Local:        http://localhost:3000
+2025-10-18T16:11:02:    - Network:      http://26.26.124.56:3000
+2025-10-18T16:11:02:    - Environments: .env.local
+2025-10-18T16:11:02: 
+2025-10-18T16:11:02:  ✓ Starting...
+2025-10-18T16:11:05:  ✓ Ready in 2.5s
+2025-10-18T16:11:40:  ○ Compiling /api/bird/webhook ...
+2025-10-18T16:11:42:  ✓ Compiled /api/bird/webhook in 2.5s (544 modules)
+2025-10-18T16:11:43: 📩 Incoming Bird event: {
+2025-10-18T16:11:43:   "service": "channels",
+2025-10-18T16:11:43:   "event": "whatsapp.inbound",
+2025-10-18T16:11:43:   "payload": {
+2025-10-18T16:11:43:     "id": "d2c4a1b2-dbde-4dcc-82a8-098f6bcf20b1",
+2025-10-18T16:11:43:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T16:11:43:     "sender": {
+2025-10-18T16:11:43:       "contact": {
+2025-10-18T16:11:43:         "id": "2ead7420-edf1-4931-b0db-85e61c071538",
+2025-10-18T16:11:43:         "identifierKey": "phonenumber",
+2025-10-18T16:11:43:         "identifierValue": "+201212737077",
+2025-10-18T16:11:43:         "annotations": {
+2025-10-18T16:11:43:           "name": "سيد الناس أبو إياد"
+2025-10-18T16:11:43:         }
+2025-10-18T16:11:43:       }
+2025-10-18T16:11:43:     },
+2025-10-18T16:11:43:     "receiver": {
+2025-10-18T16:11:43:       "connector": {
+2025-10-18T16:11:43:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T16:11:43:         "identifierValue": "+201100414204"
+2025-10-18T16:11:43:       }
+2025-10-18T16:11:43:     },
+2025-10-18T16:11:43:     "body": {
+2025-10-18T16:11:43:       "type": "text",
+2025-10-18T16:11:43:       "text": {
+2025-10-18T16:11:43:         "text": "شكراً لحضرتكم"
+2025-10-18T16:11:43:       }
+2025-10-18T16:11:43:     },
+2025-10-18T16:11:43:     "meta": {
+2025-10-18T16:11:43:       "extraInformation": {
+2025-10-18T16:11:43:         "timestamp": "1760793098",
+2025-10-18T16:11:43:         "user_locale": "ar-EG"
+2025-10-18T16:11:43:       }
+2025-10-18T16:11:43:     },
+2025-10-18T16:11:43:     "reference": "",
+2025-10-18T16:11:43:     "parts": [
+2025-10-18T16:11:43:       {
+2025-10-18T16:11:43:         "platformReference": "wamid.HBgMMjAxMjEyNzM3MDc3FQIAEhggQUNFOTI0QTRBOTQyRDc3MkQ3OTNBMDg2QjY0OEI3QzUA"
+2025-10-18T16:11:43:       }
+2025-10-18T16:11:43:     ],
+2025-10-18T16:11:43:     "status": "delivered",
+2025-10-18T16:11:43:     "reason": "",
+2025-10-18T16:11:43:     "direction": "incoming",
+2025-10-18T16:11:43:     "chargeableUnits": 1,
+2025-10-18T16:11:43:     "lastStatusAt": "2025-10-18T13:11:41.876Z",
+2025-10-18T16:11:43:     "createdAt": "2025-10-18T13:11:41.618Z",
+2025-10-18T16:11:43:     "updatedAt": "2025-10-18T13:11:41.876Z",
+2025-10-18T16:11:43:     "batchId": null
+2025-10-18T16:11:43:   }
+2025-10-18T16:11:43: }
+2025-10-18T16:11:43: 🔍 Extracted data: {
+2025-10-18T16:11:43:   event: 'whatsapp.inbound',
+2025-10-18T16:11:43:   contact: '+201212737077',
+2025-10-18T16:11:43:   postbackPayload: null
+2025-10-18T16:11:43: }
+2025-10-18T16:11:43: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T16:11:43:  POST /api/bird/webhook 200 in 3038ms
+2025-10-18T16:20:55: 📩 Incoming Bird event: {
+2025-10-18T16:20:55:   "service": "channels",
+2025-10-18T16:20:55:   "event": "whatsapp.inbound",
+2025-10-18T16:20:55:   "payload": {
+2025-10-18T16:20:55:     "id": "27aa1afb-5107-467e-a876-29a09a2feda3",
+2025-10-18T16:20:55:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T16:20:55:     "sender": {
+2025-10-18T16:20:55:       "contact": {
+2025-10-18T16:20:55:         "id": "826152ee-c719-4216-b41b-4ffe53db7ce0",
+2025-10-18T16:20:55:         "identifierKey": "phonenumber",
+2025-10-18T16:20:55:         "identifierValue": "+201271633918",
+2025-10-18T16:20:55:         "annotations": {
+2025-10-18T16:20:55:           "name": "Hani Harb"
+2025-10-18T16:20:55:         }
+2025-10-18T16:20:55:       }
+2025-10-18T16:20:55:     },
+2025-10-18T16:20:55:     "receiver": {
+2025-10-18T16:20:55:       "connector": {
+2025-10-18T16:20:55:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T16:20:55:         "identifierValue": "+201100414204"
+2025-10-18T16:20:55:       }
+2025-10-18T16:20:55:     },
+2025-10-18T16:20:55:     "body": {
+2025-10-18T16:20:55:       "type": "text",
+2025-10-18T16:20:55:       "text": {
+2025-10-18T16:20:55:         "text": "دي موش التحليل بتعتي مبعوتة غلط"
+2025-10-18T16:20:55:       }
+2025-10-18T16:20:55:     },
+2025-10-18T16:20:55:     "meta": {
+2025-10-18T16:20:55:       "extraInformation": {
+2025-10-18T16:20:55:         "timestamp": "1760793653",
+2025-10-18T16:20:55:         "user_locale": "ar-EG"
+2025-10-18T16:20:55:       }
+2025-10-18T16:20:55:     },
+2025-10-18T16:20:55:     "reference": "",
+2025-10-18T16:20:55:     "parts": [
+2025-10-18T16:20:55:       {
+2025-10-18T16:20:55:         "platformReference": "wamid.HBgMMjAxMjcxNjMzOTE4FQIAEhggQUM1OUE3OTU0M0U1RTg5RTQ0NTNFREFGMDVEQkJDNjEA"
+2025-10-18T16:20:55:       }
+2025-10-18T16:20:55:     ],
+2025-10-18T16:20:55:     "status": "delivered",
+2025-10-18T16:20:55:     "reason": "",
+2025-10-18T16:20:55:     "direction": "incoming",
+2025-10-18T16:20:55:     "chargeableUnits": 1,
+2025-10-18T16:20:55:     "lastStatusAt": "2025-10-18T13:20:56.891Z",
+2025-10-18T16:20:55:     "createdAt": "2025-10-18T13:20:56.721Z",
+2025-10-18T16:20:55:     "updatedAt": "2025-10-18T13:20:56.891Z",
+2025-10-18T16:20:55:     "batchId": null
+2025-10-18T16:20:55:   }
+2025-10-18T16:20:55: }
+2025-10-18T16:20:55: 🔍 Extracted data: {
+2025-10-18T16:20:55:   event: 'whatsapp.inbound',
+2025-10-18T16:20:55:   contact: '+201271633918',
+2025-10-18T16:20:55:   postbackPayload: null
+2025-10-18T16:20:55: }
+2025-10-18T16:20:55: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T16:20:55:  POST /api/bird/webhook 200 in 13ms
+2025-10-18T16:33:55: 📩 Incoming Bird event: {
+2025-10-18T16:33:55:   "service": "channels",
+2025-10-18T16:33:55:   "event": "whatsapp.inbound",
+2025-10-18T16:33:55:   "payload": {
+2025-10-18T16:33:55:     "id": "b2ebf082-6b29-46b1-b32c-61b4cc87c462",
+2025-10-18T16:33:55:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T16:33:55:     "sender": {
+2025-10-18T16:33:55:       "contact": {
+2025-10-18T16:33:55:         "id": "5bda9593-5ed2-466a-bee4-d1d8d18c79aa",
+2025-10-18T16:33:55:         "identifierKey": "phonenumber",
+2025-10-18T16:33:55:         "identifierValue": "+201226101152",
+2025-10-18T16:33:55:         "annotations": {
+2025-10-18T16:33:55:           "name": "."
+2025-10-18T16:33:55:         }
+2025-10-18T16:33:55:       }
+2025-10-18T16:33:55:     },
+2025-10-18T16:33:55:     "receiver": {
+2025-10-18T16:33:55:       "connector": {
+2025-10-18T16:33:55:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T16:33:55:         "identifierValue": "+201100414204"
+2025-10-18T16:33:55:       }
+2025-10-18T16:33:55:     },
+2025-10-18T16:33:55:     "body": {
+2025-10-18T16:33:55:       "type": "text",
+2025-10-18T16:33:55:       "text": {
+2025-10-18T16:33:55:         "text": "التحليل غلط مش بتاعى"
+2025-10-18T16:33:55:       }
+2025-10-18T16:33:55:     },
+2025-10-18T16:33:55:     "meta": {
+2025-10-18T16:33:55:       "extraInformation": {
+2025-10-18T16:33:55:         "timestamp": "1760794435",
+2025-10-18T16:33:55:         "user_locale": "ar-EG"
+2025-10-18T16:33:55:       }
+2025-10-18T16:33:55:     },
+2025-10-18T16:33:55:     "reference": "",
+2025-10-18T16:33:55:     "parts": [
+2025-10-18T16:33:55:       {
+2025-10-18T16:33:55:         "platformReference": "wamid.HBgMMjAxMjI2MTAxMTUyFQIAEhggQUM5OEIxMkI5RkI4QTE1N0ZGMDc5RTI0RUI3MTdCNUQA"
+2025-10-18T16:33:55:       }
+2025-10-18T16:33:55:     ],
+2025-10-18T16:33:55:     "status": "delivered",
+2025-10-18T16:33:55:     "reason": "",
+2025-10-18T16:33:55:     "direction": "incoming",
+2025-10-18T16:33:55:     "chargeableUnits": 1,
+2025-10-18T16:33:55:     "lastStatusAt": "2025-10-18T13:33:57.923Z",
+2025-10-18T16:33:55:     "createdAt": "2025-10-18T13:33:57.77Z",
+2025-10-18T16:33:55:     "updatedAt": "2025-10-18T13:33:57.923Z",
+2025-10-18T16:33:55:     "batchId": null
+2025-10-18T16:33:55:   }
+2025-10-18T16:33:55: }
+2025-10-18T16:33:55: 🔍 Extracted data: {
+2025-10-18T16:33:55:   event: 'whatsapp.inbound',
+2025-10-18T16:33:55:   contact: '+201226101152',
+2025-10-18T16:33:55:   postbackPayload: null
+2025-10-18T16:33:55: }
+2025-10-18T16:33:55: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T16:33:55:  POST /api/bird/webhook 200 in 11ms
+2025-10-18T17:36:32: 🚀 Starting Twilio App...
+2025-10-18T17:36:32: 📁 Working directory: D:\New folder\twilio_new
+2025-10-18T17:36:33: 
+2025-10-18T17:36:33: > nextn@0.1.0 dev
+2025-10-18T17:36:33: > next dev -p 3000
+2025-10-18T17:36:33: 
+2025-10-18T17:36:35:    ▲ Next.js 15.3.3
+2025-10-18T17:36:35:    - Local:        http://localhost:3000
+2025-10-18T17:36:35:    - Network:      http://26.26.124.56:3000
+2025-10-18T17:36:35:    - Environments: .env.local
+2025-10-18T17:36:35: 
+2025-10-18T17:36:35:  ✓ Starting...
+2025-10-18T17:36:37:  ✓ Ready in 2.9s
+2025-10-18T17:37:06:  ○ Compiling /api/bird/webhook ...
+2025-10-18T17:37:07:  ✓ Compiled /api/bird/webhook in 1254ms (544 modules)
+2025-10-18T17:37:07: 📩 Incoming Bird event: {
+2025-10-18T17:37:07:   "service": "channels",
+2025-10-18T17:37:07:   "event": "whatsapp.inbound",
+2025-10-18T17:37:07:   "payload": {
+2025-10-18T17:37:07:     "id": "16837fec-ca69-44b7-bc1d-8109b418f99a",
+2025-10-18T17:37:07:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T17:37:07:     "sender": {
+2025-10-18T17:37:07:       "contact": {
+2025-10-18T17:37:07:         "id": "826152ee-c719-4216-b41b-4ffe53db7ce0",
+2025-10-18T17:37:07:         "identifierKey": "phonenumber",
+2025-10-18T17:37:07:         "identifierValue": "+201271633918",
+2025-10-18T17:37:07:         "annotations": {
+2025-10-18T17:37:07:           "name": "Hani Harb"
+2025-10-18T17:37:07:         }
+2025-10-18T17:37:07:       }
+2025-10-18T17:37:07:     },
+2025-10-18T17:37:07:     "receiver": {
+2025-10-18T17:37:07:       "connector": {
+2025-10-18T17:37:07:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T17:37:07:         "identifierValue": "+201100414204"
+2025-10-18T17:37:07:       }
+2025-10-18T17:37:07:     },
+2025-10-18T17:37:07:     "body": {
+2025-10-18T17:37:07:       "type": "file",
+2025-10-18T17:37:07:       "file": {
+2025-10-18T17:37:07:         "files": [
+2025-10-18T17:37:07:           {
+2025-10-18T17:37:07:             "contentType": "audio/ogg",
+2025-10-18T17:37:07:             "mediaUrl": "https://media.nest.messagebird.com/workspaces/2d7a1e03-25e4-401e-bf1e-0ace545673d7/messages/16837fec-ca69-44b7-bc1d-8109b418f99a/media/1c2f9be9-0a1d-4552-b170-4261925ebf98"
+2025-10-18T17:37:07:           }
+2025-10-18T17:37:07:         ]
+2025-10-18T17:37:07:       }
+2025-10-18T17:37:07:     },
+2025-10-18T17:37:07:     "meta": {
+2025-10-18T17:37:07:       "extraInformation": {
+2025-10-18T17:37:07:         "timestamp": "1760797760",
+2025-10-18T17:37:07:         "user_locale": "ar-EG",
+2025-10-18T17:37:07:         "whatsapp.media.type": "audio"
+2025-10-18T17:37:07:       }
+2025-10-18T17:37:07:     },
+2025-10-18T17:37:07:     "reference": "",
+2025-10-18T17:37:07:     "parts": [
+2025-10-18T17:37:07:       {
+2025-10-18T17:37:07:         "platformReference": "wamid.HBgMMjAxMjcxNjMzOTE4FQIAEhggQUM0NjFGQzMwM0EzNkRFNTVBOUQzRjg3NkUyNzQ2N0EA"
+2025-10-18T17:37:07:       }
+2025-10-18T17:37:07:     ],
+2025-10-18T17:37:07:     "status": "delivered",
+2025-10-18T17:37:07:     "reason": "",
+2025-10-18T17:37:07:     "direction": "incoming",
+2025-10-18T17:37:07:     "chargeableUnits": 1,
+2025-10-18T17:37:07:     "lastStatusAt": "2025-10-18T14:29:24.819Z",
+2025-10-18T17:37:07:     "createdAt": "2025-10-18T14:29:24.752Z",
+2025-10-18T17:37:07:     "updatedAt": "2025-10-18T14:29:24.819Z",
+2025-10-18T17:37:07:     "batchId": null
+2025-10-18T17:37:07:   }
+2025-10-18T17:37:07: }
+2025-10-18T17:37:07: 🔍 Extracted data: {
+2025-10-18T17:37:07:   event: 'whatsapp.inbound',
+2025-10-18T17:37:07:   contact: '+201271633918',
+2025-10-18T17:37:07:   postbackPayload: null
+2025-10-18T17:37:07: }
+2025-10-18T17:37:07: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T17:37:07:  POST /api/bird/webhook 200 in 1521ms
+2025-10-18T17:37:42: 📩 Incoming Bird event: {
+2025-10-18T17:37:42:   "service": "channels",
+2025-10-18T17:37:42:   "event": "whatsapp.inbound",
+2025-10-18T17:37:42:   "payload": {
+2025-10-18T17:37:42:     "id": "061827d1-8ff0-41c3-a351-214dfbc203a9",
+2025-10-18T17:37:42:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T17:37:42:     "sender": {
+2025-10-18T17:37:42:       "contact": {
+2025-10-18T17:37:42:         "id": "826152ee-c719-4216-b41b-4ffe53db7ce0",
+2025-10-18T17:37:42:         "identifierKey": "phonenumber",
+2025-10-18T17:37:42:         "identifierValue": "+201271633918",
+2025-10-18T17:37:42:         "annotations": {
+2025-10-18T17:37:42:           "name": "Hani Harb"
+2025-10-18T17:37:42:         }
+2025-10-18T17:37:42:       }
+2025-10-18T17:37:42:     },
+2025-10-18T17:37:42:     "receiver": {
+2025-10-18T17:37:42:       "connector": {
+2025-10-18T17:37:42:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T17:37:42:         "identifierValue": "+201100414204"
+2025-10-18T17:37:42:       }
+2025-10-18T17:37:42:     },
+2025-10-18T17:37:42:     "body": {
+2025-10-18T17:37:42:       "type": "text",
+2025-10-18T17:37:42:       "text": {
+2025-10-18T17:37:42:         "text": "الزاي يعني"
+2025-10-18T17:37:42:       }
+2025-10-18T17:37:42:     },
+2025-10-18T17:37:42:     "meta": {
+2025-10-18T17:37:42:       "extraInformation": {
+2025-10-18T17:37:42:         "timestamp": "1760797718",
+2025-10-18T17:37:42:         "user_locale": "ar-EG"
+2025-10-18T17:37:42:       }
+2025-10-18T17:37:42:     },
+2025-10-18T17:37:42:     "reference": "",
+2025-10-18T17:37:42:     "parts": [
+2025-10-18T17:37:42:       {
+2025-10-18T17:37:42:         "platformReference": "wamid.HBgMMjAxMjcxNjMzOTE4FQIAEhggQUM1NEYxRkJGMTRCQ0RFMThDMkVDNTk5QTMwRkVFQUYA"
+2025-10-18T17:37:42:       }
+2025-10-18T17:37:42:     ],
+2025-10-18T17:37:42:     "status": "delivered",
+2025-10-18T17:37:42:     "reason": "",
+2025-10-18T17:37:42:     "direction": "incoming",
+2025-10-18T17:37:42:     "chargeableUnits": 1,
+2025-10-18T17:37:42:     "lastStatusAt": "2025-10-18T14:28:40.731Z",
+2025-10-18T17:37:42:     "createdAt": "2025-10-18T14:28:40.659Z",
+2025-10-18T17:37:42:     "updatedAt": "2025-10-18T14:28:40.731Z",
+2025-10-18T17:37:42:     "batchId": null
+2025-10-18T17:37:42:   }
+2025-10-18T17:37:42: }
+2025-10-18T17:37:42: 🔍 Extracted data: {
+2025-10-18T17:37:42:   event: 'whatsapp.inbound',
+2025-10-18T17:37:42:   contact: '+201271633918',
+2025-10-18T17:37:42:   postbackPayload: null
+2025-10-18T17:37:42: }
+2025-10-18T17:37:42: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T17:37:42:  POST /api/bird/webhook 200 in 15ms
+2025-10-18T20:27:48: 🚀 Starting Twilio App...
+2025-10-18T20:27:48: 📁 Working directory: D:\New folder\twilio_new
+2025-10-18T20:27:49: 
+2025-10-18T20:27:49: > nextn@0.1.0 dev
+2025-10-18T20:27:49: > next dev -p 3000
+2025-10-18T20:27:49: 
+2025-10-18T20:27:51:    ▲ Next.js 15.3.3
+2025-10-18T20:27:51:    - Local:        http://localhost:3000
+2025-10-18T20:27:51:    - Network:      http://26.26.124.56:3000
+2025-10-18T20:27:51:    - Environments: .env.local
+2025-10-18T20:27:51: 
+2025-10-18T20:27:51:  ✓ Starting...
+2025-10-18T20:27:54:  ✓ Ready in 3.7s
+2025-10-18T20:29:12:  ○ Compiling /api/bird/webhook ...
+2025-10-18T20:29:13:  ✓ Compiled /api/bird/webhook in 1094ms (544 modules)
+2025-10-18T20:29:13: 📩 Incoming Bird event: {
+2025-10-18T20:29:13:   "service": "channels",
+2025-10-18T20:29:13:   "event": "whatsapp.inbound",
+2025-10-18T20:29:13:   "payload": {
+2025-10-18T20:29:13:     "id": "cfc860ee-254c-4081-bc14-87323748164d",
+2025-10-18T20:29:13:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T20:29:13:     "sender": {
+2025-10-18T20:29:13:       "contact": {
+2025-10-18T20:29:13:         "id": "6134ace9-615f-4da9-8587-e4a74e7e3fb3",
+2025-10-18T20:29:13:         "identifierKey": "phonenumber",
+2025-10-18T20:29:13:         "identifierValue": "+201016666348",
+2025-10-18T20:29:13:         "annotations": {
+2025-10-18T20:29:13:           "name": "Abdelrahman Baraka"
+2025-10-18T20:29:13:         }
+2025-10-18T20:29:13:       }
+2025-10-18T20:29:13:     },
+2025-10-18T20:29:13:     "receiver": {
+2025-10-18T20:29:13:       "connector": {
+2025-10-18T20:29:13:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T20:29:13:         "identifierValue": "+201100414204"
+2025-10-18T20:29:13:       }
+2025-10-18T20:29:13:     },
+2025-10-18T20:29:13:     "body": {
+2025-10-18T20:29:13:       "type": "text",
+2025-10-18T20:29:13:       "text": {
+2025-10-18T20:29:13:         "text": "x"
+2025-10-18T20:29:13:       }
+2025-10-18T20:29:13:     },
+2025-10-18T20:29:13:     "meta": {
+2025-10-18T20:29:13:       "extraInformation": {
+2025-10-18T20:29:13:         "timestamp": "1760808063",
+2025-10-18T20:29:13:         "user_locale": "ar-EG"
+2025-10-18T20:29:13:       }
+2025-10-18T20:29:13:     },
+2025-10-18T20:29:13:     "reference": "",
+2025-10-18T20:29:13:     "parts": [
+2025-10-18T20:29:13:       {
+2025-10-18T20:29:13:         "platformReference": "wamid.HBgMMjAxMDE2NjY2MzQ4FQIAEhgUM0YyRTU5MzhBODBFN0M3OEQ3NEEA"
+2025-10-18T20:29:13:       }
+2025-10-18T20:29:13:     ],
+2025-10-18T20:29:13:     "status": "delivered",
+2025-10-18T20:29:13:     "reason": "",
+2025-10-18T20:29:13:     "direction": "incoming",
+2025-10-18T20:29:13:     "chargeableUnits": 1,
+2025-10-18T20:29:13:     "lastStatusAt": "2025-10-18T17:21:05.183Z",
+2025-10-18T20:29:13:     "createdAt": "2025-10-18T17:21:05.09Z",
+2025-10-18T20:29:13:     "updatedAt": "2025-10-18T17:21:05.183Z",
+2025-10-18T20:29:13:     "batchId": null
+2025-10-18T20:29:13:   }
+2025-10-18T20:29:13: }
+2025-10-18T20:29:13: 🔍 Extracted data: {
+2025-10-18T20:29:13:   event: 'whatsapp.inbound',
+2025-10-18T20:29:13:   contact: '+201016666348',
+2025-10-18T20:29:13:   postbackPayload: null
+2025-10-18T20:29:13: }
+2025-10-18T20:29:13: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T20:29:13:  POST /api/bird/webhook 200 in 1413ms
+2025-10-18T20:31:46: 📩 Incoming Bird event: {
+2025-10-18T20:31:46:   "service": "channels",
+2025-10-18T20:31:46:   "event": "whatsapp.inbound",
+2025-10-18T20:31:46:   "payload": {
+2025-10-18T20:31:46:     "id": "f3e5330a-b3f3-4078-b0ed-690c15a6432f",
+2025-10-18T20:31:46:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T20:31:46:     "sender": {
+2025-10-18T20:31:46:       "contact": {
+2025-10-18T20:31:46:         "id": "6134ace9-615f-4da9-8587-e4a74e7e3fb3",
+2025-10-18T20:31:46:         "identifierKey": "phonenumber",
+2025-10-18T20:31:46:         "identifierValue": "+201016666348",
+2025-10-18T20:31:46:         "annotations": {
+2025-10-18T20:31:46:           "name": "Abdelrahman Baraka"
+2025-10-18T20:31:46:         }
+2025-10-18T20:31:46:       }
+2025-10-18T20:31:46:     },
+2025-10-18T20:31:46:     "receiver": {
+2025-10-18T20:31:46:       "connector": {
+2025-10-18T20:31:46:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T20:31:46:         "identifierValue": "+201100414204"
+2025-10-18T20:31:46:       }
+2025-10-18T20:31:46:     },
+2025-10-18T20:31:46:     "body": {
+2025-10-18T20:31:46:       "type": "text",
+2025-10-18T20:31:46:       "text": {
+2025-10-18T20:31:46:         "text": "x"
+2025-10-18T20:31:46:       }
+2025-10-18T20:31:46:     },
+2025-10-18T20:31:46:     "meta": {
+2025-10-18T20:31:46:       "extraInformation": {
+2025-10-18T20:31:46:         "timestamp": "1760806693",
+2025-10-18T20:31:46:         "user_locale": "ar-EG"
+2025-10-18T20:31:46:       }
+2025-10-18T20:31:46:     },
+2025-10-18T20:31:46:     "reference": "",
+2025-10-18T20:31:46:     "parts": [
+2025-10-18T20:31:46:       {
+2025-10-18T20:31:46:         "platformReference": "wamid.HBgMMjAxMDE2NjY2MzQ4FQIAEhgUM0Y1OEZBODc3MTdGN0FENzI3NzAA"
+2025-10-18T20:31:46:       }
+2025-10-18T20:31:46:     ],
+2025-10-18T20:31:46:     "status": "delivered",
+2025-10-18T20:31:46:     "reason": "",
+2025-10-18T20:31:46:     "direction": "incoming",
+2025-10-18T20:31:46:     "chargeableUnits": 1,
+2025-10-18T20:31:46:     "lastStatusAt": "2025-10-18T16:58:18.398Z",
+2025-10-18T20:31:46:     "createdAt": "2025-10-18T16:58:18.28Z",
+2025-10-18T20:31:46:     "updatedAt": "2025-10-18T16:58:18.399Z",
+2025-10-18T20:31:46:     "batchId": null
+2025-10-18T20:31:46:   }
+2025-10-18T20:31:46: }
+2025-10-18T20:31:46: 🔍 Extracted data: {
+2025-10-18T20:31:46:   event: 'whatsapp.inbound',
+2025-10-18T20:31:46:   contact: '+201016666348',
+2025-10-18T20:31:46:   postbackPayload: null
+2025-10-18T20:31:46: }
+2025-10-18T20:31:46: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T20:31:46:  POST /api/bird/webhook 200 in 16ms
+2025-10-18T20:34:19: 📩 Incoming Bird event: {
+2025-10-18T20:34:19:   "service": "channels",
+2025-10-18T20:34:19:   "event": "whatsapp.inbound",
+2025-10-18T20:34:19:   "payload": {
+2025-10-18T20:34:19:     "id": "456b69ee-621c-4084-8a90-a719e7a81ffb",
+2025-10-18T20:34:19:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T20:34:19:     "sender": {
+2025-10-18T20:34:19:       "contact": {
+2025-10-18T20:34:19:         "id": "70817e46-319a-4f89-8ed6-b9cfb365c95b",
+2025-10-18T20:34:19:         "identifierKey": "phonenumber",
+2025-10-18T20:34:19:         "identifierValue": "+201096209630",
+2025-10-18T20:34:19:         "annotations": {
+2025-10-18T20:34:19:           "name": "perry🥰"
+2025-10-18T20:34:19:         }
+2025-10-18T20:34:19:       }
+2025-10-18T20:34:19:     },
+2025-10-18T20:34:19:     "receiver": {
+2025-10-18T20:34:19:       "connector": {
+2025-10-18T20:34:19:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T20:34:19:         "identifierValue": "+201100414204"
+2025-10-18T20:34:19:       }
+2025-10-18T20:34:19:     },
+2025-10-18T20:34:19:     "body": {
+2025-10-18T20:34:19:       "type": "text",
+2025-10-18T20:34:19:       "text": {
+2025-10-18T20:34:19:         "text": "نتيجه التحليل كويسه طيب ولا اي"
+2025-10-18T20:34:19:       }
+2025-10-18T20:34:19:     },
+2025-10-18T20:34:19:     "meta": {
+2025-10-18T20:34:19:       "extraInformation": {
+2025-10-18T20:34:19:         "timestamp": "1760808857",
+2025-10-18T20:34:19:         "user_locale": "ar-EG"
+2025-10-18T20:34:19:       }
+2025-10-18T20:34:19:     },
+2025-10-18T20:34:19:     "reference": "",
+2025-10-18T20:34:19:     "parts": [
+2025-10-18T20:34:19:       {
+2025-10-18T20:34:19:         "platformReference": "wamid.HBgMMjAxMDk2MjA5NjMwFQIAEhggQUM1MEVCNDA3MDc3Q0Y2MTczMTk3NUJFQjNERThFQ0UA"
+2025-10-18T20:34:19:       }
+2025-10-18T20:34:19:     ],
+2025-10-18T20:34:19:     "status": "delivered",
+2025-10-18T20:34:19:     "reason": "",
+2025-10-18T20:34:19:     "direction": "incoming",
+2025-10-18T20:34:19:     "chargeableUnits": 1,
+2025-10-18T20:34:19:     "lastStatusAt": "2025-10-18T17:34:20.332Z",
+2025-10-18T20:34:19:     "createdAt": "2025-10-18T17:34:20.105Z",
+2025-10-18T20:34:19:     "updatedAt": "2025-10-18T17:34:20.332Z",
+2025-10-18T20:34:19:     "batchId": null
+2025-10-18T20:34:19:   }
+2025-10-18T20:34:19: }
+2025-10-18T20:34:19: 🔍 Extracted data: {
+2025-10-18T20:34:19:   event: 'whatsapp.inbound',
+2025-10-18T20:34:19:   contact: '+201096209630',
+2025-10-18T20:34:19:   postbackPayload: null
+2025-10-18T20:34:19: }
+2025-10-18T20:34:19: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T20:34:19:  POST /api/bird/webhook 200 in 12ms
+2025-10-18T20:35:51: 📩 Incoming Bird event: {
+2025-10-18T20:35:51:   "service": "channels",
+2025-10-18T20:35:51:   "event": "whatsapp.inbound",
+2025-10-18T20:35:51:   "payload": {
+2025-10-18T20:35:51:     "id": "d6fd5022-b25e-4463-bcf0-9f53999b9fa5",
+2025-10-18T20:35:51:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T20:35:51:     "sender": {
+2025-10-18T20:35:51:       "contact": {
+2025-10-18T20:35:51:         "id": "6134ace9-615f-4da9-8587-e4a74e7e3fb3",
+2025-10-18T20:35:51:         "identifierKey": "phonenumber",
+2025-10-18T20:35:51:         "identifierValue": "+201016666348",
+2025-10-18T20:35:51:         "annotations": {
+2025-10-18T20:35:51:           "name": "Abdelrahman Baraka"
+2025-10-18T20:35:51:         }
+2025-10-18T20:35:51:       }
+2025-10-18T20:35:51:     },
+2025-10-18T20:35:51:     "receiver": {
+2025-10-18T20:35:51:       "connector": {
+2025-10-18T20:35:51:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T20:35:51:         "identifierValue": "+201100414204"
+2025-10-18T20:35:51:       }
+2025-10-18T20:35:51:     },
+2025-10-18T20:35:51:     "body": {
+2025-10-18T20:35:51:       "type": "text",
+2025-10-18T20:35:51:       "text": {
+2025-10-18T20:35:51:         "text": "x"
+2025-10-18T20:35:51:       }
+2025-10-18T20:35:51:     },
+2025-10-18T20:35:51:     "meta": {
+2025-10-18T20:35:51:       "extraInformation": {
+2025-10-18T20:35:51:         "timestamp": "1760807824",
+2025-10-18T20:35:51:         "user_locale": "ar-EG"
+2025-10-18T20:35:51:       }
+2025-10-18T20:35:51:     },
+2025-10-18T20:35:51:     "reference": "",
+2025-10-18T20:35:51:     "parts": [
+2025-10-18T20:35:51:       {
+2025-10-18T20:35:51:         "platformReference": "wamid.HBgMMjAxMDE2NjY2MzQ4FQIAEhgUM0Y2OTg4N0VBMjJCQzEzNUI4NUYA"
+2025-10-18T20:35:51:       }
+2025-10-18T20:35:51:     ],
+2025-10-18T20:35:51:     "status": "delivered",
+2025-10-18T20:35:51:     "reason": "",
+2025-10-18T20:35:51:     "direction": "incoming",
+2025-10-18T20:35:51:     "chargeableUnits": 1,
+2025-10-18T20:35:51:     "lastStatusAt": "2025-10-18T17:17:08.513Z",
+2025-10-18T20:35:51:     "createdAt": "2025-10-18T17:17:08.367Z",
+2025-10-18T20:35:51:     "updatedAt": "2025-10-18T17:17:08.513Z",
+2025-10-18T20:35:51:     "batchId": null
+2025-10-18T20:35:51:   }
+2025-10-18T20:35:51: }
+2025-10-18T20:35:51: 🔍 Extracted data: {
+2025-10-18T20:35:51:   event: 'whatsapp.inbound',
+2025-10-18T20:35:51:   contact: '+201016666348',
+2025-10-18T20:35:51:   postbackPayload: null
+2025-10-18T20:35:51: }
+2025-10-18T20:35:51: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T20:35:51:  POST /api/bird/webhook 200 in 16ms
+2025-10-18T20:36:07: 📩 Incoming Bird event: {
+2025-10-18T20:36:07:   "service": "channels",
+2025-10-18T20:36:07:   "event": "whatsapp.inbound",
+2025-10-18T20:36:07:   "payload": {
+2025-10-18T20:36:07:     "id": "a8e13756-8aa5-4151-9068-408aca4b5403",
+2025-10-18T20:36:07:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T20:36:07:     "sender": {
+2025-10-18T20:36:07:       "contact": {
+2025-10-18T20:36:07:         "id": "6134ace9-615f-4da9-8587-e4a74e7e3fb3",
+2025-10-18T20:36:07:         "identifierKey": "phonenumber",
+2025-10-18T20:36:07:         "identifierValue": "+201016666348",
+2025-10-18T20:36:07:         "annotations": {
+2025-10-18T20:36:07:           "name": "Abdelrahman Baraka"
+2025-10-18T20:36:07:         }
+2025-10-18T20:36:07:       }
+2025-10-18T20:36:07:     },
+2025-10-18T20:36:07:     "receiver": {
+2025-10-18T20:36:07:       "connector": {
+2025-10-18T20:36:07:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T20:36:07:         "identifierValue": "+201100414204"
+2025-10-18T20:36:07:       }
+2025-10-18T20:36:07:     },
+2025-10-18T20:36:07:     "body": {
+2025-10-18T20:36:07:       "type": "text",
+2025-10-18T20:36:07:       "text": {
+2025-10-18T20:36:07:         "text": "x"
+2025-10-18T20:36:07:       }
+2025-10-18T20:36:07:     },
+2025-10-18T20:36:07:     "meta": {
+2025-10-18T20:36:07:       "extraInformation": {
+2025-10-18T20:36:07:         "timestamp": "1760807861",
+2025-10-18T20:36:07:         "user_locale": "ar-EG"
+2025-10-18T20:36:07:       }
+2025-10-18T20:36:07:     },
+2025-10-18T20:36:07:     "reference": "",
+2025-10-18T20:36:07:     "parts": [
+2025-10-18T20:36:07:       {
+2025-10-18T20:36:07:         "platformReference": "wamid.HBgMMjAxMDE2NjY2MzQ4FQIAEhgUM0ZEMjVBRkRBREY1NjYwMUE4RDEA"
+2025-10-18T20:36:07:       }
+2025-10-18T20:36:07:     ],
+2025-10-18T20:36:07:     "status": "delivered",
+2025-10-18T20:36:07:     "reason": "",
+2025-10-18T20:36:07:     "direction": "incoming",
+2025-10-18T20:36:07:     "chargeableUnits": 1,
+2025-10-18T20:36:07:     "lastStatusAt": "2025-10-18T17:17:44.475Z",
+2025-10-18T20:36:07:     "createdAt": "2025-10-18T17:17:44.378Z",
+2025-10-18T20:36:07:     "updatedAt": "2025-10-18T17:17:44.475Z",
+2025-10-18T20:36:07:     "batchId": null
+2025-10-18T20:36:07:   }
+2025-10-18T20:36:07: }
+2025-10-18T20:36:07: 🔍 Extracted data: {
+2025-10-18T20:36:07:   event: 'whatsapp.inbound',
+2025-10-18T20:36:07:   contact: '+201016666348',
+2025-10-18T20:36:07:   postbackPayload: null
+2025-10-18T20:36:07: }
+2025-10-18T20:36:07: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T20:36:07:  POST /api/bird/webhook 200 in 11ms
+2025-10-18T20:36:46: 📩 Incoming Bird event: {
+2025-10-18T20:36:46:   "service": "channels",
+2025-10-18T20:36:46:   "event": "whatsapp.inbound",
+2025-10-18T20:36:46:   "payload": {
+2025-10-18T20:36:46:     "id": "6e281d94-d9e2-481a-be96-2c0adbe677b4",
+2025-10-18T20:36:46:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T20:36:46:     "sender": {
+2025-10-18T20:36:46:       "contact": {
+2025-10-18T20:36:46:         "id": "6134ace9-615f-4da9-8587-e4a74e7e3fb3",
+2025-10-18T20:36:46:         "identifierKey": "phonenumber",
+2025-10-18T20:36:46:         "identifierValue": "+201016666348",
+2025-10-18T20:36:46:         "annotations": {
+2025-10-18T20:36:46:           "name": "Abdelrahman Baraka"
+2025-10-18T20:36:46:         }
+2025-10-18T20:36:46:       }
+2025-10-18T20:36:46:     },
+2025-10-18T20:36:46:     "receiver": {
+2025-10-18T20:36:46:       "connector": {
+2025-10-18T20:36:46:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T20:36:46:         "identifierValue": "+201100414204"
+2025-10-18T20:36:46:       }
+2025-10-18T20:36:46:     },
+2025-10-18T20:36:46:     "body": {
+2025-10-18T20:36:46:       "type": "text",
+2025-10-18T20:36:46:       "text": {
+2025-10-18T20:36:46:         "text": "x"
+2025-10-18T20:36:46:       }
+2025-10-18T20:36:46:     },
+2025-10-18T20:36:46:     "meta": {
+2025-10-18T20:36:46:       "extraInformation": {
+2025-10-18T20:36:46:         "timestamp": "1760807864",
+2025-10-18T20:36:46:         "user_locale": "ar-EG"
+2025-10-18T20:36:46:       }
+2025-10-18T20:36:46:     },
+2025-10-18T20:36:46:     "reference": "",
+2025-10-18T20:36:46:     "parts": [
+2025-10-18T20:36:46:       {
+2025-10-18T20:36:46:         "platformReference": "wamid.HBgMMjAxMDE2NjY2MzQ4FQIAEhgUM0Y4OUJFNDU0QUMwMDU5MkE0OTIA"
+2025-10-18T20:36:46:       }
+2025-10-18T20:36:46:     ],
+2025-10-18T20:36:46:     "status": "delivered",
+2025-10-18T20:36:46:     "reason": "",
+2025-10-18T20:36:46:     "direction": "incoming",
+2025-10-18T20:36:46:     "chargeableUnits": 1,
+2025-10-18T20:36:46:     "lastStatusAt": "2025-10-18T17:17:47.473Z",
+2025-10-18T20:36:46:     "createdAt": "2025-10-18T17:17:47.394Z",
+2025-10-18T20:36:46:     "updatedAt": "2025-10-18T17:17:47.473Z",
+2025-10-18T20:36:46:     "batchId": null
+2025-10-18T20:36:46:   }
+2025-10-18T20:36:46: }
+2025-10-18T20:36:46: 🔍 Extracted data: {
+2025-10-18T20:36:46:   event: 'whatsapp.inbound',
+2025-10-18T20:36:46:   contact: '+201016666348',
+2025-10-18T20:36:46:   postbackPayload: null
+2025-10-18T20:36:46: }
+2025-10-18T20:36:46: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T20:36:46:  POST /api/bird/webhook 200 in 10ms
+2025-10-18T20:41:31: 📩 Incoming Bird event: {
+2025-10-18T20:41:31:   "service": "channels",
+2025-10-18T20:41:31:   "event": "whatsapp.inbound",
+2025-10-18T20:41:31:   "payload": {
+2025-10-18T20:41:31:     "id": "c3ca67dc-b71c-4591-8b90-be54301ddc4a",
+2025-10-18T20:41:31:     "channelId": "8e046034-bca7-5124-89d0-1a64c1cbe819",
+2025-10-18T20:41:31:     "sender": {
+2025-10-18T20:41:31:       "contact": {
+2025-10-18T20:41:31:         "id": "6134ace9-615f-4da9-8587-e4a74e7e3fb3",
+2025-10-18T20:41:31:         "identifierKey": "phonenumber",
+2025-10-18T20:41:31:         "identifierValue": "+201016666348",
+2025-10-18T20:41:31:         "annotations": {
+2025-10-18T20:41:31:           "name": "Abdelrahman Baraka"
+2025-10-18T20:41:31:         }
+2025-10-18T20:41:31:       }
+2025-10-18T20:41:31:     },
+2025-10-18T20:41:31:     "receiver": {
+2025-10-18T20:41:31:       "connector": {
+2025-10-18T20:41:31:         "id": "4128432e-797f-4d1e-a240-98a6866890c3",
+2025-10-18T20:41:31:         "identifierValue": "+201100414204"
+2025-10-18T20:41:31:       }
+2025-10-18T20:41:31:     },
+2025-10-18T20:41:31:     "body": {
+2025-10-18T20:41:31:       "type": "text",
+2025-10-18T20:41:31:       "text": {
+2025-10-18T20:41:31:         "text": "x"
+2025-10-18T20:41:31:       }
+2025-10-18T20:41:31:     },
+2025-10-18T20:41:31:     "meta": {
+2025-10-18T20:41:31:       "extraInformation": {
+2025-10-18T20:41:31:         "timestamp": "1760807386",
+2025-10-18T20:41:31:         "user_locale": "ar-EG"
+2025-10-18T20:41:31:       }
+2025-10-18T20:41:31:     },
+2025-10-18T20:41:31:     "reference": "",
+2025-10-18T20:41:31:     "parts": [
+2025-10-18T20:41:31:       {
+2025-10-18T20:41:31:         "platformReference": "wamid.HBgMMjAxMDE2NjY2MzQ4FQIAEhgUM0YyOUVCOTY0RERERTNDOUFGODQA"
+2025-10-18T20:41:31:       }
+2025-10-18T20:41:31:     ],
+2025-10-18T20:41:31:     "status": "delivered",
+2025-10-18T20:41:31:     "reason": "",
+2025-10-18T20:41:31:     "direction": "incoming",
+2025-10-18T20:41:31:     "chargeableUnits": 1,
+2025-10-18T20:41:31:     "lastStatusAt": "2025-10-18T17:09:49.346Z",
+2025-10-18T20:41:31:     "createdAt": "2025-10-18T17:09:49.183Z",
+2025-10-18T20:41:31:     "updatedAt": "2025-10-18T17:09:49.346Z",
+2025-10-18T20:41:31:     "batchId": null
+2025-10-18T20:41:31:   }
+2025-10-18T20:41:31: }
+2025-10-18T20:41:31: 🔍 Extracted data: {
+2025-10-18T20:41:31:   event: 'whatsapp.inbound',
+2025-10-18T20:41:31:   contact: '+201016666348',
+2025-10-18T20:41:31:   postbackPayload: null
+2025-10-18T20:41:31: }
+2025-10-18T20:41:31: ℹ️ Event not handled: { event: 'whatsapp.inbound', hasContact: true, hasPostback: false }
+2025-10-18T20:41:31:  POST /api/bird/webhook 200 in 19ms
+2025-10-18T20:46:17: 🚀 Starting Twilio App...
+2025-10-18T20:46:17: 📁 Working directory: D:\New folder\twilio_new
+2025-10-18T20:46:18: 
+2025-10-18T20:46:18: > nextn@0.1.0 dev
+2025-10-18T20:46:18: > next dev -p 3000
+2025-10-18T20:46:18: 
+2025-10-18T20:46:20:    ▲ Next.js 15.3.3
+2025-10-18T20:46:20:    - Local:        http://localhost:3000
+2025-10-18T20:46:20:    - Network:      http://26.26.124.56:3000
+2025-10-18T20:46:20:    - Environments: .env.local
+2025-10-18T20:46:20: 
+2025-10-18T20:46:20:  ✓ Starting...
+2025-10-18T20:46:22:  ✓ Ready in 2.6s
