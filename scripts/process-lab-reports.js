@@ -25,7 +25,32 @@ let pool;
 
 function log(message, level = 'INFO') {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [${level}] ${message}`);
+  const logMessage = `[${timestamp}] [${level}] ${message}`;
+  
+  // Console output
+  console.log(logMessage);
+  
+  // File output
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Ensure log directory exists
+    const logDir = 'C:\\Users\\Administrator\\Desktop\\whatsapp_logs';
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    
+    // Create log file with current date
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const logFile = path.join(logDir, `whatsapp_${today}.log`);
+    
+    // Append to log file
+    fs.appendFileSync(logFile, logMessage + '\n');
+  } catch (error) {
+    // Don't fail if logging fails
+    console.error('Log file write error:', error.message);
+  }
 }
 
 // Initialize database connection
@@ -506,15 +531,24 @@ async function processRegistration(regKey) {
     const mergedPath = await mergePDFs();
     log(`PDFs merged successfully: ${mergedPath}`);
     
-    // 5. Send WhatsApp to test phone number
-    const testPhone = '+201016666348';
-    log(`Sending WhatsApp to test phone: ${testPhone}`);
-    
-    try {
-      await sendWhatsAppTemplate(testPhone, mergedPath);
-    } catch (error) {
-      log(`WhatsApp sending failed: ${error.message}`, 'WARN');
-      // Continue processing even if WhatsApp fails
+    // 5. Get patient phone and send WhatsApp
+    const patientPhone = await getPatientPhone(regKey);
+    if (patientPhone) {
+      const phoneE164 = formatPhoneNumber(patientPhone);
+      log(`Patient phone: ${patientPhone} -> ${phoneE164}`);
+      
+      if (phoneE164) {
+        try {
+          await sendWhatsAppTemplate(phoneE164, mergedPath);
+        } catch (error) {
+          log(`WhatsApp sending failed: ${error.message}`, 'WARN');
+          // Continue processing even if WhatsApp fails
+        }
+      } else {
+        log(`Invalid phone number format: ${patientPhone}`, 'WARN');
+      }
+    } else {
+      log(`No patient phone found for reg_key: ${regKey}, skipping WhatsApp`, 'WARN');
     }
     
     // 6. Update database to mark as processed
@@ -539,43 +573,43 @@ async function main() {
     // 0. Delete old PDFs ONCE at the start (equivalent to HOST command)
     cleanupOldPDFs();
     
-    // For testing, let's process reg_key 393008 specifically
-    const testRegKey = '393008';
-    log(`Testing with reg_key: ${testRegKey}`);
-    
-    // Check if this reg_key exists in reg_with_balance
+    // Get all unprocessed registrations from all branches (worklist_printed = 2)
     const connection = await oracledb.getConnection();
     try {
-      const checkQuery = `
-        SELECT COUNT(*) as count, branch_code, worklist_printed
-        FROM LDM.reg_with_balance
-        WHERE reg_key = :regKey
-        GROUP BY branch_code, worklist_printed
+      const registrationsQuery = `
+        SELECT DISTINCT reg_key 
+        FROM LDM.reg_with_balance 
+        WHERE worklist_printed = 2
+        ORDER BY reg_key
       `;
       
-      const result = await connection.execute(checkQuery, [testRegKey]);
-      log(`Reg key ${testRegKey} status:`, result.rows);
+      const result = await connection.execute(registrationsQuery);
+      const registrations = result.rows.map(row => row.REG_KEY);
       
-      if (result.rows.length > 0) {
-        const registrations = [testRegKey];
-        log(`Processing test reg_key: ${testRegKey}`);
-        
-        // Process the test registration
-        for (const regKey of registrations) {
-          try {
-            await processRegistration(regKey);
-          } catch (error) {
-            log(`Error processing registration ${regKey}: ${error.message}`, 'ERROR');
-          }
-        }
-      } else {
-        log(`Reg key ${testRegKey} not found in reg_with_balance view`);
+      log(`Found ${registrations.length} unprocessed registrations: ${registrations.join(', ')}`);
+      
+      if (registrations.length === 0) {
+        log('No unprocessed registrations found');
+        return;
       }
+      
+      // Process each registration
+      for (const regKey of registrations) {
+        try {
+          log(`\n=== Processing Registration: ${regKey} ===`);
+          await processRegistration(regKey);
+          log(`=== Completed Registration: ${regKey} ===\n`);
+        } catch (error) {
+          log(`Error processing registration ${regKey}: ${error.message}`, 'ERROR');
+          // Continue with next registration even if one fails
+        }
+      }
+      
+      log(`Processing completed. Processed ${registrations.length} registrations.`);
+      
     } finally {
       await connection.close();
     }
-    
-    log('Processing completed');
     
   } catch (error) {
     log(`Fatal error: ${error.message}`, 'ERROR');

@@ -1,0 +1,21 @@
+2025-10-18T16:11:31: [2025-10-18T13:11:31.381Z] [INFO] Starting lab reports processing...
+2025-10-18T16:11:31: [2025-10-18T13:11:31.409Z] [INFO] Oracle Instant Client initialized in Thick mode
+2025-10-18T16:11:31: [2025-10-18T13:11:31.449Z] [INFO] Database connection pool created successfully
+2025-10-18T16:11:31: [2025-10-18T13:11:31.451Z] [INFO] Cleaned up 2 old PDF files from D:\Results
+2025-10-18T16:11:31: [2025-10-18T13:11:31.495Z] [INFO] Found 0 unprocessed registrations: 
+2025-10-18T16:11:31: [2025-10-18T13:11:31.497Z] [INFO] No unprocessed registrations found
+2025-10-18T16:11:31: [2025-10-18T13:11:31.506Z] [INFO] Database connection pool closed
+2025-10-18T16:11:39: [2025-10-18T13:11:39.540Z] [INFO] Starting lab reports processing...
+2025-10-18T16:11:39: [2025-10-18T13:11:39.566Z] [INFO] Oracle Instant Client initialized in Thick mode
+2025-10-18T16:11:39: [2025-10-18T13:11:39.618Z] [INFO] Database connection pool created successfully
+2025-10-18T16:11:39: [2025-10-18T13:11:39.619Z] [INFO] Cleaned up 0 old PDF files from D:\Results
+2025-10-18T16:11:39: [2025-10-18T13:11:39.661Z] [INFO] Found 0 unprocessed registrations: 
+2025-10-18T16:11:39: [2025-10-18T13:11:39.662Z] [INFO] No unprocessed registrations found
+2025-10-18T16:11:39: [2025-10-18T13:11:39.669Z] [INFO] Database connection pool closed
+2025-10-18T16:11:47: [2025-10-18T13:11:47.648Z] [INFO] Starting lab reports processing...
+2025-10-18T16:11:47: [2025-10-18T13:11:47.670Z] [INFO] Oracle Instant Client initialized in Thick mode
+2025-10-18T16:11:47: [2025-10-18T13:11:47.721Z] [INFO] Database connection pool created successfully
+2025-10-18T16:11:47: [2025-10-18T13:11:47.722Z] [INFO] Cleaned up 0 old PDF files from D:\Results
+2025-10-18T16:11:47: [2025-10-18T13:11:47.775Z] [INFO] Found 0 unprocessed registrations: 
+2025-10-18T16:11:47: [2025-10-18T13:11:47.775Z] [INFO] No unprocessed registrations found
+2025-10-18T16:11:47: [2025-10-18T13:11:47.783Z] [INFO] Database connection pool closed

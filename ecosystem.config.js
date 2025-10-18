@@ -99,6 +99,28 @@ module.exports = {
       listen_timeout: 20000,
       instances: 1,
       exec_mode: 'fork'
+    },
+    {
+      name: 'lab-reports-processor',
+      script: 'process-lab-reports.js',
+      cwd: './scripts',
+      env: {
+        NODE_ENV: 'production'
+      },
+      watch: false,
+      autorestart: true,
+      max_restarts: 5,
+      min_uptime: '10s',
+      restart_delay: 5000,
+      error_file: './logs/lab-reports-error.log',
+      out_file: './logs/lab-reports-out.log',
+      log_file: './logs/lab-reports-combined.log',
+      time: true,
+      kill_timeout: 30000,
+      listen_timeout: 10000,
+      instances: 1,
+      exec_mode: 'fork',
+      cron_restart: '*/2 * * * *'
     }
   ]
 };
