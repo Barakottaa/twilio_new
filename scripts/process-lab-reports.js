@@ -303,7 +303,8 @@ async function generateReport(reportPath, parameters) {
     exec(cmd, { 
       shell: 'cmd.exe',
       env: env,
-      timeout: 60000
+      timeout: 60000,
+      windowsHide: true
     }, (error, stdout, stderr) => {
       if (error) {
         if (error.code === 3) {
@@ -417,7 +418,8 @@ async function mergePDFs(sourceDir = CONFIG.paths.resultsFolder) {
     log(`Merging ${files.length} PDFs into: ${mergedName}`);
     
     exec(cmd, { 
-      shell: 'cmd.exe'
+      shell: 'cmd.exe',
+      windowsHide: true
     }, (error, stdout, stderr) => {
       if (error) {
         log(`PDF merge failed: ${error.message}`, 'ERROR');
