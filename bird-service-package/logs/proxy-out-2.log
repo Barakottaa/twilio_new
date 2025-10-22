@@ -14,3 +14,7 @@
 2025-10-18T20:46:33: 📡 Main app: http://localhost:8080/
 2025-10-18T20:46:33: 🕊️ Bird service: http://localhost:8080/bird/
 2025-10-18T20:46:33: 🌐 Use ngrok: ngrok http 8080
+2025-10-19T15:41:04: 🔄 Proxy server running on port 8080
+2025-10-19T15:41:04: 📡 Main app: http://localhost:8080/
+2025-10-19T15:41:04: 🕊️ Bird service: http://localhost:8080/bird/
+2025-10-19T15:41:04: 🌐 Use ngrok: ngrok http 8080
