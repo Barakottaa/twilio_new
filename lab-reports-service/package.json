@@ -1,0 +1,27 @@
+{
+  "name": "lab-reports-service",
+  "version": "1.0.0",
+  "description": "Lab Reports Processing Service - Node.js replacement for Oracle Forms procedure",
+  "main": "process-lab-reports.js",
+  "scripts": {
+    "start": "node process-lab-reports.js",
+    "dev": "nodemon process-lab-reports.js"
+  },
+  "keywords": [
+    "lab-reports",
+    "oracle",
+    "whatsapp",
+    "pdf",
+    "bird"
+  ],
+  "author": "Baraka",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0",
+    "oracledb": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
