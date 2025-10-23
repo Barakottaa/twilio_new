@@ -21,8 +21,8 @@ module.exports = {
     accessKey: 'EpYiBbBDjQv6U5oSty2Bxu8Ix5T9XOr9L2fl',
     workspaceId: '2d7a1e03-25e4-401e-bf1e-0ace545673d7',
     channelId: '8e046034-bca7-5124-89d0-1a64c1cbe819',
-    templateProjectId: 'b63bd76a-4cc6-463e-9db1-343901ea8dfe', // PDF_test template
-    templateVersion: 'e6cccbe7-863a-4d9f-a651-20863a81e8b3' // PDF_test template version
+    templateProjectId: '1c05f3a5-c35a-404f-9ac8-7af994fbeab1', // new_pdf_clone template with buttons
+    templateVersion: '10e2dd22-b794-422f-8ab0-259d2a46327c' // new_pdf_clone template version
   },
   
   // File and path configuration

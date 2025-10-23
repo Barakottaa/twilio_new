@@ -121,6 +121,29 @@ module.exports = {
       listen_timeout: 15000,
       instances: 1,
       exec_mode: 'fork'
+    },
+    {
+      name: 'pdf-to-image-service',
+      script: 'server.js',
+      cwd: './pdf-to-image-service',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3002
+      },
+      watch: false,
+      autorestart: true,
+      max_restarts: 3,
+      min_uptime: '30s',
+      max_memory_restart: '1G',
+      restart_delay: 10000,
+      error_file: './logs/pdf-converter-error.log',
+      out_file: './logs/pdf-converter-out.log',
+      log_file: './logs/pdf-converter-combined.log',
+      time: true,
+      kill_timeout: 10000,
+      listen_timeout: 15000,
+      instances: 1,
+      exec_mode: 'fork'
     }
   ]
 };

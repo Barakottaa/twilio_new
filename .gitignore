@@ -49,3 +49,11 @@ firestore-debug.log
 # logs
 logs/
 *.log
+
+# Next.js build files
+.next/
+node_modules/
+
+# Large files
+*.pack
+*.node

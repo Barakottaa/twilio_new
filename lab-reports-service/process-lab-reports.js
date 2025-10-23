@@ -665,7 +665,7 @@ async function processRegistration(regKey) {
       
       if (phoneE164) {
         // Create patient-specific folder with reg_key
-        const patientFolder = path.join(CONFIG.paths.resultsFolder, `${phoneE164}&${regKey}`);
+        const patientFolder = path.join(CONFIG.paths.resultsFolder, `${phoneE164}_${regKey}`);
         if (!fs.existsSync(patientFolder)) {
           fs.mkdirSync(patientFolder, { recursive: true });
           log(`Created patient folder: ${patientFolder}`);
