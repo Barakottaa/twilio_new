@@ -116,14 +116,14 @@ class PdfToImageService {
       
       const images = fs.readdirSync(outputDir)
         .filter(f => f.endsWith(".jpg"))
-        .map(f => path.basename(f));
+        .map(f => path.basename(f, '.jpg'));
       
       console.log(`📸 Generated ${images.length} images`);
       
       // Send images back to the phone number
       const sendResults = [];
       for (const imageName of images) {
-        const imagePath = path.join(outputDir, imageName);
+        const imagePath = path.join(outputDir, imageName + '.jpg');
         const sendResult = await this.sendImageToBird(phoneNumber, imagePath, imageName);
         sendResults.push({
           image: imageName,
