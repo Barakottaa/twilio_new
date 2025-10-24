@@ -110,7 +110,7 @@ class PdfToImageService {
       
       await convert.convert(pdfPath, {
         out_dir: outputDir,
-        out_prefix: "page",
+        out_prefix: "تقرير معمل البركة",
         format: "jpeg"
       });
       
@@ -173,7 +173,7 @@ class PdfToImageService {
       const sendResult = await birdApiClient.sendImageMessage(
         phoneNumber, 
         uploadResult.mediaUrl, 
-        `صفحة ${imageName}`
+        `${imageName}`
       );
       
       if (sendResult.success) {
