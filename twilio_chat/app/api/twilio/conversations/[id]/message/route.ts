@@ -7,7 +7,7 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const { message, author } = await req.json();
+    const { message, author, fromNumberId } = await req.json();
 
     if (!message) {
       return NextResponse.json(

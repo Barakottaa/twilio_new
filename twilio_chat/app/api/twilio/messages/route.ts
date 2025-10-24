@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listMessages, getTwilioClient } from '@/lib/twilio-service';
+import { getNumberById, getDefaultNumber, getWhatsAppNumber } from '@/lib/multi-number-config';
 
 export async function GET(req: NextRequest) {
   try {
@@ -49,7 +50,8 @@ export async function POST(req: NextRequest) {
       message, 
       isTemplate = false, 
       contentSid, 
-      contentVariables 
+      contentVariables,
+      fromNumberId // New: ID of the Twilio number to send from
     } = body;
 
     console.log('🔍 Parsed request data:', {
@@ -126,9 +128,26 @@ export async function POST(req: NextRequest) {
         body: message
       });
 
+      // Determine which number to send from
+      let fromNumber: string;
+      if (fromNumberId) {
+        const selectedNumber = getNumberById(fromNumberId);
+        if (selectedNumber) {
+          fromNumber = getWhatsAppNumber(selectedNumber.number);
+          console.log(`📱 Using selected number: ${selectedNumber.name} (${selectedNumber.number})`);
+        } else {
+          console.log(`⚠️ Number ID ${fromNumberId} not found, using default`);
+          const defaultNumber = getDefaultNumber();
+          fromNumber = defaultNumber ? getWhatsAppNumber(defaultNumber.number) : process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+        }
+      } else {
+        const defaultNumber = getDefaultNumber();
+        fromNumber = defaultNumber ? getWhatsAppNumber(defaultNumber.number) : process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+      }
+
       const twilioMessage = await twilioClient.messages.create({
         body: message,
-        from: process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886', // Use environment variable or fallback to sandbox
+        from: fromNumber,
         to: `whatsapp:${customerPhone}`,
       });
 

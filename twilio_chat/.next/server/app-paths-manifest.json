@@ -1,3 +1,9 @@
 {
-  "/api/bird/webhook/route": "app/api/bird/webhook/route.js"
+  "/api/twilio/conversations/route": "app/api/twilio/conversations/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/assignments/route": "app/api/assignments/route.js",
+  "/api/agents/route": "app/api/agents/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/events/route": "app/api/events/route.js",
+  "/page": "app/page.js"
 }

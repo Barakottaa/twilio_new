@@ -12,6 +12,7 @@ import { VirtualMessageList } from './virtual-message-list';
 import { MessageInput } from './message-input';
 import { OptimizedChatHeader } from './optimized-chat-header';
 import { TemplateSelector } from './template-selector';
+import { NumberSelector } from './number-selector';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -37,6 +38,9 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   // Handle assigning conversation to current user
   const [isAssigning, setIsAssigning] = useState(false);
   const [lastCustomerMessage, setLastCustomerMessage] = useState<string | undefined>();
+  
+  // Selected phone number for sending messages
+  const [selectedNumberId, setSelectedNumberId] = useState<string | null>(null);
   
   // Use the messages hook for both fetching and real-time updates
   const {
@@ -586,6 +590,17 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
                   refreshMessages();
                 }}
               />
+            )}
+
+            {/* Number Selector - Only show when conversation is selected */}
+            {selectedConversation && (
+              <div className="flex-shrink-0 p-4 border-t bg-muted/30">
+                <NumberSelector
+                  selectedNumberId={selectedNumberId}
+                  onNumberSelect={setSelectedNumberId}
+                  conversationId={selectedConversationId || ''}
+                />
+              </div>
             )}
 
             {/* Message Input - Always at bottom */}
