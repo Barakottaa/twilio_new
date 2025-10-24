@@ -75,42 +75,34 @@ app.post('/api/bird/webhook', async (req, res) => {
     }
 
     // Check if this is a request for images (PDF conversion)
-    if (message?.toLowerCase().includes('image') || message?.toLowerCase().includes('صور')) {
+    if (message?.toLowerCase().includes('image')) {
       console.log('ℹ️ [listener] Patient requested PDF to images conversion', { phoneNumber, message });
       
-      try {
-        // Process PDF from folder for this patient
-        const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
-        
-        if (result.success) {
-          console.log('✅ PDF converted and images sent successfully');
-          console.log(`   Images sent: ${result.imagesSent}`);
-          console.log(`   Patient: ${phoneNumber}`);
+      // Send immediate response to prevent timeout
+      res.json({
+        success: true,
+        message: 'Request accepted - processing PDF conversion',
+        patient: phoneNumber,
+        status: 'processing'
+      });
+      
+      // Process PDF in background (don't await)
+      setImmediate(async () => {
+        try {
+          console.log('🔄 [background] Starting PDF processing...');
+          const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
           
-          res.json({
-            success: true,
-            message: `PDF converted to ${result.imagesSent} images and sent to ${phoneNumber}`,
-            patient: phoneNumber,
-            imagesSent: result.imagesSent,
-            folder: result.folder,
-            pdfFile: result.pdfFile
-          });
-        } else {
-          console.log('❌ PDF conversion failed:', result.error);
-          res.json({
-            success: false,
-            error: result.error,
-            patient: phoneNumber
-          });
+          if (result.success) {
+            console.log('✅ [background] PDF converted and images sent successfully');
+            console.log(`   Images sent: ${result.imagesSent}`);
+            console.log(`   Patient: ${phoneNumber}`);
+          } else {
+            console.log('❌ [background] PDF conversion failed:', result.error);
+          }
+        } catch (error) {
+          console.log('❌ [background] PDF processing error:', error.message);
         }
-      } catch (error) {
-        console.log('❌ [listener] PDF processing error:', error.message);
-        res.json({
-          success: false,
-          error: error.message,
-          patient: phoneNumber
-        });
-      }
+      });
     } else {
       // Handle other types of requests - but if we have a phone number, try PDF conversion anyway
       console.log('ℹ️ [listener] Non-PDF request received, but trying PDF conversion anyway');
