@@ -43,17 +43,47 @@ class PdfToImageService {
       // Process the PDF conversion and sending
       const phone = phoneNumber.replace(/[^\d]/g, '');
       const phoneWithPlus = `+${phone}`;
-      const folder = fs.readdirSync(this.baseDir).find(f => f.startsWith(phone) || f.startsWith(phoneWithPlus));
+      
+      // Find all folders that match the phone number
+      const allFolders = fs.readdirSync(this.baseDir);
+      const matchingFolders = allFolders.filter(f => f.startsWith(phone) || f.startsWith(phoneWithPlus));
       
       console.log(`🔍 Looking for folder with phone: ${phone} or ${phoneWithPlus}`);
-      console.log(`🔍 Available folders:`, fs.readdirSync(this.baseDir));
+      console.log(`🔍 Available folders:`, allFolders);
+      console.log(`🔍 Matching folders:`, matchingFolders);
       
-      if (!folder) {
+      if (matchingFolders.length === 0) {
         return { 
           success: false, 
           error: "Patient folder not found",
           phoneNumber: phoneNumber
         };
+      }
+      
+      // If multiple folders found, select the most recent one
+      let folder;
+      if (matchingFolders.length === 1) {
+        folder = matchingFolders[0];
+        console.log(`📁 Found single folder: ${folder}`);
+      } else {
+        // Sort by modification time and get the most recent
+        const folderStats = matchingFolders.map(folderName => {
+          const folderPath = path.join(this.baseDir, folderName);
+          const stats = fs.statSync(folderPath);
+          return {
+            name: folderName,
+            mtime: stats.mtime,
+            path: folderPath
+          };
+        });
+        
+        // Sort by modification time (most recent first)
+        folderStats.sort((a, b) => b.mtime - a.mtime);
+        folder = folderStats[0].name;
+        
+        console.log(`📁 Found ${matchingFolders.length} folders for phone ${phoneNumber}`);
+        console.log(`📁 Folders by date:`, folderStats.map(f => `${f.name} (${f.mtime.toISOString()})`));
+        console.log(`📁 Selected most recent: ${folder}`);
       }
       
       const folderPath = path.join(this.baseDir, folder);
