@@ -4,21 +4,23 @@
 
 ```
 twilio_new/
-├── lab-reports-service/     # Lab Reports Processing Service
-│   ├── process-lab-reports.js
-│   ├── config.js
+├── twilio_chat/            # Twilio Chat Application (Next.js)
+│   ├── src/
 │   ├── package.json
 │   ├── README.md
 │   └── start.bat
-├── bird-service/            # Bird WhatsApp API Service
+├── bird-service/           # Bird WhatsApp API Service
 │   ├── server.js
 │   ├── bird-service.js
 │   ├── pdf-to-image-service.js
+│   ├── ecosystem.config.js
+│   ├── start-ngrok.js
 │   ├── package.json
 │   ├── README.md
 │   └── start.bat
-├── main-app/               # Next.js Web Application
-│   ├── src/
+├── lab-reports-service/    # Lab Reports Processing Service
+│   ├── process-lab-reports.js
+│   ├── config.js
 │   ├── package.json
 │   ├── README.md
 │   └── start.bat
@@ -43,9 +45,9 @@ twilio_new/
 - **Port**: 3001
 - **Status**: ✅ Production Ready
 
-### 3. Main App
-- **Location**: `main-app/`
-- **Purpose**: Next.js web application
+### 3. Twilio Chat App
+- **Location**: `twilio_chat/`
+- **Purpose**: Next.js web application for Twilio chat
 - **Technology**: Next.js, React, TypeScript
 - **Port**: 3000
 - **Status**: ✅ Production Ready
@@ -66,9 +68,9 @@ npm install
 npm start
 ```
 
-### Start Main App
+### Start Twilio Chat App
 ```bash
-cd main-app
+cd twilio_chat
 npm install
 npm run dev
 ```
@@ -78,13 +80,13 @@ npm run dev
 Each service has its own configuration:
 - **Lab Reports**: `lab-reports-service/config.js`
 - **Bird Service**: `bird-service/.env`
-- **Main App**: Environment variables
+- **Twilio Chat**: Environment variables
 
 ## Health Checks
 
 - **Lab Reports**: Check logs for processing status
 - **Bird Service**: `GET http://localhost:3001/health`
-- **Main App**: `GET http://localhost:3000`
+- **Twilio Chat**: `GET http://localhost:3000`
 
 ## Logs
 
@@ -95,7 +97,7 @@ All services write logs to the `logs/` directory:
 
 ## PM2 Configuration
 
-The project uses PM2 for process management. See `ecosystem.config.js` for configuration.
+The project uses PM2 for process management. See `bird-service/ecosystem.config.js` for configuration.
 
 ## Support
 

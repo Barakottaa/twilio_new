@@ -2,10 +2,12 @@
   "name": "bird-service",
   "version": "1.0.0",
   "description": "Bird WhatsApp API Service with PDF to Image Conversion",
-  "main": "server.js",
+  "main": "listener.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node listener.js",
+    "dev": "nodemon listener.js",
+    "tunnel": "node start-with-ngrok.js",
+    "setup": "node start-complete-setup.js"
   },
   "keywords": [
     "bird",
