@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Paperclip, UserPlus, Loader2 } from 'lucide-react';
+import { Send, Paperclip, UserPlus, Loader2, FileText } from 'lucide-react';
 
 interface MessageInputProps {
   onSendMessage: (text: string) => void;
@@ -12,9 +12,20 @@ interface MessageInputProps {
   onAssignToMe?: () => void;
   showAssignButton?: boolean;
   isAssigning?: boolean;
+  onSendTemplate?: () => void;
+  showTemplateButton?: boolean;
 }
 
-export function MessageInput({ onSendMessage, disabled = false, disabledReason, onAssignToMe, showAssignButton = false, isAssigning = false }: MessageInputProps) {
+export function MessageInput({ 
+  onSendMessage, 
+  disabled = false, 
+  disabledReason, 
+  onAssignToMe, 
+  showAssignButton = false, 
+  isAssigning = false,
+  onSendTemplate,
+  showTemplateButton = false
+}: MessageInputProps) {
   const [text, setText] = useState('');
 
   const handleSend = () => {
@@ -73,6 +84,18 @@ export function MessageInput({ onSendMessage, disabled = false, disabledReason, 
           <Paperclip className="h-5 w-5" />
           <span className="sr-only">Attach file</span>
         </Button>
+        {showTemplateButton && onSendTemplate && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-foreground"
+            onClick={onSendTemplate}
+            title="Send template message"
+          >
+            <FileText className="h-5 w-5" />
+            <span className="sr-only">Send template</span>
+          </Button>
+        )}
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}

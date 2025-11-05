@@ -123,6 +123,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showAgentDialog, setShowAgentDialog] = useState(false);
   const [selectedConversationForAssignment, setSelectedConversationForAssignment] = useState<string | null>(null);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [createdConversationId, setCreatedConversationId] = useState<string | null>(null);
 
   // Handle status updates from conversation list
   const handleStatusUpdate = async (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
@@ -159,6 +161,90 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       setSelectedNumber(firstNumber.id);
     }
   }, [selectedNumberId, numbers.length, setSelectedNumber]); // Use numbers.length to avoid dependency on array reference
+
+  // Detect phone numbers in search query and create conversation if needed
+  useEffect(() => {
+    const checkAndCreateConversation = async () => {
+      if (!searchQuery.trim() || isCreatingConversation || !selectedNumberId) return;
+
+      // Check if search query looks like a phone number
+      const phoneRegex = /^[\+]?[1-9][\d\s\-\(\)]{7,15}$/;
+      const cleanQuery = searchQuery.replace(/\s/g, '');
+      const isPhoneNumber = phoneRegex.test(cleanQuery);
+
+      if (!isPhoneNumber) return;
+
+      // Check if conversation already exists in conversations list
+      const phoneInResults = conversations.some(conv => {
+        const convPhone = conv.customerPhone?.replace(/\s/g, '') || '';
+        return convPhone.includes(cleanQuery) || cleanQuery.includes(convPhone);
+      });
+
+      if (phoneInResults) return; // Conversation already exists
+
+      // Normalize phone number using proper utility function
+      const { normalizePhoneNumber } = await import('@/lib/utils');
+      const normalizedPhone = normalizePhoneNumber(cleanQuery);
+
+      console.log('📞 Detected phone number in search, creating conversation:', normalizedPhone);
+
+      setIsCreatingConversation(true);
+      try {
+        const response = await fetch('/api/twilio/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: normalizedPhone,
+            numberId: selectedNumberId,
+            agentId: agentId
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Conversation created/found:', data.conversation.id);
+          
+          // Add the new conversation to the list
+          const newConversation: ConversationItem = {
+            id: data.conversation.id,
+            title: data.conversation.customer?.name || normalizedPhone,
+            lastMessagePreview: 'No messages yet',
+            unreadCount: 0,
+            createdAt: data.conversation.createdAt,
+            updatedAt: data.conversation.updatedAt,
+            customerId: data.conversation.customer?.id || normalizedPhone,
+            agentId: agentId || 'unassigned',
+            customerPhone: normalizedPhone,
+            customerEmail: data.conversation.customer?.email,
+            status: 'open',
+            isPinned: false,
+            isNew: false,
+            isUnreplied: false,
+            proxyAddress: undefined,
+            twilioNumberId: selectedNumberId
+          };
+
+          // Add to conversations list
+          setConversations([newConversation, ...conversations]);
+          
+          // Auto-select the new conversation
+          setSelectedConversation(newConversation.id);
+          setCreatedConversationId(newConversation.id);
+        } else {
+          const errorData = await response.json();
+          console.error('❌ Failed to create conversation:', errorData.error);
+        }
+      } catch (error) {
+        console.error('❌ Error creating conversation:', error);
+      } finally {
+        setIsCreatingConversation(false);
+      }
+    };
+
+    // Debounce the check
+    const timeoutId = setTimeout(checkAndCreateConversation, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, selectedNumberId, agentId, isCreatingConversation, conversations, setConversations, setSelectedConversation]);
 
   // Load initial conversations and assignments
   useEffect(() => {
@@ -419,8 +505,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       />
       
       <div className="flex-1 overflow-y-auto scrollbar-hover">
-        {/* Show new conversation modal when no search results found */}
-        {searchQuery.trim() && filteredConversations.length === 0 && (
+        {/* Show new conversation modal when no search results found and not creating conversation */}
+        {searchQuery.trim() && filteredConversations.length === 0 && !isCreatingConversation && (
           <NewConversationTemplateModal 
             searchQuery={searchQuery}
             onMessageSent={() => {
@@ -428,6 +514,14 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
               loadConversations();
             }}
           />
+        )}
+        
+        {/* Show loading indicator when creating conversation */}
+        {isCreatingConversation && (
+          <div className="p-4 text-center">
+            <LoadingSpinner className="mx-auto" />
+            <p className="text-sm text-muted-foreground mt-2">Creating conversation...</p>
+          </div>
         )}
         
         {/* Skeleton loading animation when switching numbers */}

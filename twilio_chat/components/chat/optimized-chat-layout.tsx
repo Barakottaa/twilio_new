@@ -12,6 +12,7 @@ import { VirtualMessageList } from './virtual-message-list';
 import { MessageInput } from './message-input';
 import { OptimizedChatHeader } from './optimized-chat-header';
 import { TemplateSelector } from './template-selector';
+import { TemplateSendDialog } from './template-send-dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -37,6 +38,8 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   // Handle assigning conversation to current user
   const [isAssigning, setIsAssigning] = useState(false);
   const [lastCustomerMessage, setLastCustomerMessage] = useState<string | undefined>();
+  const [isCheckingWindow, setIsCheckingWindow] = useState(true); // Track if we're still checking 24h window
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false); // Template dialog state
   
   // Get selected phone number from store
   const selectedNumberId = useChatStore(state => state.selectedNumberId);
@@ -112,7 +115,22 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
 
   // Find last customer message for 24-hour window check
   useEffect(() => {
-    if (selectedConversationId && messages.length > 0) {
+    if (!selectedConversationId) {
+      setIsCheckingWindow(false);
+      setLastCustomerMessage(undefined);
+      return;
+    }
+
+    // If messages are still loading, keep checking state
+    if (messagesLoading) {
+      setIsCheckingWindow(true);
+      return;
+    }
+
+    // Messages have loaded, now check for customer messages
+    setIsCheckingWindow(false);
+    
+    if (messages.length > 0) {
       console.log('🔍 Finding last customer message from messages:', messages.length);
       
       // Filter customer messages and sort by timestamp (most recent first)
@@ -140,9 +158,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         setLastCustomerMessage(undefined);
       }
     } else {
+      // No messages - new conversation
+      console.log('📝 No messages - new conversation');
       setLastCustomerMessage(undefined);
     }
-  }, [selectedConversationId, messages]);
+  }, [selectedConversationId, messages, messagesLoading]);
 
   const handleAssignToMe = async () => {
     if (!selectedConversationId || isAssigning) return;
@@ -462,11 +482,17 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       
       // Update the conversation list with the new last message
       const currentConversations = useChatStore.getState().conversations;
-      const updatedConversations = currentConversations.map(conv => 
-        conv.id === selectedConversationId 
-          ? { ...conv, lastMessagePreview: text.trim(), updatedAt: new Date().toISOString(), status: 'open' }
-          : conv
-      );
+      const updatedConversations = currentConversations.map(conv => {
+        if (conv.id === selectedConversationId) {
+          return { 
+            ...conv, 
+            lastMessagePreview: text.trim(), 
+            updatedAt: new Date().toISOString(), 
+            status: ('open' as 'open' | 'closed' | 'pending') 
+          };
+        }
+        return conv;
+      });
       setConversations(updatedConversations);
       
       toast({
@@ -574,41 +600,80 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
               />
             </div>
 
-            {/* Message Input Section - Template selector replaces message input when outside 24h window */}
+            {/* Message Input Section - Show skeleton while checking 24h window, then show template selector or message input */}
             <div className="flex-shrink-0">
-              {selectedConversation && lastCustomerMessage ? (
-                <TemplateSelector
-                  conversationId={selectedConversationId || ''}
-                  customerPhone={selectedConversation.customerPhone || ''}
-                  customerName={selectedConversation.customer?.name || selectedConversation.title || 'Customer'}
-                  lastCustomerMessage={lastCustomerMessage}
-                  onMessageSent={(message) => {
-                    toast({
-                      title: "Template sent",
-                      description: "Template message sent successfully.",
-                    });
-                    // Refresh messages to show the new message
-                    refreshMessages();
-                  }}
-                  showRegularInput={true}
-                  regularInputProps={{
-                    onSendMessage: handleSendMessage,
-                    disabled: messageInputDisabled,
-                    disabledReason: messageInputDisabled ? messageInputDisabledReason : undefined,
-                    onAssignToMe: handleAssignToMe,
-                    showAssignButton: showAssignButton,
-                    isAssigning: isAssigning
-                  }}
-                />
-              ) : (
-                <MessageInput
-                  onSendMessage={handleSendMessage}
-                  disabled={messageInputDisabled}
-                  disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
-                  onAssignToMe={handleAssignToMe}
-                  showAssignButton={showAssignButton}
-                  isAssigning={isAssigning}
-                />
+              {isCheckingWindow || messagesLoading ? (
+                // Show skeleton while checking 24-hour window or loading messages
+                <div className="border-t bg-muted/30 p-4">
+                  <div className="space-y-3 animate-pulse">
+                    <div className="h-4 bg-muted rounded w-3/4"></div>
+                    <div className="h-10 bg-muted rounded"></div>
+                    <div className="h-9 bg-muted rounded w-1/3"></div>
+                  </div>
+                </div>
+              ) : selectedConversation && (
+                (() => {
+                  // Check if we're outside 24-hour window
+                  const isOutsideWindow = lastCustomerMessage ? (() => {
+                    const lastMessageTime = new Date(lastCustomerMessage);
+                    const now = new Date();
+                    const timeDiff = now.getTime() - lastMessageTime.getTime();
+                    const hoursDiff = timeDiff / (1000 * 60 * 60);
+                    return hoursDiff > 24;
+                  })() : true; // If no customer message, consider it outside window (new conversation)
+
+                  // Show template selector ONLY if outside 24-hour window
+                  // Unassigned chats should show regular message input with "Assign to Me" button
+                  if (isOutsideWindow) {
+                    return (
+                      <TemplateSelector
+                        conversationId={selectedConversationId || ''}
+                        customerPhone={selectedConversation.customerPhone || ''}
+                        customerName={selectedConversation.title || 'Customer'}
+                        lastCustomerMessage={lastCustomerMessage || undefined}
+                        onMessageSent={(message) => {
+                          toast({
+                            title: "Template sent",
+                            description: "Template message sent successfully.",
+                          });
+                          // Refresh messages to show the new message
+                          refreshMessages();
+                        }}
+                        showRegularInput={false}
+                        regularInputProps={undefined}
+                      />
+                    );
+                  } else {
+                    // Inside 24-hour window - show regular message input (may be disabled if unassigned)
+                    // Add template button for sending templates to open conversations
+                    return (
+                      <>
+                        <MessageInput
+                          onSendMessage={handleSendMessage}
+                          disabled={messageInputDisabled}
+                          disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
+                          onAssignToMe={handleAssignToMe}
+                          showAssignButton={showAssignButton ?? undefined}
+                          isAssigning={isAssigning}
+                          onSendTemplate={() => setShowTemplateDialog(true)}
+                          showTemplateButton={isAssignedToCurrentUser && !messageInputDisabled}
+                        />
+                        <TemplateSendDialog
+                          open={showTemplateDialog}
+                          onOpenChange={setShowTemplateDialog}
+                          conversationId={selectedConversationId || ''}
+                          customerPhone={selectedConversation.customerPhone || ''}
+                          customerName={selectedConversation.title || 'Customer'}
+                          onTemplateSent={async () => {
+                            // Refresh messages to show the new template message
+                            await refreshMessages();
+                            setShowTemplateDialog(false);
+                          }}
+                        />
+                      </>
+                    );
+                  }
+                })()
               )}
             </div>
           </>

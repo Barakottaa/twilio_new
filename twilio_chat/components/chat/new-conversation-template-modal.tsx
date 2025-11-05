@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Send, Loader2, Phone, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useChatStore } from '@/store/chat-store';
 
 interface TwilioTemplate {
   sid: string;
@@ -36,20 +36,32 @@ export function NewConversationTemplateModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
+  const selectedNumberId = useChatStore(state => state.selectedNumberId);
 
   // Extract phone number from search query if it looks like one
   useEffect(() => {
     if (searchQuery.trim()) {
       // Check if search query looks like a phone number
-      const phoneRegex = /^[\+]?[1-9][\d\s\-\(\)]{7,15}$/;
-      if (phoneRegex.test(searchQuery.replace(/\s/g, ''))) {
-        setCustomerPhone(searchQuery.replace(/\s/g, ''));
-        setCustomerName(''); // Let user enter name
+      const phoneRegex = /^[\+]?[0-9][\d\s\-\(\)]{7,15}$/;
+      const cleanedQuery = searchQuery.replace(/\s/g, '');
+      if (phoneRegex.test(cleanedQuery)) {
+        // It's a phone number - normalize it and set as recipient phone (customer phone)
+        const normalizePhone = async () => {
+          const { normalizePhoneNumber } = await import('@/lib/utils');
+          const normalized = normalizePhoneNumber(cleanedQuery);
+          setCustomerPhone(normalized);
+          setCustomerName(''); // Always clear name field - let user enter name separately
+        };
+        normalizePhone();
       } else {
-        // Assume it's a name
-        setCustomerName(searchQuery);
-        setCustomerPhone(''); // Let user enter phone
+        // Not a phone number - don't pre-fill anything, let user enter both fields
+        setCustomerPhone('');
+        setCustomerName('');
       }
+    } else {
+      // Empty search query - clear both fields
+      setCustomerPhone('');
+      setCustomerName('');
     }
   }, [searchQuery]);
 
@@ -93,8 +105,9 @@ export function NewConversationTemplateModal({
         return;
       }
 
-      // Normalize phone number
-      const normalizedPhone = customerPhone.startsWith('+') ? customerPhone : `+${customerPhone}`;
+      // Normalize phone number using proper utility function
+      const { normalizePhoneNumber } = await import('@/lib/utils');
+      const normalizedPhone = normalizePhoneNumber(customerPhone);
 
       console.log('🔍 Sending template to new conversation:', {
         customerPhone: normalizedPhone,
@@ -110,6 +123,7 @@ export function NewConversationTemplateModal({
         body: JSON.stringify({
           conversationId: `new_${Date.now()}`, // Temporary ID for new conversations
           customerPhone: normalizedPhone,
+          fromNumberId: selectedNumberId, // Use the selected number from dropdown
           isTemplate: true,
           contentSid: template.contentSid,
           contentVariables: {
@@ -163,46 +177,42 @@ export function NewConversationTemplateModal({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert>
-          <AlertDescription>
-            💡 <strong>Tip:</strong> Template messages can be sent to any phone number, even if there's no existing conversation.
-          </AlertDescription>
-        </Alert>
-
-        <Alert className="border-yellow-200 bg-yellow-50">
-          <AlertDescription>
-            ⚠️ <strong>Sandbox Mode:</strong> You can only send messages to phone numbers that have joined your WhatsApp Sandbox. If the message fails, the recipient needs to send your sandbox join code to your WhatsApp number first.
-          </AlertDescription>
-        </Alert>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="customerPhone" className="flex items-center gap-2">
               <Phone className="h-4 w-4" />
-              Phone Number *
+              Recipient Phone Number *
+              <span className="text-xs text-muted-foreground ml-1">(who will receive the message)</span>
             </Label>
             <Input
               id="customerPhone"
               type="tel"
-              placeholder="+1234567890"
+              placeholder="+201557000970 or 01557000970"
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               className="font-mono"
             />
+            <p className="text-xs text-muted-foreground">
+              Enter the customer's phone number. Egyptian numbers will be auto-formatted (01557000970 → +201557000970).
+            </p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="customerName" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Customer Name
+              <span className="text-xs text-muted-foreground ml-1">(optional - for your records)</span>
             </Label>
             <Input
               id="customerName"
               type="text"
-              placeholder="Customer name (optional)"
+              placeholder="Enter customer's name (optional)"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              This is just a label to help you identify the customer. It won't be sent to them.
+            </p>
           </div>
         </div>
 

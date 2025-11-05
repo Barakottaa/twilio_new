@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTwilioConversations, listConversationsLite } from '@/lib/twilio-service';
+import { getTwilioConversations, listConversationsLite, getTwilioClient } from '@/lib/twilio-service';
 import { ConversationService } from '@/lib/conversation-service';
+import { getNumberById, getDefaultNumber, getWhatsAppNumber } from '@/lib/multi-number-config';
+import { normalizePhoneNumber } from '@/lib/utils';
 
 export async function GET(req: NextRequest) {
   try {
@@ -91,6 +93,142 @@ export async function GET(req: NextRequest) {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       conversations: []
+    }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { phoneNumber, numberId, agentId = 'admin_001' } = body;
+
+    if (!phoneNumber) {
+      return NextResponse.json({ 
+        error: 'phoneNumber is required' 
+      }, { status: 400 });
+    }
+
+    console.log('📞 Creating conversation for phone number:', phoneNumber, 'with numberId:', numberId);
+
+    const twilioClient = await getTwilioClient();
+
+    // Determine which number to use
+    let fromNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+    if (numberId) {
+      const numberConfig = getNumberById(numberId);
+      if (numberConfig) {
+        fromNumber = getWhatsAppNumber(numberConfig.number);
+        console.log('✅ Using selected number for conversation:', numberConfig.name, `(${fromNumber})`);
+      } else {
+        console.warn('⚠️ Number ID not found:', numberId, '- falling back to default');
+      }
+    } else {
+      const defaultNumber = getDefaultNumber();
+      if (defaultNumber) {
+        fromNumber = getWhatsAppNumber(defaultNumber.number);
+        console.log('📱 Using default number for conversation:', defaultNumber.name, `(${fromNumber})`);
+      }
+    }
+
+    // Normalize phone number using proper utility function
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+    const whatsappPhone = normalizedPhone.startsWith('whatsapp:') ? normalizedPhone : `whatsapp:${normalizedPhone}`;
+    
+    console.log('📱 Normalized phone number:', phoneNumber, '→', normalizedPhone);
+    
+    // Format phone number for uniqueName (remove non-digits)
+    const phoneDigits = normalizedPhone.replace(/[^0-9]/g, '');
+    const uniqueName = `whatsapp_${phoneDigits}`;
+
+    // Check if conversation already exists
+    try {
+      const existingConversation = await twilioClient.conversations.v1.conversations(uniqueName).fetch();
+      console.log('✅ Conversation already exists:', existingConversation.sid);
+      
+      // Return existing conversation
+      const conversations = await getTwilioConversations(agentId, 1, existingConversation.sid, 0);
+      return NextResponse.json({
+        success: true,
+        conversation: conversations[0] || {
+          id: existingConversation.sid,
+          customer: {
+            id: uniqueName,
+            name: normalizedPhone,
+            phoneNumber: normalizedPhone,
+            email: undefined
+          },
+          messages: [],
+          status: 'open',
+          createdAt: existingConversation.dateCreated?.toISOString() || new Date().toISOString(),
+          updatedAt: existingConversation.dateUpdated?.toISOString() || new Date().toISOString()
+        },
+        alreadyExists: true
+      });
+    } catch (error: any) {
+      // Conversation doesn't exist, create it
+      if (error.code !== 20404) {
+        throw error; // Re-throw if it's not a "not found" error
+      }
+    }
+
+    // Create new conversation
+    const conversation = await twilioClient.conversations.v1.conversations.create({
+      friendlyName: `Chat with ${normalizedPhone}`,
+      uniqueName: uniqueName
+    });
+
+    console.log('✅ Created new conversation:', conversation.sid);
+
+    // Add customer as participant
+    await twilioClient.conversations.v1
+      .conversations(conversation.sid)
+      .participants
+      .create({
+        'messagingBinding.address': whatsappPhone,
+        'messagingBinding.proxyAddress': fromNumber
+      });
+
+    // Add system/agent as participant
+    try {
+      await twilioClient.conversations.v1
+        .conversations(conversation.sid)
+        .participants
+        .create({
+          identity: agentId
+        });
+    } catch (e: any) {
+      // Participant might already exist, ignore
+      if (e.code !== 50433) {
+        console.warn('⚠️ Failed to add agent participant:', e.message);
+      }
+    }
+
+    // Fetch the created conversation
+    const conversations = await getTwilioConversations(agentId, 1, conversation.sid, 0);
+
+    return NextResponse.json({
+      success: true,
+      conversation: conversations[0] || {
+        id: conversation.sid,
+        customer: {
+          id: uniqueName,
+          name: normalizedPhone,
+          phoneNumber: normalizedPhone,
+          email: undefined
+        },
+        messages: [],
+        status: 'open',
+        createdAt: conversation.dateCreated?.toISOString() || new Date().toISOString(),
+        updatedAt: conversation.dateUpdated?.toISOString() || new Date().toISOString()
+      },
+      alreadyExists: false
+    });
+
+  } catch (error) {
+    console.error('Error creating conversation:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

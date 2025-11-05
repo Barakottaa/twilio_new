@@ -124,14 +124,26 @@ export function TemplateSelector({
       });
 
       if (response.ok) {
-        toast({ title: "Success", description: "Template message sent successfully!" });
+        const responseData = await response.json();
+        console.log('✅ Template message response:', responseData);
+        toast({ 
+          title: "Success", 
+          description: `Template message sent! Status: ${responseData.status || 'sent'}` 
+        });
         setSelectedTemplate('');
         if (onMessageSent) {
           onMessageSent(template);
         }
       } else {
         const errorData = await response.json();
-        toast({ title: "Error", description: errorData.error || "Failed to send template message.", variant: "destructive" });
+        console.error('❌ Template message error:', errorData);
+        const errorMessage = errorData.error || "Failed to send template message.";
+        const errorCode = errorData.errorCode ? ` (Error: ${errorData.errorCode})` : '';
+        toast({ 
+          title: "Error", 
+          description: `${errorMessage}${errorCode}`,
+          variant: "destructive" 
+        });
       }
     } catch (error) {
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
@@ -140,40 +152,30 @@ export function TemplateSelector({
     }
   };
 
-  // If within 24-hour window and showRegularInput is true, show regular message input
-  if (!isOutsideWindow && showRegularInput && regularInputProps) {
-    return (
-      <MessageInput
-        onSendMessage={regularInputProps.onSendMessage}
-        disabled={regularInputProps.disabled}
-        disabledReason={regularInputProps.disabledReason}
-        onAssignToMe={regularInputProps.onAssignToMe}
-        showAssignButton={regularInputProps.showAssignButton}
-        isAssigning={regularInputProps.isAssigning}
-      />
-    );
-  }
-
-  // If within 24-hour window but showRegularInput is false, return null
+  // Template selector should ONLY show when outside 24-hour window
+  // If inside window, this component should not be rendered (regular message input should be shown instead)
   if (!isOutsideWindow) {
     return null;
   }
 
-  // Outside 24-hour window - show template selector (replaces message input)
   return (
     <div className="flex-shrink-0 border-t bg-muted/30 p-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-orange-600">
             <AlertTriangle className="h-5 w-5" />
-            Template Message Required
+            {lastCustomerMessage ? 'Template Message Required' : 'Send Template Message'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert variant="destructive">
+          <Alert variant={lastCustomerMessage ? "destructive" : "default"}>
             <AlertTriangle className="h-5 w-5" />
             <div className="ml-2">
-              <p className="font-medium">Outside 24-hour messaging window. Only approved templates can be sent.</p>
+              <p className="font-medium">
+                {lastCustomerMessage 
+                  ? "Outside 24-hour messaging window. Only approved templates can be sent."
+                  : "This is a new conversation. Send a template message to start the conversation."}
+              </p>
               {lastCustomerMessage && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                   <Clock className="w-4 h-4" />
