@@ -54,6 +54,12 @@ logs/
 .next/
 node_modules/
 
+# Cache directories (should never be committed)
+**/.next/cache/
+**/.cache/
+*.cache
+cache/
+
 # Large files
 *.pack
 *.node
