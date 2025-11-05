@@ -1,0 +1,35 @@
+{
+  "name": "twilio-service",
+  "version": "1.0.0",
+  "description": "Twilio WhatsApp API Service with PDF to Image Conversion",
+  "main": "listener.js",
+  "scripts": {
+    "start": "node listener.js",
+    "dev": "nodemon listener.js"
+  },
+  "keywords": [
+    "twilio",
+    "whatsapp",
+    "pdf",
+    "image",
+    "conversion",
+    "webhook"
+  ],
+  "author": "Baraka",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "pdf-poppler": "^0.2.1",
+    "sharp": "^0.33.0",
+    "fs-extra": "^11.2.0",
+    "path": "^0.12.7",
+    "twilio": "^5.3.0",
+    "form-data": "^2.5.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
+

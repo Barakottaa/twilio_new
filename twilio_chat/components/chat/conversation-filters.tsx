@@ -8,20 +8,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PriorityBadge } from '@/components/ui/priority-badge';
-import { Search, Filter, X, Users, Clock, Tag } from 'lucide-react';
+import { Search, Filter, X, Users, Clock, Tag, Phone } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface ConversationFiltersProps {
   conversations: Chat[];
   onFilteredConversations: (filtered: Chat[]) => void;
   agents: Array<{ id: string; name: string; status: string }>;
+  selectedNumberId?: string | null;
+  onNumberSelect?: (numberId: string | null) => void;
 }
 
-export function ConversationFilters({ conversations, onFilteredConversations, agents }: ConversationFiltersProps) {
+export function ConversationFilters({ conversations, onFilteredConversations, agents, selectedNumberId, onNumberSelect }: ConversationFiltersProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ConversationStatus | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<Chat['priority'] | 'all'>('all');
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [tagFilter, setTagFilter] = useState<string>('all');
+  const [numbers, setNumbers] = useState<Array<{ id: string; number: string; name: string; department: string }>>([]);
+
+  // Fetch available numbers
+  useEffect(() => {
+    const fetchNumbers = async () => {
+      try {
+        const response = await fetch('/api/twilio/numbers');
+        if (response.ok) {
+          const data = await response.json();
+          setNumbers(data.numbers || []);
+          console.log('✅ Numbers loaded:', data.numbers?.length || 0);
+        } else {
+          console.error('❌ Failed to fetch numbers:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching numbers:', error);
+        // Set empty array on error so selector still shows
+        setNumbers([]);
+      }
+    };
+    fetchNumbers();
+  }, []);
 
   // Get all unique tags from conversations (memoized)
   const allTags = useMemo(() => 
@@ -67,8 +92,13 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
       filtered = filtered.filter(conv => conv.tags?.includes(tagFilter));
     }
 
+    // Number filter (if selectedNumberId is provided, filter by it)
+    if (selectedNumberId) {
+      filtered = filtered.filter(conv => conv.twilioNumberId === selectedNumberId);
+    }
+
     onFilteredConversations(filtered);
-  }, [searchQuery, statusFilter, priorityFilter, agentFilter, tagFilter, conversations, onFilteredConversations]);
+  }, [searchQuery, statusFilter, priorityFilter, agentFilter, tagFilter, selectedNumberId, conversations, onFilteredConversations]);
 
   // Clear all filters (memoized)
   const clearFilters = useCallback(() => {
@@ -77,8 +107,11 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
     setPriorityFilter('all');
     setAgentFilter('all');
     setTagFilter('all');
+    if (onNumberSelect) {
+      onNumberSelect(null);
+    }
     onFilteredConversations(conversations);
-  }, [conversations, onFilteredConversations]);
+  }, [conversations, onFilteredConversations, onNumberSelect]);
 
   // Apply filters when any filter changes
   React.useEffect(() => {
@@ -91,6 +124,7 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
     priorityFilter !== 'all' ? 1 : 0,
     agentFilter !== 'all' ? 1 : 0,
     tagFilter !== 'all' ? 1 : 0,
+    selectedNumberId ? 1 : 0,
   ].reduce((sum, count) => sum + count, 0);
 
   return (
@@ -112,6 +146,42 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
           <Filter className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">Filters:</span>
         </div>
+
+        {/* Number Filter - Always visible and prominently placed */}
+        <Select 
+          value={selectedNumberId || 'all'} 
+          onValueChange={(value) => {
+            if (onNumberSelect) {
+              onNumberSelect(value === 'all' ? null : value);
+            }
+          }}
+        >
+          <SelectTrigger className="w-48">
+            <Phone className="h-4 w-4 mr-2" />
+            <SelectValue placeholder={numbers.length > 0 ? "All Numbers" : "Loading numbers..."} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Numbers</SelectItem>
+            {numbers.length > 0 ? (
+              numbers.map((number) => (
+                <SelectItem key={number.id} value={number.id}>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3 w-3" />
+                    <span>{number.name}</span>
+                    <span className="text-xs text-muted-foreground">({number.number})</span>
+                  </div>
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="loading" disabled>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3 w-3" />
+                  <span>Loading numbers...</span>
+                </div>
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
 
         {/* Status Filter */}
         <Select value={statusFilter} onValueChange={(value: ConversationStatus | 'all') => setStatusFilter(value)}>
@@ -182,6 +252,7 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
           </Select>
         )}
 
+
         {/* Clear Filters */}
         {activeFiltersCount > 0 && (
           <Button variant="outline" size="sm" onClick={clearFilters} className="flex items-center gap-1">
@@ -233,6 +304,15 @@ export function ConversationFilters({ conversations, onFilteredConversations, ag
               <Tag className="h-3 w-3" />
               {tagFilter}
               <button onClick={() => setTagFilter('all')} className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {selectedNumberId && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Phone className="h-3 w-3" />
+              {numbers.find(n => n.id === selectedNumberId)?.name || selectedNumberId}
+              <button onClick={() => onNumberSelect && onNumberSelect(null)} className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5">
                 <X className="h-3 w-3" />
               </button>
             </Badge>

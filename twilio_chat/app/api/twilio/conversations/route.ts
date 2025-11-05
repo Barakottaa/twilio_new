@@ -13,12 +13,18 @@ export async function GET(req: NextRequest) {
     const since = searchParams.get('since'); // For incremental updates
     const lite = searchParams.get('lite') === '1';
     const after = searchParams.get('after') ?? undefined;
+    const numberId = searchParams.get('numberId'); // Filter by Twilio number ID
+    const userId = searchParams.get('userId'); // Filter by User identity (optional - uses User Conversation Resource)
 
-    console.log('Fetching conversations for agent:', agentId, 'limit:', limit, 'conversationId:', conversationId, 'messageLimit:', messageLimit, 'forceRefresh:', forceRefresh, 'lite:', lite);
-    
     if (lite) {
       // Fast lightweight list for initial load
-      const { items, nextCursor } = await listConversationsLite(limit, after);
+      let { items, nextCursor } = await listConversationsLite(limit, after);
+      
+      // Filter by numberId if provided
+      if (numberId) {
+        items = items.filter(item => item.twilioNumberId === numberId);
+      }
+      
       return NextResponse.json({ 
         success: true,
         items, 
@@ -30,12 +36,37 @@ export async function GET(req: NextRequest) {
     
     let conversations;
     
-    if (conversationId) {
+    // If userId is provided, use User Conversation Resource to get conversations for that user
+    if (userId && !conversationId) {
+      try {
+        const { getUserConversations } = await import('@/lib/user-conversations');
+        const userConversationSids = await getUserConversations(userId, limit);
+        
+        // Fetch full conversation details for each SID
+        const userConversationPromises = userConversationSids.map(sid => 
+          getTwilioConversations(agentId, 1, sid, messageLimit)
+        );
+        
+        const userConversationResults = await Promise.all(userConversationPromises);
+        conversations = userConversationResults.flat();
+        
+        console.log(`✅ Fetched ${conversations.length} conversations for user ${userId}`);
+      } catch (error) {
+        console.warn('⚠️ Could not fetch conversations by user, falling back to all conversations:', error);
+        // Fallback to regular conversation fetching
+        conversations = await ConversationService.getConversations(agentId, limit, forceRefresh);
+      }
+    } else if (conversationId) {
       // For specific conversation, always fetch from Twilio for accuracy
       conversations = await getTwilioConversations(agentId, limit, conversationId, messageLimit);
     } else {
       // Use optimized local storage service
       conversations = await ConversationService.getConversations(agentId, limit, forceRefresh);
+    }
+    
+    // Filter by numberId if provided
+    if (numberId) {
+      conversations = conversations.filter(conv => conv.twilioNumberId === numberId);
     }
     
     const response = NextResponse.json({

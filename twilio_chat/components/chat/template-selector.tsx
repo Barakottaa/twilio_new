@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Send, Clock, AlertTriangle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useChatStore } from '@/store/chat-store';
+import { MessageInput } from './message-input';
 
 interface TemplateSelectorProps {
   conversationId: string;
@@ -14,6 +16,15 @@ interface TemplateSelectorProps {
   customerName: string;
   lastCustomerMessage?: string;
   onMessageSent?: (message: any) => void;
+  showRegularInput?: boolean;
+  regularInputProps?: {
+    onSendMessage: (text: string) => void;
+    disabled?: boolean;
+    disabledReason?: string;
+    onAssignToMe?: () => void;
+    showAssignButton?: boolean;
+    isAssigning?: boolean;
+  };
 }
 
 interface TwilioTemplate {
@@ -33,13 +44,16 @@ export function TemplateSelector({
   customerPhone,
   customerName,
   lastCustomerMessage,
-  onMessageSent
+  onMessageSent,
+  showRegularInput = false,
+  regularInputProps
 }: TemplateSelectorProps) {
   const [templates, setTemplates] = useState<TwilioTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
+  const selectedNumberId = useChatStore(state => state.selectedNumberId);
 
   // Check if we're outside the 24-hour window
   const isOutsideWindow = useMemo(() => {
@@ -98,6 +112,7 @@ export function TemplateSelector({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          fromNumberId: selectedNumberId, // Pass selected number ID
           conversationId: conversationId,
           customerPhone: customerPhone,
           isTemplate: true,
@@ -125,10 +140,26 @@ export function TemplateSelector({
     }
   };
 
-  if (!isOutsideWindow) {
-    return null; // Don't render if within 24-hour window
+  // If within 24-hour window and showRegularInput is true, show regular message input
+  if (!isOutsideWindow && showRegularInput && regularInputProps) {
+    return (
+      <MessageInput
+        onSendMessage={regularInputProps.onSendMessage}
+        disabled={regularInputProps.disabled}
+        disabledReason={regularInputProps.disabledReason}
+        onAssignToMe={regularInputProps.onAssignToMe}
+        showAssignButton={regularInputProps.showAssignButton}
+        isAssigning={regularInputProps.isAssigning}
+      />
+    );
   }
 
+  // If within 24-hour window but showRegularInput is false, return null
+  if (!isOutsideWindow) {
+    return null;
+  }
+
+  // Outside 24-hour window - show template selector (replaces message input)
   return (
     <div className="flex-shrink-0 border-t bg-muted/30 p-4">
       <Card>

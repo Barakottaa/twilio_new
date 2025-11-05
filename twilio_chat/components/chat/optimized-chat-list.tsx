@@ -52,6 +52,9 @@ interface ConversationItem {
   isPinned?: boolean;
   isNew?: boolean;
   isUnreplied?: boolean;
+  // Twilio number information
+  proxyAddress?: string;
+  twilioNumberId?: string;
 }
 
 interface OptimizedChatListProps {
@@ -88,33 +91,30 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     isConversationPinned,
     updateConversationStatus,
     assignments,
-    loadAssignmentsFromDatabase
+    loadAssignmentsFromDatabase,
+    selectedNumberId,
+    setSelectedNumber
   } = useChatStore();
   
   // Use conversations from store instead of local state
   const [hasMore, setHasMore] = useState(false);
-  
-  // Debug: Log conversation data to see real-time updates
-  console.log('🔍 OptimizedChatList - Current conversations from store:', conversations.map(conv => ({
-    id: conv.id,
-    title: conv.title,
-    lastMessagePreview: conv.lastMessagePreview,
-    isUnreplied: conv.isUnreplied,
-    updatedAt: conv.updatedAt
-  })));
-  
-  // Debug: Check specifically for Abdelrahman Baraka conversation
-  const abdelrahmanConv = conversations.find(conv => conv.title === 'Abdelrahman Baraka');
-  if (abdelrahmanConv) {
-    console.log('🔍 OptimizedChatList - Abdelrahman Baraka conversation details:', {
-      id: abdelrahmanConv.id,
-      title: abdelrahmanConv.title,
-      lastMessagePreview: abdelrahmanConv.lastMessagePreview,
-      isUnreplied: abdelrahmanConv.isUnreplied,
-      status: abdelrahmanConv.status,
-      updatedAt: abdelrahmanConv.updatedAt
-    });
-  }
+  const [numbers, setNumbers] = useState<Array<{ id: string; number: string; name: string; department: string }>>([]);
+
+  // Fetch available numbers on mount
+  useEffect(() => {
+    const fetchNumbers = async () => {
+      try {
+        const response = await fetch('/api/twilio/numbers');
+        if (response.ok) {
+          const data = await response.json();
+          setNumbers(data.numbers || []);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching numbers:', error);
+      }
+    };
+    fetchNumbers();
+  }, []);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -127,8 +127,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   // Handle status updates from conversation list
   const handleStatusUpdate = async (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
     try {
-      console.log('🔍 Conversation list - updating status:', { conversationId, newStatus });
-      
       const response = await fetch(`/api/conversations/${conversationId}/status`, {
         method: 'PATCH',
         headers: {
@@ -143,8 +141,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
 
       // Update the store
       updateConversationStatus(conversationId, newStatus);
-      
-      console.log('🔍 Conversation list - status updated successfully');
     } catch (error) {
       console.error('Error updating conversation status from list:', error);
     }
@@ -152,24 +148,34 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
 
   // Handle opening agent assignment dialog
   const handleOpenAgentDialog = (conversationId: string) => {
-    console.log('🔍 Opening agent assignment dialog for conversation:', conversationId);
     setSelectedConversationForAssignment(conversationId);
     setShowAgentDialog(true);
   };
 
+  // Auto-select first number if none selected
+  useEffect(() => {
+    if (!selectedNumberId && numbers.length > 0) {
+      const firstNumber = numbers[0];
+      setSelectedNumber(firstNumber.id);
+    }
+  }, [selectedNumberId, numbers.length, setSelectedNumber]); // Use numbers.length to avoid dependency on array reference
+
   // Load initial conversations and assignments
   useEffect(() => {
-    console.log('🔍 OptimizedChatList - agentId:', agentId);
-    if (agentId) {
-      console.log('🔍 Auto-loading assignments first, then conversations...');
+    if (agentId && selectedNumberId) {
+      // Clear conversations when switching numbers to show skeleton immediately
+      setConversations([]);
+      setIsInitialLoad(true);
+      
       // Load assignments first, then conversations
       loadAssignmentsFromDatabase().then(() => {
         loadConversations();
+      }).catch(() => {
+        // Still try to load conversations even if assignments fail
+        loadConversations();
       });
-    } else {
-      console.log('🔍 No agentId, not loading conversations');
     }
-  }, [agentId, loadAssignmentsFromDatabase]);
+  }, [agentId, selectedNumberId]); // Removed loadAssignmentsFromDatabase from dependencies to avoid re-triggering
 
   const loadConversations = async (cursor?: string) => {
     try {
@@ -183,17 +189,19 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       try {
         const url = new URL('/api/twilio/conversations', window.location.origin);
         url.searchParams.set('lite', '1');
-        url.searchParams.set('limit', '20');
+        url.searchParams.set('limit', '100'); // Increased from 20 to 100 to fetch more conversations
         url.searchParams.set('agentId', agentId || '');
+        // Add numberId filter if a number is selected (use selectedNumberId from hook)
+        if (selectedNumberId) {
+          url.searchParams.set('numberId', selectedNumberId);
+        }
         if (cursor) {
           url.searchParams.set('after', cursor);
         }
         
         const response = await fetch(url.toString());
-        console.log('🔍 Lite API response status:', response.status);
         if (response.ok) {
           const data = await response.json();
-          console.log('🔍 Lite API data:', data);
           
           if (cursor) {
             const newConversations = [...conversations, ...data.items];
@@ -202,7 +210,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
             setConversations(data.items);
             // Auto-select the first conversation if none is selected
             if (data.items.length > 0 && !selectedConversationId) {
-              console.log('🔍 Auto-selecting first conversation:', data.items[0].id);
               setSelectedConversation(data.items[0].id);
             }
           }
@@ -212,54 +219,57 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           return;
         }
       } catch (apiError) {
-        console.log('New API failed, falling back to old API:', apiError);
-      }
-      
-      // Fallback to the old working API
-      const fallbackUrl = new URL('/api/twilio/conversations', window.location.origin);
-      fallbackUrl.searchParams.set('agentId', agentId || '');
-      fallbackUrl.searchParams.set('limit', '20');
-      fallbackUrl.searchParams.set('messageLimit', '0'); // Don't load messages
-      
-          const fallbackResponse = await fetch(fallbackUrl.toString());
-          console.log('🔍 Fallback API response status:', fallbackResponse.status);
-          if (!fallbackResponse.ok) {
-            throw new Error('Failed to fetch conversations from both APIs');
-          }
-          
-          const fallbackData = await fallbackResponse.json();
-          console.log('🔍 Fallback API data:', fallbackData);
-      
-      if (fallbackData.success && fallbackData.conversations) {
-        // Convert old format to new format
-        const convertedItems = fallbackData.conversations.map((conv: any) => ({
-          id: conv.id,
-          title: conv.customer.name,
-          lastMessagePreview: conv.messages.length > 0 ? conv.messages[conv.messages.length - 1].text : '',
-          unreadCount: conv.unreadCount || 0,
-          createdAt: conv.createdAt,
-          updatedAt: conv.updatedAt,
-          customerId: conv.customer.id,
-          agentId: conv.agent.id,
-          isUnreplied: false, // Default to false, will be overridden by store data if available
-        }));
+        // Fallback to the old working API
+        const fallbackUrl = new URL('/api/twilio/conversations', window.location.origin);
+        fallbackUrl.searchParams.set('agentId', agentId || '');
+        fallbackUrl.searchParams.set('limit', '20');
+        fallbackUrl.searchParams.set('messageLimit', '0'); // Don't load messages
         
-        if (cursor) {
-          const newConversations = [...conversations, ...convertedItems];
-          setConversations(newConversations);
-        } else {
-          setConversations(convertedItems);
-          // Auto-select the first conversation if none is selected
-          if (convertedItems.length > 0 && !selectedConversationId) {
-            console.log('🔍 Auto-selecting first conversation (fallback):', convertedItems[0].id);
-            setSelectedConversation(convertedItems[0].id);
-          }
+        const fallbackResponse = await fetch(fallbackUrl.toString());
+        if (!fallbackResponse.ok) {
+          throw new Error('Failed to fetch conversations from both APIs');
         }
         
-        setNextCursor(null); // Old API doesn't support pagination
-        setHasMore(false);
+        const fallbackData = await fallbackResponse.json();
+        
+        if (fallbackData.success && fallbackData.conversations) {
+          // Convert old format to new format
+          const convertedItems = fallbackData.conversations.map((conv: any) => ({
+            id: conv.id,
+            title: conv.customer?.name || conv.friendlyName || conv.sid,
+            lastMessagePreview: conv.messages?.[0]?.text || 'No messages yet',
+            unreadCount: conv.unreadCount || 0,
+            createdAt: conv.createdAt,
+            updatedAt: conv.updatedAt,
+            customerId: conv.customer?.id || 'unknown',
+            agentId: conv.agent?.id || 'unassigned',
+            customerPhone: conv.customer?.phoneNumber,
+            customerEmail: conv.customer?.email,
+            agentName: conv.agent?.name,
+            agentStatus: conv.agent?.status,
+            status: conv.status,
+            isPinned: false, // Old API doesn't provide this
+            isNew: false, // Old API doesn't provide this
+            isUnreplied: false, // Old API doesn't provide this
+            proxyAddress: conv.proxyAddress,
+            twilioNumberId: conv.twilioNumberId,
+          }));
+          
+          if (cursor) {
+            const newConversations = [...conversations, ...convertedItems];
+            setConversations(newConversations);
+          } else {
+            setConversations(convertedItems);
+            // Auto-select the first conversation if none is selected
+            if (convertedItems.length > 0 && !selectedConversationId) {
+              setSelectedConversation(convertedItems[0].id);
+            }
+          }
+          
+          setNextCursor(null); // Old API doesn't support pagination
+          setHasMore(false);
+        }
       }
-      
     } catch (err) {
       console.error('Error loading conversations:', err);
     } finally {
@@ -277,12 +287,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
 
   // Filter conversations based on active tab, status, and search query
   const filteredConversations = useMemo(() => {
-    console.log('🔍 Filtering conversations:', { 
-      activeTab, 
-      conversationsCount: conversations.length, 
-      assignmentsCount: Object.keys(assignments).length,
-      assignments: assignments 
-    });
     let filtered = conversations;
 
     // Apply tab filter first - use store assignments as source of truth
@@ -290,30 +294,14 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       // Only show conversations assigned to the current agent (from store)
       filtered = filtered.filter(conv => {
         const assignment = assignments[conv.id];
-        const isAssigned = assignment && assignment.id === agentId;
-        console.log('🔍 Assigned filter check:', {
-          conversationId: conv.id,
-          conversationTitle: conv.title,
-          assignment,
-          agentId,
-          conversationStatus: conv.status,
-          isAssigned
-        });
-        return isAssigned;
+        return assignment && assignment.id === agentId;
       });
     } else if (activeTab === 'unassigned') {
       // Show conversations with no assignment in store (database source of truth)
       // Include both open and closed unassigned conversations
       filtered = filtered.filter(conv => {
         const assignment = assignments[conv.id];
-        const isUnassigned = !assignment;
-        console.log('🔍 Unassigned filter check:', {
-          conversationId: conv.id,
-          conversationTitle: conv.title,
-          assignment,
-          isUnassigned
-        });
-        return isUnassigned;
+        return !assignment;
       });
     }
     // 'all' tab shows all conversations, no additional filtering needed
@@ -321,6 +309,11 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     // Apply status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(conv => conv.status === statusFilter);
+    }
+
+    // Apply number filter - REQUIRED (always filter by selectedNumberId)
+    if (selectedNumberId) {
+      filtered = filtered.filter(conv => conv.twilioNumberId === selectedNumberId);
     }
 
     // Apply search filter
@@ -374,7 +367,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     });
 
     return filtered;
-  }, [conversations, activeTab, agentId, statusFilter, searchQuery, isConversationPinned]);
+  }, [conversations, activeTab, agentId, statusFilter, searchQuery, selectedNumberId, assignments, isConversationPinned]);
 
   // Calculate status counts
   const tabCounts = useMemo(() => {
@@ -385,22 +378,13 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       closed: conversations.filter(conv => conv.status === 'closed').length
     };
     
-    console.log('🔍 Status counts calculation:', {
-      totalConversations: conversations.length,
-      statusCounts,
-      conversations: conversations.map(c => ({
-        id: c.id,
-        title: c.title,
-        status: c.status
-      }))
-    });
-    
     return { 
       status: statusCounts
     };
   }, [conversations]);
 
-  if ((isLoading || isInitialLoad) && conversations.length === 0) {
+  // Show spinner only if loading and no conversations at all (not when switching numbers)
+  if (isLoading && conversations.length === 0 && !isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center space-y-2">
@@ -430,6 +414,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         counts={tabCounts}
         currentAgentId={agentId}
         statusFilter={statusFilter}
+        selectedNumberId={selectedNumberId}
+        onNumberSelect={setSelectedNumber}
       />
       
       <div className="flex-1 overflow-y-auto scrollbar-hover">
@@ -444,7 +430,31 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           />
         )}
         
-        {filteredConversations.map((conversation) => (
+        {/* Skeleton loading animation when switching numbers */}
+        {isInitialLoad && filteredConversations.length === 0 && (
+          <div className="space-y-2 p-2">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="w-full p-3 mb-1 rounded-lg border bg-card animate-pulse"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-muted flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="h-4 w-32 bg-muted rounded" />
+                      <div className="h-3 w-16 bg-muted rounded" />
+                    </div>
+                    <div className="h-3 w-full bg-muted rounded" />
+                    <div className="h-3 w-2/3 bg-muted rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {!isInitialLoad && filteredConversations.map((conversation) => (
           <div
             key={conversation.id}
             className={`w-full p-3 mb-1 rounded-lg border transition-colors cursor-pointer ${
@@ -453,7 +463,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                 : "bg-card hover:bg-muted/50"
             }`}
             onClick={async () => {
-              console.log('Selecting conversation:', conversation.id);
               setSelectedConversation(conversation.id);
               
               // Mark conversation as read if it's new
@@ -467,7 +476,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                   });
                   
                   if (response.ok) {
-                    console.log('✅ Conversation marked as read:', conversation.id);
                     // Update the conversation in the store to remove the new indicator
                     const updatedConversations = conversations.map(conv => 
                       conv.id === conversation.id ? { ...conv, isNew: false } : conv
@@ -514,16 +522,9 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
                     <h3 className="font-medium text-sm truncate">
                       {conversation.title}
                     </h3>
-                    {(() => {
-                      console.log('🔍 Rendering unreplied dot for:', {
-                        title: conversation.title,
-                        isUnreplied: conversation.isUnreplied,
-                        shouldShow: conversation.isUnreplied
-                      });
-                      return conversation.isUnreplied && (
-                        <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" title="Unreplied message" />
-                      );
-                    })()}
+                    {conversation.isUnreplied && (
+                      <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" title="Unreplied message" />
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     {isConversationPinned(conversation.id) && (
@@ -648,8 +649,7 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           }}
           conversationId={selectedConversationForAssignment}
           currentAgentId={conversations.find(c => c.id === selectedConversationForAssignment)?.agentId}
-          onAgentAssigned={(conversationId, agentId) => {
-            console.log('🔍 Agent assigned from conversation list:', { conversationId, agentId });
+          onAgentAssigned={() => {
             // The dialog already updates the store, so we just need to close it
             setShowAgentDialog(false);
             setSelectedConversationForAssignment(null);

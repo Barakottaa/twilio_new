@@ -22,21 +22,27 @@ export function getConfiguredNumbers(): TwilioNumber[] {
       for (let i = 1; i <= 10; i++) {
         const number = process.env[`TWILIO_WHATSAPP_NUMBER_${i}`];
         if (number) {
+          // Remove 'whatsapp:' prefix if present, but keep the + sign
+          const cleanNumber = number.replace(/^whatsapp:/i, '');
           numbers.push({
             id: i.toString(),
-            number: number.replace('whatsapp:', ''),
+            number: cleanNumber,
             name: `Number ${i}`,
             department: 'General',
             isActive: true
           });
+          console.log(`📋 Loaded number ${i}: ${cleanNumber}`);
         }
       }
       
+      console.log(`📋 Total configured numbers: ${numbers.length}`);
       return numbers;
     }
     
     const parsedConfig: NumbersConfig = JSON.parse(config);
-    return parsedConfig.numbers.filter(n => n.isActive);
+    const activeNumbers = parsedConfig.numbers.filter(n => n.isActive);
+    console.log(`📋 Loaded ${activeNumbers.length} numbers from TWILIO_NUMBERS_CONFIG`);
+    return activeNumbers;
   } catch (error) {
     console.error('Error parsing TWILIO_NUMBERS_CONFIG:', error);
     return [];
@@ -52,8 +58,30 @@ export function getNumberById(id: string): TwilioNumber | null {
 // Get a number by phone number
 export function getNumberByPhone(phoneNumber: string): TwilioNumber | null {
   const numbers = getConfiguredNumbers();
-  const normalizedPhone = phoneNumber.replace('whatsapp:', '').replace('+', '');
-  return numbers.find(n => n.number.replace('+', '') === normalizedPhone) || null;
+  // Normalize both: remove 'whatsapp:' prefix but keep '+' sign for comparison
+  // Twilio sends proxyAddress as "whatsapp:+1234567890"
+  // Our config might have "+1234567890" or "whatsapp:+1234567890"
+  const normalizedPhone = phoneNumber.replace(/^whatsapp:/i, '').trim();
+  
+  const matched = numbers.find(n => {
+    // Normalize configured number (remove whatsapp: if present)
+    const normalizedConfig = n.number.replace(/^whatsapp:/i, '').trim();
+    // Compare: both should have + sign
+    const match = normalizedConfig === normalizedPhone;
+    if (!match) {
+      // Try without + sign as fallback
+      return normalizedConfig.replace(/^\+/, '') === normalizedPhone.replace(/^\+/, '');
+    }
+    return match;
+  });
+  
+  if (matched) {
+    console.log(`✅ Number matched: ${phoneNumber} → ${matched.name} (${matched.number})`);
+  } else {
+    console.warn(`⚠️ No match for: ${phoneNumber}. Available:`, numbers.map(n => n.number));
+  }
+  
+  return matched || null;
 }
 
 // Get default number (first active number)

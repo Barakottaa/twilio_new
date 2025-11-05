@@ -136,32 +136,42 @@ export async function getTwilioClient() {
 
 // ---- Helpers for light listing & paged messages ----
 export async function listConversationsLite(limit = 30, after?: string) {
-  const client = await getTwilioClient();
-  const opts: any = { limit: Math.min(limit, 50) };
-  if (after) opts.pageToken = after;
-  const page = await client.conversations.v1.conversations.page(opts);
-  
-  // Fetch participant info for each conversation to get proper names
-  const items = await Promise.all(page.instances.map(async (c: any) => {
-    try {
-      // Get participants to find customer name
-      const participants = await client.conversations.v1
-        .conversations(c.sid)
-        .participants.list();
-      
-      // Find customer and agent participants
-      const customerParticipant = participants.find(p => {
-        if (!p.identity) {
-          // If identity is null, check if it's a WhatsApp participant (customer)
-          return p.messagingBinding && p.messagingBinding.type === 'whatsapp';
-        }
-        return !p.identity.startsWith('agent-') && !p.identity.startsWith('admin-') && 
-               !p.identity.startsWith('agent_') && !p.identity.startsWith('admin_');
-      });
+  try {
+    const client = await getTwilioClient();
+    // Twilio allows up to 1000 conversations per page, but we'll cap at 200 for performance
+    const opts: any = { limit: Math.min(limit, 200) };
+    if (after) opts.pageToken = after;
+    const page = await client.conversations.v1.conversations.page(opts);
+    
+    // Fetch participant info for each conversation to get proper names
+    const items = await Promise.all(page.instances.map(async (c: any) => {
+      try {
+        // Get participants to find customer name
+        const participants = await client.conversations.v1
+          .conversations(c.sid)
+          .participants.list();
+        
+        // Find customer and agent participants
+        const customerParticipant = participants.find(p => {
+          if (!p.identity) {
+            // If identity is null, check if it's a WhatsApp participant (customer)
+            return p.messagingBinding && p.messagingBinding.type === 'whatsapp';
+          }
+          return !p.identity.startsWith('agent-') && !p.identity.startsWith('admin-') && 
+                 !p.identity.startsWith('agent_') && !p.identity.startsWith('admin_');
+        });
       
       const agentParticipant = participants.find(p => 
         p.identity && (p.identity.startsWith('agent-') || p.identity.startsWith('admin-') ||
                       p.identity.startsWith('agent_') || p.identity.startsWith('admin_'))
+      );
+      
+      // Also check for system/Twilio participant (might have proxyAddress)
+      // Twilio returns proxy_address (snake_case), not proxyAddress (camelCase)
+      const systemParticipant = participants.find(p => 
+        p.messagingBinding && 
+        p.messagingBinding.proxy_address && 
+        p.messagingBinding.proxy_address.startsWith('whatsapp:')
       );
       
       let customerName = 'Unknown Customer';
@@ -294,6 +304,47 @@ export async function listConversationsLite(limit = 30, after?: string) {
       // Determine unreplied after we have both isLastMessageFromCustomer and status
       const isUnreplied = isLastMessageFromCustomer && status === 'open';
 
+      // Extract proxyAddress to identify which number this conversation uses
+      let proxyAddress: string | undefined;
+      let twilioNumberId: string | undefined;
+      
+      // Twilio returns proxy_address (snake_case), not proxyAddress (camelCase)
+      // Use bracket notation to access property in case TypeScript types don't match runtime
+      const customerProxyAddress = customerParticipant?.messagingBinding?.['proxy_address'] as string | undefined;
+      if (customerProxyAddress) {
+        proxyAddress = customerProxyAddress;
+      } 
+      // Then check system participant (if it exists)
+      else {
+        const systemProxyAddress = systemParticipant?.messagingBinding?.['proxy_address'] as string | undefined;
+        if (systemProxyAddress) {
+          proxyAddress = systemProxyAddress;
+        }
+        // Check all participants for proxyAddress
+        else {
+          for (const p of participants) {
+            const pProxyAddress = p.messagingBinding?.['proxy_address'] as string | undefined;
+            if (pProxyAddress) {
+              proxyAddress = pProxyAddress;
+              break;
+            }
+          }
+        }
+      }
+      
+      // If we found proxyAddress, try to match it to configured numbers
+      if (proxyAddress) {
+        try {
+          const { getNumberByPhone } = await import('./multi-number-config');
+          const matchedNumber = getNumberByPhone(proxyAddress);
+          if (matchedNumber) {
+            twilioNumberId = matchedNumber.id;
+          }
+        } catch (e) {
+          console.error('Error matching proxyAddress to configured number:', e);
+        }
+      }
+
       // Build conversation item
       const conversationItem = {
         id: c.sid,
@@ -313,6 +364,9 @@ export async function listConversationsLite(limit = 30, after?: string) {
         isPinned,
         isNew,
         isUnreplied,
+        // Twilio number information
+        proxyAddress,
+        twilioNumberId,
       };
       return conversationItem;
     } catch (error) {
@@ -336,20 +390,23 @@ export async function listConversationsLite(limit = 30, after?: string) {
         agentId: 'unknown',
         status: status,
         isPinned: isPinned,
+        proxyAddress: undefined,
+        twilioNumberId: undefined,
       };
     }
   }));
   
   const nextCursor = page.nextPageUrl ? page.nextPageUrl.match(/PageToken=([^&]+)/)?.[1] : undefined;
   return { items, nextCursor };
+  } catch (error) {
+    console.error('❌ Error in listConversationsLite:', error);
+    throw error;
+  }
 }
 
 export async function listMessages(conversationId: string, limit = 25, before?: string) {
-  console.log('🔍 listMessages called with:', { conversationId, limit, before });
-  
   // First, try to get messages from our database
   try {
-    console.log('🔄 Checking database for messages...');
     const Database = require('better-sqlite3');
     const db = new Database('./database.sqlite');
     
@@ -819,6 +876,32 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
       // Sort messages by timestamp ascending (using string comparison to avoid Date objects)
       messages.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
+      // Extract proxyAddress from customer participant to identify which number this conversation uses
+      // Twilio returns proxy_address (snake_case), not proxyAddress (camelCase)
+      let proxyAddress: string | undefined;
+      let twilioNumberId: string | undefined;
+      
+      if (customerParticipant?.messagingBinding?.proxy_address) {
+        proxyAddress = customerParticipant.messagingBinding.proxy_address;
+        
+        // Try to match proxyAddress to configured numbers
+        try {
+          const { getNumberByPhone } = await import('./multi-number-config');
+          const matchedNumber = proxyAddress ? getNumberByPhone(proxyAddress) : null;
+          if (matchedNumber) {
+            twilioNumberId = matchedNumber.id;
+            console.log(`✅ Matched proxyAddress ${proxyAddress} to number: ${matchedNumber.name} (ID: ${matchedNumber.id})`);
+          } else {
+            console.warn(`⚠️ No match found for proxyAddress: ${proxyAddress}. Configured numbers:`, 
+              (await import('./multi-number-config')).getConfiguredNumbers().map(n => n.number));
+          }
+        } catch (e) {
+          console.warn('Could not match proxyAddress to configured number:', e);
+        }
+      } else {
+        console.warn(`⚠️ No proxyAddress found for conversation ${convo.sid}`);
+      }
+
       // Always return conversation, even if no messages (for new conversations)
       return {
         id: convo.sid,
@@ -827,6 +910,8 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         messages,
         unreadCount: 0, // Twilio unread count is per-user, simplifying for now
         status: 'open' as const,
+        proxyAddress,
+        twilioNumberId,
         priority: 'medium' as const,
         tags: [],
         createdAt: convo.dateCreated ? new Date(convo.dateCreated).toISOString() : new Date().toISOString(),
@@ -889,6 +974,8 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
       closedAt: chat.closedAt ? String(chat.closedAt) : undefined,
       closedBy: chat.closedBy ? String(chat.closedBy) : undefined,
       notes: chat.notes ? String(chat.notes) : undefined,
+      proxyAddress: chat.proxyAddress ? String(chat.proxyAddress) : undefined,
+      twilioNumberId: chat.twilioNumberId ? String(chat.twilioNumberId) : undefined,
     }));
 
     const sortedChats = serializedChats.sort((a,b) => {

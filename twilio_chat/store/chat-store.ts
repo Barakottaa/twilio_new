@@ -36,6 +36,9 @@ interface ChatState {
   // Optional: current logged-in agent
   me: { id: string; name: string } | null;
   
+  // Selected Twilio number for filtering conversations and sending messages
+  selectedNumberId: string | null;
+  
   // Note: Pin status is now stored in database, not in local state
 }
 
@@ -68,6 +71,9 @@ interface ChatActions {
   toggleConversationPin: (conversationId: string) => void;
   isConversationPinned: (conversationId: string) => boolean;
   autoReopenConversation: (conversationId: string) => Promise<void>;
+  
+  // Number selection actions
+  setSelectedNumber: (numberId: string | null) => void;
 }
 
 type ChatStore = ChatState & ChatActions;
@@ -84,6 +90,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   assignments: {},
   statuses: {},
   me: null,
+  selectedNumberId: null,
   
   // Note: Pin status is now stored in database, not in local state
 
@@ -593,6 +600,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const conversation = state.conversations.find(conv => conv.id === conversationId);
           return conversation?.isPinned || false;
         },
+        
+        // Number selection
+        setSelectedNumber: (numberId) => set({ selectedNumberId: numberId }),
 
         // Auto-reopen closed conversation when new message is received
         autoReopenConversation: async (conversationId: string) => {

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserCheck, UserX, Search, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Users, UserCheck, UserX, Search, X, Phone } from 'lucide-react';
 import { ConversationStatusPriorityFilter, type StatusFilter } from './conversation-status-priority-filter';
 
 export type TabFilterType = 'all' | 'assigned' | 'unassigned';
@@ -22,6 +23,8 @@ interface ConversationTabFilterProps {
   };
   currentAgentId?: string;
   statusFilter: StatusFilter;
+  selectedNumberId?: string | null;
+  onNumberSelect?: (numberId: string | null) => void;
 }
 
 export function ConversationTabFilter({ 
@@ -31,9 +34,32 @@ export function ConversationTabFilter({
   onStatusChange,
   counts, 
   currentAgentId,
-  statusFilter
+  statusFilter,
+  selectedNumberId,
+  onNumberSelect
 }: ConversationTabFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [numbers, setNumbers] = useState<Array<{ id: string; number: string; name: string; department: string }>>([]);
+
+  // Fetch available numbers
+  useEffect(() => {
+    const fetchNumbers = async () => {
+      try {
+        const response = await fetch('/api/twilio/numbers');
+        if (response.ok) {
+          const data = await response.json();
+          setNumbers(data.numbers || []);
+          console.log('✅ Numbers loaded in ConversationTabFilter:', data.numbers?.length || 0);
+        } else {
+          console.error('❌ Failed to fetch numbers:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching numbers:', error);
+        setNumbers([]);
+      }
+    };
+    fetchNumbers();
+  }, []);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -71,8 +97,35 @@ export function ConversationTabFilter({
 
   return (
     <div className="border-b bg-white shadow-sm">
-      {/* Search Bar */}
-      <div className="p-3 border-b bg-gray-50">
+      {/* Number Selector and Search Bar */}
+      <div className="p-3 border-b bg-gray-50 space-y-2">
+        {/* Number Selector - Required */}
+        {onNumberSelect && numbers.length > 0 && (
+          <Select 
+            value={selectedNumberId || numbers[0]?.id || ''} 
+            onValueChange={(value) => {
+              onNumberSelect(value);
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <Phone className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Select Number" />
+            </SelectTrigger>
+            <SelectContent>
+              {numbers.map((number) => (
+                <SelectItem key={number.id} value={number.id}>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3 w-3" />
+                    <span>{number.name}</span>
+                    <span className="text-xs text-muted-foreground">({number.number})</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        
+        {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

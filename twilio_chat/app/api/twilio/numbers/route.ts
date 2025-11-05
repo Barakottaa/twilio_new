@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getConfiguredNumbers } from '@/lib/multi-number-config';
 
 export async function GET(req: NextRequest) {
   try {
-    // Simple fallback numbers for now
-    const numbers = [
-      {
-        id: '1',
-        number: '+1234567890',
-        name: 'Support Number',
-        department: 'Customer Service',
-        isActive: true
-      },
-      {
-        id: '2', 
-        number: '+0987654321',
-        name: 'Sales Number',
-        department: 'Sales Team',
-        isActive: true
-      }
-    ];
+    // Get numbers from configuration (environment variables)
+    const numbers = getConfiguredNumbers();
+    
+    console.log('📋 Returning configured numbers:', numbers.length);
     
     return NextResponse.json({
       success: true,

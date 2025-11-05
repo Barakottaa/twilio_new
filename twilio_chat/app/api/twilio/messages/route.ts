@@ -80,10 +80,27 @@ export async function POST(req: NextRequest) {
         to: `whatsapp:${customerPhone}`
       });
 
+      // Determine which number to use for sending
+      let fromNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+      
+      if (fromNumberId) {
+        // Use the specified number ID
+        const numberConfig = getNumberById(fromNumberId);
+        if (numberConfig) {
+          fromNumber = getWhatsAppNumber(numberConfig.number);
+        }
+      } else {
+        // Fallback to default number
+        const defaultNumber = getDefaultNumber();
+        if (defaultNumber) {
+          fromNumber = getWhatsAppNumber(defaultNumber.number);
+        }
+      }
+
       const message = await twilioClient.messages.create({
         contentSid: contentSid,
         contentVariables: contentVariables ? JSON.stringify(contentVariables) : undefined,
-        from: process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886', // Use environment variable or fallback to sandbox
+        from: fromNumber,
         to: `whatsapp:${customerPhone}`,
       });
 

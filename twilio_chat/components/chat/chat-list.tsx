@@ -10,6 +10,7 @@ import { ChatListItem } from './chat-list-item';
 import { ConversationFilters } from './conversation-filters';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { RefreshCw } from 'lucide-react';
+import { useChatStore } from '@/store/chat-store';
 
 interface ChatListProps {
   chats: Chat[];
@@ -61,6 +62,8 @@ export function ChatList({ chats, selectedChat, onSelectChat, onRefresh, loggedI
         conversations={chats}
         onFilteredConversations={setFilteredChats}
         agents={agents}
+        selectedNumberId={useChatStore(state => state.selectedNumberId)}
+        onNumberSelect={useChatStore(state => state.setSelectedNumber)}
       />
       
       {shouldUseVirtualScroll ? (

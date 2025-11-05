@@ -12,7 +12,6 @@ import { VirtualMessageList } from './virtual-message-list';
 import { MessageInput } from './message-input';
 import { OptimizedChatHeader } from './optimized-chat-header';
 import { TemplateSelector } from './template-selector';
-import { NumberSelector } from './number-selector';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -39,8 +38,8 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   const [isAssigning, setIsAssigning] = useState(false);
   const [lastCustomerMessage, setLastCustomerMessage] = useState<string | undefined>();
   
-  // Selected phone number for sending messages
-  const [selectedNumberId, setSelectedNumberId] = useState<string | null>(null);
+  // Get selected phone number from store
+  const selectedNumberId = useChatStore(state => state.selectedNumberId);
   
   // Use the messages hook for both fetching and real-time updates
   const {
@@ -372,7 +371,8 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         },
         body: JSON.stringify({
           message: text.trim(),
-          author: loggedInAgent.id
+          author: loggedInAgent.id,
+          fromNumberId: selectedNumberId // Pass selected number ID for sending
         })
       });
       
@@ -574,45 +574,42 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
               />
             </div>
 
-            {/* Template Selector - Only shows when outside 24-hour window */}
-            {selectedConversation && (
-              <TemplateSelector
-                conversationId={selectedConversationId || ''}
-                customerPhone={selectedConversation.customerPhone || ''}
-                customerName={selectedConversation.customer?.name || selectedConversation.title || 'Customer'}
-                lastCustomerMessage={lastCustomerMessage}
-                onMessageSent={(message) => {
-                  toast({
-                    title: "Template sent",
-                    description: "Template message sent successfully.",
-                  });
-                  // Refresh messages to show the new message
-                  refreshMessages();
-                }}
-              />
-            )}
-
-            {/* Number Selector - Only show when conversation is selected */}
-            {selectedConversation && (
-              <div className="flex-shrink-0 p-4 border-t bg-muted/30">
-                <NumberSelector
-                  selectedNumberId={selectedNumberId}
-                  onNumberSelect={setSelectedNumberId}
-                  conversationId={selectedConversationId || ''}
-                />
-              </div>
-            )}
-
-            {/* Message Input - Always at bottom */}
+            {/* Message Input Section - Template selector replaces message input when outside 24h window */}
             <div className="flex-shrink-0">
-              <MessageInput
-                onSendMessage={handleSendMessage}
-                disabled={messageInputDisabled}
-                disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
-                onAssignToMe={handleAssignToMe}
-                showAssignButton={showAssignButton}
-                isAssigning={isAssigning}
-              />
+              {selectedConversation && lastCustomerMessage ? (
+                <TemplateSelector
+                  conversationId={selectedConversationId || ''}
+                  customerPhone={selectedConversation.customerPhone || ''}
+                  customerName={selectedConversation.customer?.name || selectedConversation.title || 'Customer'}
+                  lastCustomerMessage={lastCustomerMessage}
+                  onMessageSent={(message) => {
+                    toast({
+                      title: "Template sent",
+                      description: "Template message sent successfully.",
+                    });
+                    // Refresh messages to show the new message
+                    refreshMessages();
+                  }}
+                  showRegularInput={true}
+                  regularInputProps={{
+                    onSendMessage: handleSendMessage,
+                    disabled: messageInputDisabled,
+                    disabledReason: messageInputDisabled ? messageInputDisabledReason : undefined,
+                    onAssignToMe: handleAssignToMe,
+                    showAssignButton: showAssignButton,
+                    isAssigning: isAssigning
+                  }}
+                />
+              ) : (
+                <MessageInput
+                  onSendMessage={handleSendMessage}
+                  disabled={messageInputDisabled}
+                  disabledReason={messageInputDisabled ? messageInputDisabledReason : undefined}
+                  onAssignToMe={handleAssignToMe}
+                  showAssignButton={showAssignButton}
+                  isAssigning={isAssigning}
+                />
+              )}
             </div>
           </>
         ) : (

@@ -89,4 +89,7 @@ export type Chat = {
   closedAt?: string;
   closedBy?: string;
   notes?: string;
+  // Twilio number this conversation uses
+  proxyAddress?: string; // whatsapp:+1234567890 format
+  twilioNumberId?: string; // ID of the configured number
 };
