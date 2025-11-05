@@ -11,7 +11,6 @@ const fs = require('fs');
 const axios = require('axios');
 
 // Import services
-const BirdService = require('./bird-service');
 const PdfToImageService = require('./pdf-to-image-service');
 const BirdApiClient = require('./bird-api-client');
 
@@ -19,7 +18,6 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 // Initialize services
-const birdService = new BirdService();
 const pdfToImageService = new PdfToImageService();
 const birdApiClient = new BirdApiClient();
 
@@ -33,8 +31,9 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
+    service: 'bird-service',
     services: {
-      bird: birdService.validateConfig().valid,
+      bird: birdApiClient.validateConfig().valid,
       pdfToImage: pdfToImageService.validateConfig().valid
     }
   });
@@ -155,7 +154,7 @@ app.post('/api/bird/webhook', async (req, res) => {
 
 // Configuration validation endpoint
 app.get('/api/config', (req, res) => {
-  const birdConfig = birdService.validateConfig();
+  const birdConfig = birdApiClient.validateConfig();
   
   res.json({
     bird: birdConfig,
@@ -183,7 +182,7 @@ app.listen(port, () => {
   console.log(`📁 PDF from folder: http://localhost:${port}/api/process-pdf-folder`);
   
   // Validate configuration
-  const birdConfig = birdService.validateConfig();
+  const birdConfig = birdApiClient.validateConfig();
   const pdfConfig = pdfToImageService.validateConfig();
   
   if (!birdConfig.valid) {

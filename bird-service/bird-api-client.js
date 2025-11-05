@@ -283,6 +283,29 @@ class BirdApiClient {
       };
     }
   }
+
+  // 🕊️ Validate Bird configuration
+  validateConfig() {
+    const required = ['BIRD_API_KEY'];
+    const missing = required.filter(key => !process.env[key]);
+
+    if (missing.length > 0) {
+      return {
+        valid: false,
+        missing,
+        error: `Missing required environment variables: ${missing.join(', ')}`
+      };
+    }
+
+    return {
+      valid: true,
+      config: {
+        hasApiKey: !!this.apiKey,
+        workspaceId: this.workspaceId,
+        channelId: this.channelId
+      }
+    };
+  }
 }
 
 module.exports = BirdApiClient;

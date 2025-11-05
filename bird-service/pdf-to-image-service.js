@@ -10,7 +10,6 @@ const axios = require("axios");
 class PdfToImageService {
   constructor() {
     this.baseDir = process.env.PDF_BASE_DIR || "D:\\Results";
-    this.birdApiUrl = "http://localhost:3001/api/bird"; // Bird service API
   }
 
   /**
