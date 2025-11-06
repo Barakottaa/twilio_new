@@ -1,9 +1,22 @@
-// src/hooks/use-realtime-messages.ts
+/**
+ * useRealtimeMessages Hook
+ * 
+ * Manages Server-Sent Events (SSE) connection for real-time message updates.
+ * Handles:
+ * - SSE connection and reconnection with exponential backoff
+ * - Incoming message processing and deduplication
+ * - New conversation creation
+ * - Delivery status updates
+ * - Network status monitoring
+ */
+
 import React, { useEffect, useRef } from 'react';
 import { Chat, Message } from '@/types';
 import { messageBatcher } from '@/store/chat-store';
 
-// Helper functions for media type detection
+/**
+ * Determines media type from MIME content type
+ */
 function getMediaTypeFromContentType(contentType: string): 'image' | 'video' | 'audio' | 'document' {
   if (!contentType) return 'document';
   
@@ -13,6 +26,9 @@ function getMediaTypeFromContentType(contentType: string): 'image' | 'video' | '
   return 'document';
 }
 
+/**
+ * Returns emoji representation for media type
+ */
 function getMediaTypeEmoji(mediaType: string): string {
   switch (mediaType) {
     case 'image': return '🖼️';
@@ -23,6 +39,9 @@ function getMediaTypeEmoji(mediaType: string): string {
   }
 }
 
+/**
+ * Returns human-readable name for media type
+ */
 function getMediaTypeName(mediaType: string): string {
   switch (mediaType) {
     case 'image': return 'Image';
@@ -33,6 +52,9 @@ function getMediaTypeName(mediaType: string): string {
   }
 }
 
+/**
+ * Data structure for real-time message events from SSE
+ */
 interface RealtimeMessageData {
   conversationSid: string;
   messageSid: string;
@@ -59,157 +81,140 @@ interface RealtimeMessageData {
   from?: string;
 }
 
+/**
+ * Data structure for new conversation events from SSE
+ */
 interface RealtimeConversationData {
   conversationSid: string;
   friendlyName: string;
   dateCreated: string;
 }
 
+/**
+ * Props for useRealtimeMessages hook
+ */
 interface UseRealtimeMessagesProps {
   loggedInAgentId?: string;
 }
 
+/**
+ * Hook for managing real-time message updates via Server-Sent Events
+ * 
+ * @param props - Hook configuration
+ * @returns void (side effects only)
+ */
 export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProps) {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 10;
 
-      const connectSSE = () => {
+  /**
+   * Establishes SSE connection to /api/events endpoint
+   * Implements exponential backoff for reconnection attempts
+   * Handles network status and connection errors
+   */
+  const connectSSE = () => {
         if (eventSourceRef.current) {
           eventSourceRef.current.close();
         }
 
         // Check if we've exceeded max reconnection attempts
         if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-          console.error('❌ Max reconnection attempts reached, stopping SSE reconnection');
+          console.error('Max reconnection attempts reached, stopping SSE reconnection');
           return;
         }
 
         reconnectAttemptsRef.current += 1;
-        console.log(`🔄 SSE connection attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}`);
 
         // Check if we're online before attempting connection
         if (!navigator.onLine) {
-          console.log('⚠️ Network is offline, waiting for connection...');
           reconnectTimeoutRef.current = setTimeout(() => {
             connectSSE();
           }, 5000);
           return;
         }
 
-        // Connecting to SSE...
-        console.log('🔌 Creating new EventSource connection to /api/events');
+        // Create new EventSource connection
         let eventSource: EventSource;
         try {
           const eventsUrl = `${window.location.origin}/api/events`;
-          console.log('🔌 EventSource URL:', eventsUrl);
           eventSource = new EventSource(eventsUrl);
           eventSourceRef.current = eventSource;
         } catch (error) {
-          console.error('❌ Failed to create EventSource:', error);
+          console.error('Failed to create EventSource:', error);
           // Retry after a delay
           reconnectTimeoutRef.current = setTimeout(() => {
             connectSSE();
           }, 5000);
           return;
         }
-        
 
+    // Handle successful connection
     eventSource.onopen = () => {
-      console.log('✅ SSE connection opened successfully');
       // Reset reconnection attempts on successful connection
       reconnectAttemptsRef.current = 0;
     };
 
+    // Handle incoming SSE messages
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         
         if (data.type === 'connected') {
-          console.log('📡 SSE connected:', data.message);
+          // Connection established
         } else if (data.type === 'heartbeat') {
           // Heartbeat received - connection is alive
         } else if (data.type === 'newMessage') {
-          console.log('📨 New message via SSE:', data.data);
-          console.log('📨 Message details:', {
-            conversationSid: data.data.conversationSid,
-            messageSid: data.data.messageSid,
-            body: data.data.body,
-            author: data.data.author,
-            profileName: data.data.profileName,
-            from: data.data.from,
-            numMedia: data.data.numMedia,
-            mediaMessages: data.data.mediaMessages,
-            media: data.data.media
-          });
-          
-          // Log to console for debugging - check if profileName is present
+          // Warn if profileName is missing (important for contact name display)
           if (!data.data.profileName || data.data.profileName.trim() === '') {
-            console.warn('⚠️ SSE Message MISSING profileName:', {
+            console.warn('SSE Message missing profileName:', {
               conversationSid: data.data.conversationSid,
-              messageSid: data.data.messageSid,
-              author: data.data.author,
-              from: data.data.from,
-              fullData: data.data
+              messageSid: data.data.messageSid
             });
-          } else {
-            console.log('✅ SSE Message HAS profileName:', data.data.profileName);
           }
           
-          // Check current conversation selection
-          import('@/store/chat-store').then(({ useChatStore }) => {
-            const store = useChatStore.getState();
-            console.log('📨 Current selected conversation:', store.selectedConversationId);
-            console.log('📨 Message conversation:', data.data.conversationSid);
-            console.log('📨 Is message for current conversation?', store.selectedConversationId === data.data.conversationSid);
-          });
-          
-          console.log('📨 Calling handleNewMessage...');
           handleNewMessage(data.data as RealtimeMessageData);
         } else if (data.type === 'newConversation') {
-          console.log('💬 New conversation via SSE:', data.data);
           handleNewConversation(data.data as RealtimeConversationData);
         } else if (data.type === 'deliveryStatusUpdate') {
-          console.log('📬 Delivery status update via SSE:', data.data);
           handleDeliveryStatusUpdate(data.data);
         }
       } catch (error) {
-        console.error('❌ Error parsing SSE message:', error);
+        console.error('Error parsing SSE message:', error);
       }
     };
 
-        eventSource.onerror = (error) => {
-          console.error('❌ SSE connection error:', error);
-          
-          // Clear any existing reconnect timeout
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-          }
-          
-          // Close the current connection properly
-          if (eventSourceRef.current) {
-            eventSourceRef.current.close();
-            eventSourceRef.current = null;
-          }
-          
-          // Implement exponential backoff for reconnection
-          const baseDelay = 1000; // Start with 1 second
-          const maxDelay = 30000; // Max 30 seconds
-          const backoffMultiplier = 1.5;
-          const jitter = Math.random() * 1000; // Add up to 1 second of jitter
-          
-          const reconnectDelay = Math.min(
-            baseDelay * Math.pow(backoffMultiplier, reconnectAttemptsRef.current) + jitter,
-            maxDelay
-          );
-          
-          console.log(`🔄 Connection error, attempting to reconnect after ${Math.round(reconnectDelay)}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})...`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connectSSE();
-          }, reconnectDelay);
-        };
+    // Handle connection errors with exponential backoff retry
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      
+      // Clear any existing reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Close the current connection properly
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      
+      // Implement exponential backoff for reconnection
+      const baseDelay = 1000; // Start with 1 second
+      const maxDelay = 30000; // Max 30 seconds
+      const backoffMultiplier = 1.5;
+      const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+      
+      const reconnectDelay = Math.min(
+        baseDelay * Math.pow(backoffMultiplier, reconnectAttemptsRef.current) + jitter,
+        maxDelay
+      );
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connectSSE();
+      }, reconnectDelay);
+    };
 
     return eventSource;
   };
@@ -217,15 +222,13 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
   useEffect(() => {
     const eventSource = connectSSE();
     
-    // Add network status monitoring
+    // Monitor network status and reconnect when back online
     const handleOnline = () => {
-      console.log('🌐 Network is back online, reconnecting SSE...');
       reconnectAttemptsRef.current = 0; // Reset attempts when back online
       connectSSE();
     };
     
     const handleOffline = () => {
-      console.log('🌐 Network is offline, closing SSE connection...');
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -235,19 +238,17 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     
-    // Add periodic connection health check
+    // Periodic connection health check (every 10 seconds)
     const healthCheckInterval = setInterval(() => {
       if (eventSourceRef.current) {
         const state = eventSourceRef.current.readyState;
         if (state === EventSource.CLOSED) {
-          console.log('🔍 SSE connection is closed, attempting to reconnect...');
           connectSSE();
         }
       } else {
-        console.log('🔍 No SSE connection found, attempting to connect...');
         connectSSE();
       }
-    }, 10000); // Check every 10 seconds
+    }, 10000);
 
     return () => {
       if (reconnectTimeoutRef.current) {
@@ -263,20 +264,16 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     };
   }, []);
 
+  /**
+   * Handles incoming new message from SSE
+   * - Determines message direction (agent vs customer)
+   * - Creates/updates contact information if profileName is present
+   * - Processes media attachments
+   * - Deduplicates messages to prevent duplicates
+   * - Adds message to store and updates conversation
+   */
   const handleNewMessage = async (messageData: RealtimeMessageData) => {
-    console.log('🔥 handleNewMessage CALLED with:', messageData);
-    console.log('🔥 handleNewMessage - message details:', {
-      conversationSid: messageData.conversationSid,
-      messageSid: messageData.messageSid,
-      body: messageData.body,
-      author: messageData.author,
-      dateCreated: messageData.dateCreated
-    });
-    console.log('🔥 Current conversation:', messageData.conversationSid);
-    console.log('🔥 Author:', messageData.author);
-    console.log('🔥 Logged in agent ID:', loggedInAgentId);
-    
-    // Fix message direction logic to match the main service
+    // Determine if message is from an agent or customer
     const isAgentMessage = messageData.author && (
       messageData.author.startsWith('agent-') || 
       messageData.author === 'admin_001' ||
@@ -285,10 +282,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       messageData.author === 'admin'
     );
     
-    console.log('🔥 Is agent message:', isAgentMessage);
-    // Message direction check
-    
-    // Handle new contact information
+    // Handle new contact information from incoming customer messages
     if (messageData.profileName && messageData.from && !isAgentMessage) {
       
       // Add contact to in-memory mapping
@@ -315,22 +309,17 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         });
         
         if (response.ok) {
-          const contact = await response.json();
-          console.log('✅ New contact created in database:', contact.id);
-        } else {
-          console.log('⚠️ Failed to create contact in database:', response.status);
+          await response.json();
         }
       } catch (error) {
-        console.error('❌ Error creating contact in database:', error);
+        console.error('Error creating contact in database:', error);
       }
     }
     
-    // Process media data properly
+    // Process media attachments
     const hasMedia = (messageData.numMedia || 0) > 0 || (messageData.mediaMessages?.length || 0) > 0 || (messageData.media?.length || 0) > 0;
     const mediaMessages = messageData.mediaMessages || [];
     const mediaArray = messageData.media || [];
-    
-    // Media detection debug
     
     // Determine text content - use body if available, otherwise use media caption
     let messageText = messageData.body || '';
@@ -340,10 +329,10 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       if (firstMedia) {
         const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
         messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
-        console.log('🔍 Generated media text:', messageText);
       }
     }
     
+    // Create message object for store
     const newMessage: Message = {
       id: messageData.messageSid,
       text: messageText,
@@ -366,10 +355,8 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         filename: msg.fileName
       })),
     };
-    
-    // Created new message object
 
-    // Import store and append message
+    // Import store and get conversationSid
     const { useChatStore } = await import('@/store/chat-store');
     const store = useChatStore.getState();
     
@@ -384,20 +371,20 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           const data = await response.json();
           if (data.conversationSid) {
             conversationSid = data.conversationSid;
-            console.log('✅ Found conversationSid from API:', conversationSid);
           }
         }
       } catch (error) {
-        console.error('❌ Error looking up conversationSid via API:', error);
+        console.error('Error looking up conversationSid via API:', error);
       }
     }
     
     if (!conversationSid) {
-      console.error('❌ Cannot process message: conversationSid is missing', messageData);
+      console.error('Cannot process message: conversationSid is missing', messageData);
       return;
     }
     
     // Check for duplicate messages to prevent showing the same message twice
+    // Uses multiple criteria: Twilio SID, content+timestamp, message ID, or temp message replacement
     const existingMessages = store.messages[conversationSid] || [];
     
     // Check for duplicates using multiple criteria
@@ -441,35 +428,51 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         // Replace the existing message with the real message from webhook
         const updatedMessages = [...existingMessages];
         updatedMessages[existingMessageIndex] = newMessage;
-        
-        console.log('🔄 Replacing temporary message with real message:', {
-          oldId: existingMessages[existingMessageIndex].id,
-          newId: newMessage.id,
-          twilioSid: messageData.messageSid,
-          text: newMessage.text
-        });
-        
         store.setMessages(conversationSid, updatedMessages);
-        console.log('🔄 Message replacement completed');
         return;
       } else {
-        console.log('🔄 Duplicate message detected, skipping:', {
-          text: newMessage.text,
-          twilioSid: messageData.messageSid,
-          messageId: newMessage.id
-        });
+        // Duplicate detected, skip
         return;
       }
     }
     
     // Ensure conversation exists in store before adding message
+    // Create placeholder if conversation doesn't exist yet
     const conversationExists = store.conversations.find(c => c.id === conversationSid);
     
     if (!conversationExists) {
-      // Create a placeholder conversation for the message
-      const conversationTitle = conversationSid.length > 8 
-        ? `Conversation ${conversationSid.slice(-8)}` 
-        : `Conversation ${conversationSid}`;
+      // Determine conversation title - prioritize profileName, then contact mapping, then formatted phone
+      let conversationTitle = '';
+      
+      // First, try to use profileName from message data
+      if (messageData.profileName && messageData.profileName.trim() !== '') {
+        conversationTitle = messageData.profileName;
+      } 
+      // Second, try to get from contact mapping (in-memory)
+      else if (messageData.from) {
+        try {
+          const { normalizePhoneNumber } = await import('@/lib/utils');
+          const { getContact } = await import('@/lib/contact-mapping');
+          const normalizedPhone = normalizePhoneNumber(messageData.from);
+          const contact = getContact(normalizedPhone);
+          if (contact && contact.name && contact.name.trim() !== '') {
+            conversationTitle = contact.name;
+          } else {
+            // Use formatted phone number (without + prefix)
+            conversationTitle = normalizedPhone.replace(/^\+/, '');
+          }
+        } catch (error) {
+          // Fallback to formatted phone
+          const normalizedPhone = messageData.from.replace(/^whatsapp:/, '').replace(/^\+/, '');
+          conversationTitle = normalizedPhone;
+        }
+      }
+      // Last resort: use conversation SID
+      else {
+        conversationTitle = conversationSid.length > 8 
+          ? `Conversation ${conversationSid.slice(-8)}` 
+          : `Conversation ${conversationSid}`;
+      }
       
       const placeholderConversation = {
         id: conversationSid,
@@ -480,41 +483,18 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
         updatedAt: new Date().toISOString(),
         customerId: messageData.author || 'unknown',
         agentId: 'unassigned',
-        status: 'open' as const
+        status: 'open' as const,
+        customerPhone: messageData.from ? messageData.from.replace(/^whatsapp:/, '') : undefined
       };
       
       store.setConversations([placeholderConversation, ...store.conversations]);
     }
     
-    // Append message using Twilio ConversationSid as the key
-    console.log('🔥 About to append message to store:', {
-      conversationSid: conversationSid,
-      messageText: newMessage.text,
-      messageId: newMessage.id,
-      sender: newMessage.sender
-    });
-    
-    console.log('🔄 Appending new message to store:', {
-      conversationSid: conversationSid,
-      messageId: newMessage.id,
-      twilioSid: messageData.messageSid,
-      text: newMessage.text,
-      sender: newMessage.sender
-    });
-    
+    // Append message to store
     store.appendMessage(conversationSid, newMessage);
-    
-    console.log('🔥 Message appended to store successfully');
-    
-    // Verify the message was added
-    const updatedMessages = store.messages[conversationSid] || [];
-    console.log('🔥 Messages in store after append:', updatedMessages.length);
-    console.log('🔥 Last message in store:', updatedMessages[updatedMessages.length - 1]);
     
     // Show notification for incoming customer messages
     if (!isAgentMessage) {
-      console.log('🔔 Showing notification for incoming customer message');
-      
       // Get conversation title for notification
       const conversation = store.conversations.find(conv => conv.id === conversationSid);
       const conversationTitle = conversation?.title || `Customer ${messageData.from?.replace('whatsapp:', '') || 'Unknown'}`;
@@ -525,17 +505,18 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           conversationTitle,
           newMessage.text || '[Media]'
         ).catch(error => {
-          console.error('❌ Error showing message notification:', error);
+          console.error('Error showing message notification:', error);
         });
       });
     }
   };
 
+  /**
+   * Handles new conversation creation event from SSE
+   * Fetches full conversation details and adds to store
+   */
   const handleNewConversation = async (conversationData: RealtimeConversationData) => {
-    console.log('💬 New conversation created:', conversationData);
-    
     if (!loggedInAgentId) {
-      console.log('⚠️ No logged in agent ID, skipping conversation fetch');
       return;
     }
 
@@ -556,8 +537,6 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           const conversationExists = currentConversations.some(conv => conv.id === newConversation.id);
           
           if (!conversationExists) {
-            console.log('✅ Adding new conversation to store:', newConversation.id);
-            
             // Mark conversation as new
             const newConversationWithFlag = { ...newConversation, isNew: true };
             const updatedConversations = [newConversationWithFlag, ...currentConversations];
@@ -569,31 +548,27 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
                 newConversation.title,
                 newConversation.customerPhone
               ).catch(error => {
-                console.error('❌ Error showing notification:', error);
+                console.error('Error showing notification:', error);
               });
             });
-            
-            console.log('✅ New conversation added to store');
-          } else {
-            console.log('ℹ️ Conversation already exists in store:', newConversation.id);
           }
         });
-      } else {
-        console.log('⚠️ Failed to fetch new conversation details:', data.error);
       }
     } catch (error) {
-      console.error('❌ Error fetching new conversation:', error);
+      console.error('Error fetching new conversation:', error);
     }
   };
 
+  /**
+   * Handles delivery status updates for sent messages
+   * Updates message status in store (sent, delivered, read, failed, etc.)
+   */
   const handleDeliveryStatusUpdate = async (statusData: {
     conversationSid: string;
     messageSid: string;
     status: 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered';
     timestamp: string;
   }) => {
-    console.log('📬 Processing delivery status update:', statusData);
-    
     try {
       // Import store and update message status
       const { useChatStore } = await import('@/store/chat-store');
@@ -604,19 +579,10 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       const messageToUpdate = messages.find(msg => msg.twilioMessageSid === statusData.messageSid);
       
       if (messageToUpdate) {
-        console.log('📬 Updating message delivery status:', {
-          messageId: messageToUpdate.id,
-          twilioMessageSid: statusData.messageSid,
-          newStatus: statusData.status
-        });
-        
         store.updateMessageStatus(statusData.conversationSid, messageToUpdate.id, statusData.status);
-        console.log('✅ Message delivery status updated successfully');
-      } else {
-        console.log('⚠️ Message not found for delivery status update:', statusData.messageSid);
       }
     } catch (error) {
-      console.error('❌ Error updating delivery status:', error);
+      console.error('Error updating delivery status:', error);
     }
   };
 }

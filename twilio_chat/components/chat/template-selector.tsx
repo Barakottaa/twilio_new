@@ -159,37 +159,37 @@ export function TemplateSelector({
   }
 
   return (
-    <div className="flex-shrink-0 border-t bg-muted/30 p-4">
+    <div className="flex-shrink-0 border-t bg-muted/30 p-2">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-orange-600">
-            <AlertTriangle className="h-5 w-5" />
+        <CardHeader className="pb-1.5 pt-2">
+          <CardTitle className="flex items-center gap-2 text-orange-600 text-xs">
+            <AlertTriangle className="h-3.5 w-3.5" />
             {lastCustomerMessage ? 'Template Message Required' : 'Send Template Message'}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Alert variant={lastCustomerMessage ? "destructive" : "default"}>
-            <AlertTriangle className="h-5 w-5" />
-            <div className="ml-2">
-              <p className="font-medium">
+        <CardContent className="space-y-1.5 py-2">
+          <Alert variant={lastCustomerMessage ? "destructive" : "default"} className="p-2 py-1.5 [&>svg]:left-2 [&>svg]:top-2 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg~*]:pl-5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            <div>
+              <p className="font-medium text-xs leading-tight">
                 {lastCustomerMessage 
                   ? "Outside 24-hour messaging window. Only approved templates can be sent."
                   : "This is a new conversation. Send a template message to start the conversation."}
               </p>
               {lastCustomerMessage && (
-                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                  <Clock className="w-4 h-4" />
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                  <Clock className="w-3 h-3" />
                   Last customer message: {new Date(lastCustomerMessage).toLocaleString()}
                 </p>
               )}
             </div>
           </Alert>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div>
-              <label className="text-sm font-medium">Select Template</label>
+              <label className="text-xs font-medium">Select Template</label>
               <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger>
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder={isLoading ? "Loading templates..." : "Choose a template"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,12 +224,12 @@ export function TemplateSelector({
             <Button
               onClick={handleSendTemplate}
               disabled={!selectedTemplate || isSending || isLoading}
-              className="w-full"
+              className="w-full text-xs h-8"
             >
               {isSending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
               ) : (
-                <Send className="h-4 w-4 mr-2" />
+                <Send className="h-3 w-3 mr-2" />
               )}
               Send Template Message
             </Button>

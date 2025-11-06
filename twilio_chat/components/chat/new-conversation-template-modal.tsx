@@ -10,6 +10,9 @@ import { Send, Loader2, Phone, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useChatStore } from '@/store/chat-store';
 
+/**
+ * Twilio Content Template structure
+ */
 interface TwilioTemplate {
   sid: string;
   friendlyName: string;
@@ -20,11 +23,26 @@ interface TwilioTemplate {
   rawTemplate?: any;
 }
 
+/**
+ * Props for NewConversationTemplateModal component
+ */
 interface NewConversationTemplateModalProps {
   searchQuery: string;
   onMessageSent?: () => void;
 }
 
+/**
+ * NewConversationTemplateModal Component
+ * 
+ * Modal for sending template messages to start new conversations.
+ * Features:
+ * - Phone number input (synced with search query)
+ * - Template selection with preview
+ * - Automatic conversation creation and navigation
+ * - Contact name resolution from Twilio participants
+ * 
+ * @param props - Component props
+ */
 export function NewConversationTemplateModal({ 
   searchQuery, 
   onMessageSent 
@@ -38,15 +56,20 @@ export function NewConversationTemplateModal({
   const selectedNumberId = useChatStore(state => state.selectedNumberId);
   const { setSelectedConversation } = useChatStore();
 
-  // Sync phone number with search query exactly
+  /**
+   * Sync phone number input with search query
+   * Keeps the phone number field in sync with the search input
+   */
   useEffect(() => {
-    // Always sync the exact value from search query
     if (searchQuery) {
       setCustomerPhone(searchQuery);
     }
   }, [searchQuery]);
 
-  // Fetch available templates
+  /**
+   * Fetch available WhatsApp business templates from Twilio
+   * Runs once on component mount
+   */
   useEffect(() => {
     const fetchTemplates = async () => {
       setIsLoading(true);
@@ -54,10 +77,7 @@ export function NewConversationTemplateModal({
         const response = await fetch('/api/twilio/templates');
         if (response.ok) {
           const data = await response.json();
-          console.log('📋 Template data received for new conversation:', data);
           setTemplates(data.templates || []);
-        } else {
-          console.error('Failed to fetch templates');
         }
       } catch (error) {
         console.error('Error fetching templates:', error);
@@ -69,6 +89,15 @@ export function NewConversationTemplateModal({
     fetchTemplates();
   }, []);
 
+  /**
+   * Handles sending template message to start new conversation
+   * - Normalizes phone number
+   * - Sends template via API
+   * - Creates/finds conversation
+   * - Resolves contact name from Twilio participants
+   * - Navigates to new conversation
+   * - Manually adds message to store for immediate display
+   */
   const handleSendTemplate = async () => {
     if (!selectedTemplate || !customerPhone || isSending) return;
 
@@ -90,13 +119,6 @@ export function NewConversationTemplateModal({
       const { normalizePhoneNumber } = await import('@/lib/utils');
       const normalizedPhone = normalizePhoneNumber(customerPhone);
 
-      console.log('🔍 Sending template to new conversation:', {
-        customerPhone: normalizedPhone,
-        selectedTemplate,
-        template,
-        contentSid: template.contentSid
-      });
-
       const response = await fetch('/api/twilio/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,7 +136,6 @@ export function NewConversationTemplateModal({
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Template message sent, API response:', result);
         
         toast({ 
           title: "Success", 
@@ -123,15 +144,13 @@ export function NewConversationTemplateModal({
         
         // Reset form
         setSelectedTemplate('');
-        // Keep phone number in sync with searchQuery
         
         // Get the conversation SID from the API response if available
         const conversationSid = result.conversationSid;
         
         if (conversationSid) {
-          console.log('✅ Got conversation SID from API response:', conversationSid);
-          
           // Fetch conversation details to get contact name
+          // Try multiple sources: conversation title, customer name, participant attributes
           let contactName = `Contact ${normalizedPhone}`;
           try {
             // Fetch full conversation details to get participant info
@@ -142,16 +161,11 @@ export function NewConversationTemplateModal({
                 const conv = convData.conversations[0];
                 // Try multiple sources for the name
                 contactName = conv.title || conv.customerName || conv.customer?.name || contactName;
-                console.log('✅ Fetched conversation details:', {
-                  title: conv.title,
-                  customerName: conv.customerName,
-                  customer: conv.customer,
-                  finalName: contactName
-                });
               }
             }
             
             // If still no name, try to get it from Twilio participants directly
+            // Check participant attributes for display_name
             if (contactName === `Contact ${normalizedPhone}`) {
               try {
                 const { getTwilioClient } = await import('@/lib/twilio-service');
@@ -172,19 +186,15 @@ export function NewConversationTemplateModal({
                       const attrs = JSON.parse(customerParticipant.attributes);
                       if (attrs.display_name) {
                         contactName = attrs.display_name;
-                        console.log('✅ Found display_name in participant attributes:', contactName);
                       }
                     } catch (e) {
-                      console.log('⚠️ Failed to parse participant attributes:', e);
+                      // Failed to parse attributes, continue with fallback
                     }
                   }
                   
-                  // If still no name, format phone number better
+                  // If still no name, format phone number (remove + prefix)
                   if (contactName === `Contact ${normalizedPhone}`) {
-                    // Remove + and format: +201000183185 -> 01000183185
-                    const formattedPhone = normalizedPhone.replace(/^\+/, '');
-                    contactName = formattedPhone;
-                    console.log('✅ Using formatted phone as name:', contactName);
+                    contactName = normalizedPhone.replace(/^\+/, '');
                   }
                 }
               } catch (error) {
@@ -218,18 +228,17 @@ export function NewConversationTemplateModal({
               customerPhone: normalizedPhone
             };
             store.setConversations([newConversation, ...store.conversations]);
-            console.log('✅ Added new conversation to store with name:', displayName);
           } else {
-            // Update existing conversation with new title if needed
+            // Update existing conversation with new title if current title is generic
             if (existingConv.title !== displayName && existingConv.title.startsWith('Contact +')) {
               store.setConversations(store.conversations.map(c => 
                 c.id === conversationSid ? { ...c, title: displayName } : c
               ));
-              console.log('✅ Updated conversation title to:', displayName);
             }
           }
           
           // Manually add the template message to the store so it appears immediately
+          // This ensures the message is visible before the sync completes
           const templateMessage = {
             id: result.messageId || result.messageSid || `msg_${Date.now()}`,
             text: result.body || 'Template message sent',
@@ -240,7 +249,7 @@ export function NewConversationTemplateModal({
             twilioMessageSid: result.messageSid
           };
           
-          const { setMessages, appendMessage } = useChatStore.getState();
+          const { appendMessage } = useChatStore.getState();
           const currentMessages = useChatStore.getState().messages[conversationSid] || [];
           
           // Check if message already exists (from SSE or previous load)
@@ -252,30 +261,27 @@ export function NewConversationTemplateModal({
           
           if (!messageExists) {
             appendMessage(conversationSid, templateMessage);
-            console.log('✅ Manually added template message to store');
           }
           
           // Navigate immediately to the conversation
           setSelectedConversation(conversationSid);
-          console.log('✅ Navigated to conversation:', conversationSid);
           
           // Refresh conversations list to ensure it appears in the list with correct name
           if (onMessageSent) {
             onMessageSent();
           }
           
+          // Trigger message sync after a short delay to ensure the template message appears
           // The useMessages hook will automatically load messages when conversation is selected
-          // This will ensure we have the latest messages from the database/Twilio
           setTimeout(async () => {
             try {
-              // Trigger message sync to ensure the template message appears
               const syncResponse = await fetch('/api/sync-messages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ conversationId: conversationSid })
               });
-              if (syncResponse.ok) {
-                console.log('✅ Triggered message sync for template message');
+              if (!syncResponse.ok) {
+                console.error('Failed to sync messages');
               }
             } catch (error) {
               console.error('Error syncing messages:', error);
@@ -283,26 +289,24 @@ export function NewConversationTemplateModal({
           }, 500);
         } else {
           // Fallback: Find conversation by phone number if not in response
-          console.log('⚠️ No conversationSid in API response, searching by phone...');
-          
           // Refresh conversations list first
           if (onMessageSent) {
             onMessageSent();
           }
           
+          /**
+           * Attempts to find conversation by phone number with retries
+           * Uses exponential backoff for retry attempts
+           */
           const findAndNavigateToConversation = async (retryCount = 0): Promise<boolean> => {
             try {
-              console.log(`🔍 Attempting to find conversation (attempt ${retryCount + 1})...`);
-              
               // Use the correct API endpoint to find conversation by phone
               const findResponse = await fetch(`/api/twilio/conversations/find-by-phone?phone=${encodeURIComponent(normalizedPhone)}&limit=1`);
               if (findResponse.ok) {
                 const findData = await findResponse.json();
-                console.log('🔍 Find conversation response:', findData);
                 
                 if (findData.success && findData.items && findData.items.length > 0) {
                   const foundConversationSid = findData.items[0].id;
-                  console.log('✅ Found conversation:', foundConversationSid);
                   
                   // Add conversation to store if not already there
                   const store = useChatStore.getState();
@@ -321,16 +325,11 @@ export function NewConversationTemplateModal({
                       customerPhone: normalizedPhone
                     };
                     store.setConversations([newConversation, ...store.conversations]);
-                    console.log('✅ Added new conversation to store');
                   }
                   
                   // Navigate immediately to the conversation
                   setSelectedConversation(foundConversationSid);
-                  console.log('✅ Navigated to conversation:', foundConversationSid);
-                  
                   return true;
-                } else {
-                  console.log('⚠️ No conversation found yet, will retry...');
                 }
               }
             } catch (error) {
@@ -351,12 +350,8 @@ export function NewConversationTemplateModal({
               found = await findAndNavigateToConversation(attempts);
               if (found || attempts >= maxAttempts) {
                 clearInterval(retryInterval);
-                if (!found) {
-                  console.warn('⚠️ Could not find conversation after', maxAttempts, 'attempts');
-                  // Refresh list one more time
-        if (onMessageSent) {
-          onMessageSent();
-                  }
+                if (!found && onMessageSent) {
+                  onMessageSent();
                 }
               }
             }, 1500); // Wait 1.5 seconds between retries
@@ -464,20 +459,13 @@ export function NewConversationTemplateModal({
             }
             
             // Extract template content from various possible locations
+            // Twilio templates can have content in different paths depending on channel
             let previewContent = '';
             let previewHeader = '';
             const raw = selectedTemplateData.rawTemplate;
             
-            // Debug: Log the template structure
-            console.log('🔍 Template structure for preview:', {
-              hasRawTemplate: !!raw,
-              rawTemplateKeys: raw ? Object.keys(raw) : [],
-              types: raw?.types ? Object.keys(raw.types) : [],
-              fullRaw: raw
-            });
-            
             if (raw) {
-              // Try multiple paths to extract content
+              // Try multiple paths to extract content (WhatsApp, SMS, Facebook, etc.)
               // Path 1: types.whatsapp.body
               if (raw.types?.whatsapp?.body) {
                 previewContent = raw.types.whatsapp.body;

@@ -7,8 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Users, UserCheck, UserX, Search, X, Phone } from 'lucide-react';
 import { ConversationStatusPriorityFilter, type StatusFilter } from './conversation-status-priority-filter';
 
+/**
+ * Type for conversation tab filters
+ */
 export type TabFilterType = 'all' | 'assigned' | 'unassigned';
 
+/**
+ * Props for ConversationTabFilter component
+ */
 interface ConversationTabFilterProps {
   activeTab: TabFilterType;
   onTabChange: (tab: TabFilterType) => void;
@@ -21,7 +27,6 @@ interface ConversationTabFilterProps {
       closed: number;
     };
   };
-  currentAgentId?: string;
   statusFilter: StatusFilter;
   selectedNumberId?: string | null;
   onNumberSelect?: (numberId: string | null) => void;
@@ -29,23 +34,38 @@ interface ConversationTabFilterProps {
   isLoading?: boolean;
 }
 
+/**
+ * ConversationTabFilter Component
+ * 
+ * Provides filtering and navigation controls for conversations:
+ * - Phone number selector with open conversation count indicators
+ * - Search bar for filtering conversations
+ * - Status filter (open/closed)
+ * - Tab filter (all/assigned/unassigned)
+ * 
+ * @param props - Component props
+ */
 export function ConversationTabFilter({ 
   activeTab, 
   onTabChange, 
   onSearchChange,
   onStatusChange,
   counts, 
-  currentAgentId,
   statusFilter,
   selectedNumberId,
   onNumberSelect,
   conversations = [],
   isLoading = false
 }: ConversationTabFilterProps) {
+  // Local state for search query
   const [searchQuery, setSearchQuery] = useState('');
+  // Available phone numbers from Twilio
   const [numbers, setNumbers] = useState<Array<{ id: string; number: string; name: string; department: string }>>([]);
 
-  // Calculate number of open conversations per number
+  /**
+   * Calculate the number of open conversations per phone number
+   * Used to display count badges in the number selector
+   */
   const openConversationCounts = useMemo(() => {
     const counts = new Map<string, number>();
     conversations.forEach(conv => {
@@ -56,7 +76,10 @@ export function ConversationTabFilter({
     return counts;
   }, [conversations]);
 
-  // Fetch available numbers
+  /**
+   * Fetch available phone numbers from Twilio API
+   * Runs once on component mount
+   */
   useEffect(() => {
     const fetchNumbers = async () => {
       try {
@@ -71,27 +94,37 @@ export function ConversationTabFilter({
               }, [])
             : [];
           setNumbers(uniqueNumbers);
-          console.log('✅ Numbers loaded in ConversationTabFilter:', data.numbers?.length || 0);
         } else {
-          console.error('❌ Failed to fetch numbers:', response.status);
+          console.error('Failed to fetch numbers:', response.status);
         }
       } catch (error) {
-        console.error('❌ Error fetching numbers:', error);
+        console.error('Error fetching numbers:', error);
         setNumbers([]);
       }
     };
     fetchNumbers();
   }, []);
 
+  /**
+   * Handle search input changes
+   * Updates local state and notifies parent component
+   */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     onSearchChange(value);
   };
 
+  /**
+   * Clear search query
+   */
   const clearSearch = () => {
     setSearchQuery('');
     onSearchChange('');
   };
+
+  /**
+   * Tab configuration for conversation filtering
+   */
   const tabs = [
     {
       id: 'all' as TabFilterType,
@@ -112,10 +145,6 @@ export function ConversationTabFilter({
       description: 'Conversations not assigned to any agent'
     }
   ];
-
-  // Debug logging
-  console.log('🔍 ConversationTabFilter render - activeTab:', activeTab, 'counts:', counts, 'searchQuery:', searchQuery);
-  console.log('🔍 Tabs array:', tabs);
 
   return (
     <div className="border-b bg-white shadow-sm">
@@ -210,8 +239,6 @@ export function ConversationTabFilter({
           const isActive = activeTab === tab.id;
           const isUnassigned = tab.id === 'unassigned';
           
-          console.log(`🔍 Rendering tab: ${tab.id}, count: ${tab.count}, isActive: ${isActive}`);
-          
           return (
             <Button
               key={tab.id}
@@ -227,16 +254,14 @@ export function ConversationTabFilter({
                 }
                        h-16 px-3 py-3 text-sm font-medium relative
               `}
-              onClick={() => {
-                console.log(`🔍 Tab clicked: ${tab.id}`);
-                onTabChange(tab.id);
-              }}
+              onClick={() => onTabChange(tab.id)}
               title={tab.description}
             >
               <div className="flex items-center gap-2 w-full justify-center">
                 <Icon className={`h-4 w-4 ${isUnassigned ? 'text-orange-500' : ''}`} />
                 <span className="text-xs font-medium text-center leading-tight">{tab.label}</span>
               </div>
+              {/* Show notification dot for unassigned conversations */}
               {isUnassigned && tab.count > 0 && (
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
               )}

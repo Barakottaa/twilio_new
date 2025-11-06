@@ -57,11 +57,20 @@ interface ConversationItem {
   twilioNumberId?: string;
 }
 
+/**
+ * Props for OptimizedChatList component
+ */
 interface OptimizedChatListProps {
   agentId?: string;
 }
 
-// Helper function to format time
+/**
+ * Formats message timestamp for display
+ * - Today: Shows time (HH:mm)
+ * - Yesterday: Shows time (HH:mm)
+ * - Within 7 days: Shows days ago (e.g., "2d")
+ * - Older: Shows date (MM/dd)
+ */
 const formatMessageTime = (date: string | Date) => {
   const messageDate = new Date(date);
   const now = new Date();
@@ -80,6 +89,19 @@ const formatMessageTime = (date: string | Date) => {
   }
 };
 
+/**
+ * OptimizedChatList Component
+ * 
+ * Main component for displaying and managing the list of conversations.
+ * Features:
+ * - Displays conversations with filtering (by number, status, assignment)
+ * - Auto-creates conversations when phone numbers are searched
+ * - Handles conversation selection and navigation
+ * - Shows conversation metadata (status, assignment, unread count)
+ * - Supports pagination for large conversation lists
+ * 
+ * @param props - Component props
+ */
 export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
   const {
     conversations,
@@ -186,8 +208,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       const { normalizePhoneNumber } = await import('@/lib/utils');
       const normalizedPhone = normalizePhoneNumber(cleanQuery);
 
-      console.log('📞 Detected phone number in search, creating conversation:', normalizedPhone);
-
       setIsCreatingConversation(true);
       try {
         const response = await fetch('/api/twilio/conversations', {
@@ -202,7 +222,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
 
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Conversation created/found:', data.conversation.id);
           
           // Add the new conversation to the list
           const newConversation: ConversationItem = {
@@ -267,11 +286,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         const currentConv = conversations.find(conv => conv.id === selectedConversationId);
         // If the selected conversation doesn't belong to the new number, clear the selection
         if (currentConv && currentConv.twilioNumberId !== selectedNumberId) {
-          console.log('🔄 Clearing selected conversation - belongs to different number', {
-            selectedConversationId,
-            currentNumberId: currentConv.twilioNumberId,
-            newNumberId: selectedNumberId
-          });
           setSelectedConversation(null);
         }
       }
@@ -487,11 +501,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       const isSelectedInFiltered = filteredConversations.some(conv => conv.id === selectedConversationId);
       if (!isSelectedInFiltered) {
         // Selected conversation is not in the filtered list (likely belongs to different number)
-        console.log('🔄 Selected conversation not in filtered list, clearing selection', {
-          selectedConversationId,
-          filteredCount: filteredConversations.length,
-          selectedNumberId
-        });
         setSelectedConversation(null);
       }
     }
@@ -540,7 +549,6 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         onSearchChange={setSearchQuery}
         onStatusChange={setStatusFilter}
         counts={tabCounts}
-        currentAgentId={agentId}
         statusFilter={statusFilter}
         selectedNumberId={selectedNumberId}
         onNumberSelect={setSelectedNumber}
