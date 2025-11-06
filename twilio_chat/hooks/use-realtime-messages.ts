@@ -144,6 +144,19 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
             media: data.data.media
           });
           
+          // Log to console for debugging - check if profileName is present
+          if (!data.data.profileName || data.data.profileName.trim() === '') {
+            console.warn('⚠️ SSE Message MISSING profileName:', {
+              conversationSid: data.data.conversationSid,
+              messageSid: data.data.messageSid,
+              author: data.data.author,
+              from: data.data.from,
+              fullData: data.data
+            });
+          } else {
+            console.log('✅ SSE Message HAS profileName:', data.data.profileName);
+          }
+          
           // Check current conversation selection
           import('@/store/chat-store').then(({ useChatStore }) => {
             const store = useChatStore.getState();

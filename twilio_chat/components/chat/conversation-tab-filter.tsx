@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,6 +25,8 @@ interface ConversationTabFilterProps {
   statusFilter: StatusFilter;
   selectedNumberId?: string | null;
   onNumberSelect?: (numberId: string | null) => void;
+  conversations?: Array<{ id: string; status?: 'open' | 'closed' | 'pending'; twilioNumberId?: string }>;
+  isLoading?: boolean;
 }
 
 export function ConversationTabFilter({ 
@@ -36,10 +38,23 @@ export function ConversationTabFilter({
   currentAgentId,
   statusFilter,
   selectedNumberId,
-  onNumberSelect
+  onNumberSelect,
+  conversations = [],
+  isLoading = false
 }: ConversationTabFilterProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [numbers, setNumbers] = useState<Array<{ id: string; number: string; name: string; department: string }>>([]);
+
+  // Calculate number of open conversations per number
+  const openConversationCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    conversations.forEach(conv => {
+      if (conv.status === 'open' && conv.twilioNumberId) {
+        counts.set(conv.twilioNumberId, (counts.get(conv.twilioNumberId) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [conversations]);
 
   // Fetch available numbers
   useEffect(() => {
@@ -48,7 +63,14 @@ export function ConversationTabFilter({
         const response = await fetch('/api/twilio/numbers');
         if (response.ok) {
           const data = await response.json();
-          setNumbers(data.numbers || []);
+          // Deduplicate numbers by id to avoid duplicates in dropdown
+          const uniqueNumbers = Array.isArray(data.numbers)
+            ? data.numbers.reduce((acc: typeof data.numbers, num: any) => {
+                if (!acc.find((n: any) => n.id === num.id)) acc.push(num);
+                return acc;
+              }, [])
+            : [];
+          setNumbers(uniqueNumbers);
           console.log('✅ Numbers loaded in ConversationTabFilter:', data.numbers?.length || 0);
         } else {
           console.error('❌ Failed to fetch numbers:', response.status);
@@ -106,21 +128,45 @@ export function ConversationTabFilter({
             onValueChange={(value) => {
               onNumberSelect(value);
             }}
+            disabled={isLoading}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className={`w-full ${!isLoading && openConversationCounts.has(selectedNumberId || '') ? 'border-orange-300 bg-orange-50/50' : ''}`}>
               <Phone className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Select Number" />
+              {isLoading ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="h-4 w-32 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              ) : (
+                <SelectValue placeholder="Select Number" />
+              )}
+              {!isLoading && selectedNumberId && openConversationCounts.has(selectedNumberId) && (
+                <span className="ml-auto flex items-center">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                </span>
+              )}
             </SelectTrigger>
             <SelectContent>
-              {numbers.map((number) => (
-                <SelectItem key={number.id} value={number.id}>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-3 w-3" />
-                    <span>{number.name}</span>
-                    <span className="text-xs text-muted-foreground">({number.number})</span>
-                  </div>
-                </SelectItem>
-              ))}
+              {numbers.map((number) => {
+                const openCount = !isLoading ? (openConversationCounts.get(number.id) || 0) : 0;
+                const hasOpenConversations = !isLoading && openCount > 0;
+                return (
+                  <SelectItem key={number.id} value={number.id}>
+                    <div className="flex items-center justify-between w-full gap-2">
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3 w-3" />
+                        <span className={hasOpenConversations ? "font-semibold" : ""}>{number.name}</span>
+                        <span className="text-xs text-muted-foreground">({number.number})</span>
+                      </div>
+                      {hasOpenConversations && (
+                        <span className="flex items-center gap-1 text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                          <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                          {openCount} open
+                        </span>
+                      )}
+                    </div>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         )}

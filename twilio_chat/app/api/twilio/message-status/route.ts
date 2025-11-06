@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logTwilioWebhook, logInfo, logWarn, logError } from '@/lib/logger';
 
 /**
  * Webhook endpoint for Twilio Message Status Callbacks
@@ -8,6 +9,9 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const params = Object.fromEntries(formData.entries());
+    
+    // Log all incoming webhook data
+    logTwilioWebhook('Message-Status', params);
     
     const {
       MessageSid: messageSid,
@@ -26,6 +30,16 @@ export async function POST(req: NextRequest) {
       to,
       from,
       timestamp: new Date().toISOString()
+    });
+    
+    logInfo('📬 Processing message status update', {
+      messageSid,
+      status,
+      errorCode,
+      errorMessage,
+      to,
+      from,
+      allParams: params
     });
 
     if (!messageSid || !status) {

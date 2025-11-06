@@ -354,8 +354,8 @@ export function NewConversationTemplateModal({
                 if (!found) {
                   console.warn('⚠️ Could not find conversation after', maxAttempts, 'attempts');
                   // Refresh list one more time
-                  if (onMessageSent) {
-                    onMessageSent();
+        if (onMessageSent) {
+          onMessageSent();
                   }
                 }
               }
@@ -393,25 +393,25 @@ export function NewConversationTemplateModal({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="customerPhone" className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
-            Recipient Phone Number *
-          </Label>
-          <Input
-            id="customerPhone"
-            type="tel"
-            placeholder="+201557000970 or 01557000970"
-            value={customerPhone}
+          <div className="space-y-2">
+            <Label htmlFor="customerPhone" className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              Recipient Phone Number *
+            </Label>
+            <Input
+              id="customerPhone"
+              type="tel"
+              placeholder="+201557000970 or 01557000970"
+              value={customerPhone}
             onChange={(e) => {
               // Allow manual editing but keep it synced
               setCustomerPhone(e.target.value);
             }}
-            className="font-mono"
-          />
-          <p className="text-xs text-muted-foreground">
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
             Egyptian numbers will be auto-formatted (01557000970 → +201557000970).
-          </p>
+            </p>
         </div>
 
         <div className="space-y-2">

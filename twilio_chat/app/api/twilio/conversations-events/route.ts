@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logTwilioWebhook, logInfo, logWarn, logError, logDebug } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.text();
     console.log('📝 Conversation events webhook body:', body);
+    logInfo('📥 Raw webhook body received', { body, url: req.url, method: req.method });
 
     const formData = new URLSearchParams(body);
     const params: { [key: string]: string } = {};
@@ -17,6 +19,9 @@ export async function POST(req: NextRequest) {
     });
 
     console.log('📋 Conversation events webhook parameters:', params);
+    
+    // Log all Twilio webhook data
+    logTwilioWebhook('Conversations-Events', params);
 
     // Handle different conversation event types
     const eventType = params.EventType;
@@ -87,6 +92,36 @@ async function handleMessageAdded(params: { [key: string]: string }) {
   const participantSid = params.ParticipantSid;
   const mediaParam = params.Media; // Media is already provided in the webhook!
   const chatServiceSid = params.ChatServiceSid; // Needed for media URL construction
+  const profileName = params.ProfileName; // WhatsApp profile name - CRITICAL for contact name!
+  
+  // Log ALL parameters from Twilio for debugging
+  logInfo('📨 Processing MessageAdded event', {
+    allParams: params,
+    conversationSid,
+    messageSid,
+    body: body || '(empty)',
+    author,
+    participantSid,
+    profileName: profileName || '(MISSING - This is why contact name is not showing!)',
+    mediaParam: mediaParam || '(none)',
+    chatServiceSid,
+    // Log all other params that might contain name info
+    index: params.Index,
+    dateCreated: params.DateCreated,
+    attributes: params.Attributes
+  });
+  
+  // Warn if ProfileName is missing
+  if (!profileName || profileName.trim() === '') {
+    logWarn('⚠️ ProfileName is MISSING or EMPTY - Contact name will not be available', {
+      conversationSid,
+      messageSid,
+      author,
+      allParams: Object.keys(params)
+    });
+  } else {
+    logInfo('✅ ProfileName found', { profileName, author, conversationSid });
+  }
   
   console.log('🔍 Extracted values:', {
     conversationSid,
@@ -94,6 +129,7 @@ async function handleMessageAdded(params: { [key: string]: string }) {
     body: body || '(empty)',
     author,
     participantSid,
+    profileName: profileName || '(MISSING)',
     mediaParam: mediaParam || '(none)'
   });
   
@@ -110,8 +146,27 @@ async function handleMessageAdded(params: { [key: string]: string }) {
     
     console.log('📱 Phone extracted from Author:', phone);
     
+    // Try to get ProfileName from contact mapping if not in webhook
+    let resolvedProfileName = profileName;
+    if ((!profileName || profileName.trim() === '') && phone) {
+      try {
+        const { getContact } = await import('@/lib/contact-mapping');
+        const contact = getContact(phone);
+        if (contact?.name) {
+          resolvedProfileName = contact.name;
+          console.log('✅ Found ProfileName from contact mapping:', resolvedProfileName);
+          logInfo('✅ Resolved ProfileName from contact mapping', {
+            phone,
+            profileName: resolvedProfileName
+          });
+        }
+      } catch (error) {
+        console.error('⚠️ Error looking up contact:', error);
+      }
+    }
+    
     if (phone) {
-      // Create/update contact
+      // Create/update contact with resolved ProfileName
       try {
         const { getDatabase } = await import('@/lib/database-config');
         const db = await getDatabase();
@@ -123,19 +178,33 @@ async function handleMessageAdded(params: { [key: string]: string }) {
         if (existingContacts) {
           contactId = existingContacts.id;
           console.log('✅ Found existing contact:', contactId);
+          
+          // Update contact name if we have a better one (from ProfileName)
+          if (resolvedProfileName && resolvedProfileName.trim() !== '' && 
+              (!existingContacts.name || existingContacts.name.startsWith('Contact +'))) {
+            await db.updateContact(contactId, { name: resolvedProfileName });
+            console.log('✅ Updated contact name with ProfileName:', resolvedProfileName);
+          }
         } else {
-          // Create new contact
+          // Create new contact with resolved ProfileName
           contactId = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const contactName = resolvedProfileName && resolvedProfileName.trim() !== '' 
+            ? resolvedProfileName 
+            : `Contact ${phone}`;
+          const avatarName = resolvedProfileName && resolvedProfileName.trim() !== '' 
+            ? resolvedProfileName 
+            : `Contact ${phone}`;
+          
           await db.createContact({
             id: contactId,
             phoneNumber: phone,
-            name: `Contact ${phone}`,
-            avatar: `https://ui-avatars.com/api/?name=Contact%20${phone}&background=random`,
+            name: contactName,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(avatarName)}&background=random`,
             lastSeen: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
-          console.log('✅ Created new contact:', contactId);
+          console.log('✅ Created new contact:', contactId, 'with name:', contactName);
         }
         
         // Create/update conversation
@@ -244,18 +313,32 @@ async function handleMessageAdded(params: { [key: string]: string }) {
         // Invalidate cache for this conversation
         await invalidateConversationCache(conversationSid);
         
-        // Broadcast the new message with media data
-        await broadcastMessage('newMessage', {
+        // Prepare broadcast data - include ProfileName if available (from webhook or contact mapping)
+        const broadcastData = {
           conversationSid,
           messageSid,
           body: messageBody,
           author,
+          profileName: resolvedProfileName || '', // Use resolved ProfileName (from webhook or contact mapping)
           dateCreated: params.DateCreated || new Date().toISOString(),
           index: params.Index || '0',
           numMedia: mediaData.length,
           media: mediaData,
-          phone
+          phone,
+          from: author // Add 'from' field for consistency
+        };
+        
+        logInfo('📡 Broadcasting message via SSE', {
+          conversationSid,
+          messageSid,
+          profileName: resolvedProfileName || '(MISSING)',
+          profileNameSource: profileName ? 'webhook' : (resolvedProfileName ? 'contact-mapping' : 'none'),
+          author,
+          hasProfileName: !!(resolvedProfileName && resolvedProfileName.trim())
         });
+        
+        // Broadcast the new message with media data
+        await broadcastMessage('newMessage', broadcastData);
         console.log('✅ Message broadcasted to UI with', mediaData.length, 'media items');
         
       } catch (error) {

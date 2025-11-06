@@ -246,22 +246,42 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, selectedNumberId, agentId, isCreatingConversation, conversations, setConversations, setSelectedConversation]);
 
-  // Load initial conversations and assignments
+  // Load all conversations on initial mount (without numberId filter) for counting
   useEffect(() => {
-    if (agentId && selectedNumberId) {
-      // Clear conversations when switching numbers to show skeleton immediately
-      setConversations([]);
+    if (agentId && conversations.length === 0) {
+      // Initial load - fetch all conversations for counting purposes
       setIsInitialLoad(true);
-      
-      // Load assignments first, then conversations
       loadAssignmentsFromDatabase().then(() => {
-        loadConversations();
+        loadAllConversationsForCounting();
       }).catch(() => {
-        // Still try to load conversations even if assignments fail
-        loadConversations();
+        loadAllConversationsForCounting();
       });
     }
-  }, [agentId, selectedNumberId]); // Removed loadAssignmentsFromDatabase from dependencies to avoid re-triggering
+  }, [agentId]); // Only run on mount or when agentId changes
+
+  // Handle number switching - filter existing conversations instead of reloading
+  useEffect(() => {
+    if (agentId && selectedNumberId && conversations.length > 0) {
+      // Check if the currently selected conversation belongs to the new number
+      if (selectedConversationId) {
+        const currentConv = conversations.find(conv => conv.id === selectedConversationId);
+        // If the selected conversation doesn't belong to the new number, clear the selection
+        if (currentConv && currentConv.twilioNumberId !== selectedNumberId) {
+          console.log('🔄 Clearing selected conversation - belongs to different number', {
+            selectedConversationId,
+            currentNumberId: currentConv.twilioNumberId,
+            newNumberId: selectedNumberId
+          });
+          setSelectedConversation(null);
+        }
+      }
+    }
+  }, [agentId, selectedNumberId, conversations, selectedConversationId, setSelectedConversation]);
+
+  // Load all conversations without numberId filter for counting purposes
+  const loadAllConversationsForCounting = async () => {
+    await loadConversations();
+  };
 
   const loadConversations = async (cursor?: string) => {
     try {
@@ -275,12 +295,10 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
       try {
         const url = new URL('/api/twilio/conversations', window.location.origin);
         url.searchParams.set('lite', '1');
-        url.searchParams.set('limit', '100'); // Increased from 20 to 100 to fetch more conversations
+        url.searchParams.set('limit', '200'); // Load more to get counts for all numbers
         url.searchParams.set('agentId', agentId || '');
-        // Add numberId filter if a number is selected (use selectedNumberId from hook)
-        if (selectedNumberId) {
-          url.searchParams.set('numberId', selectedNumberId);
-        }
+        // Don't filter by numberId - we want all conversations for counting
+        // Filtering for display happens in filteredConversations useMemo
         if (cursor) {
           url.searchParams.set('after', cursor);
         }
@@ -290,13 +308,20 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
           const data = await response.json();
           
           if (cursor) {
-            const newConversations = [...conversations, ...data.items];
+            // Merge with existing conversations
+            const existingIds = new Set(conversations.map(c => c.id));
+            const newItems = data.items.filter((item: any) => !existingIds.has(item.id));
+            const newConversations = [...conversations, ...newItems];
             setConversations(newConversations);
           } else {
+            // Replace all conversations with fresh data
             setConversations(data.items);
-            // Auto-select the first conversation if none is selected
-            if (data.items.length > 0 && !selectedConversationId) {
-              setSelectedConversation(data.items[0].id);
+            // Auto-select the first conversation for the selected number if none is selected
+            if (data.items.length > 0 && !selectedConversationId && selectedNumberId) {
+              const firstForNumber = data.items.find((item: any) => item.twilioNumberId === selectedNumberId);
+              if (firstForNumber) {
+                setSelectedConversation(firstForNumber.id);
+              }
             }
           }
           
@@ -455,6 +480,23 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
     return filtered;
   }, [conversations, activeTab, agentId, statusFilter, searchQuery, selectedNumberId, assignments, isConversationPinned]);
 
+  // Ensure selected conversation is valid after filtering (e.g., after switching numbers)
+  useEffect(() => {
+    if (selectedConversationId && filteredConversations.length > 0) {
+      // Check if the selected conversation is in the filtered list
+      const isSelectedInFiltered = filteredConversations.some(conv => conv.id === selectedConversationId);
+      if (!isSelectedInFiltered) {
+        // Selected conversation is not in the filtered list (likely belongs to different number)
+        console.log('🔄 Selected conversation not in filtered list, clearing selection', {
+          selectedConversationId,
+          filteredCount: filteredConversations.length,
+          selectedNumberId
+        });
+        setSelectedConversation(null);
+      }
+    }
+  }, [filteredConversations, selectedConversationId, setSelectedConversation, selectedNumberId]);
+
   // Calculate status counts
   const tabCounts = useMemo(() => {
     // Status counts
@@ -502,6 +544,8 @@ export function OptimizedChatList({ agentId }: OptimizedChatListProps) {
         statusFilter={statusFilter}
         selectedNumberId={selectedNumberId}
         onNumberSelect={setSelectedNumber}
+        conversations={conversations}
+        isLoading={isLoading || isInitialLoad}
       />
       
       <div className="flex-1 overflow-y-auto scrollbar-hover">
