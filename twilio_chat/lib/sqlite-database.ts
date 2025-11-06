@@ -735,6 +735,18 @@ class SQLiteDatabaseService {
 
     const now = new Date().toISOString();
 
+    // Check if message already exists by twilio_message_sid
+    if (data.twilio_message_sid) {
+      const existing = this.db.prepare(`
+        SELECT id FROM messages WHERE twilio_message_sid = ?
+      `).get(data.twilio_message_sid);
+      
+      if (existing) {
+        console.log(`⚠️ Message with twilio_message_sid ${data.twilio_message_sid} already exists, skipping insert`);
+        return existing;
+      }
+    }
+
     this.db.prepare(`
       INSERT INTO messages (
         id, conversation_id, sender_id, sender_type, content, message_type,

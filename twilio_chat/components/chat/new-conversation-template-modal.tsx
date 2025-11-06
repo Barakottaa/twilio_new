@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Send, Loader2, Phone, User } from 'lucide-react';
+import { Send, Loader2, Phone, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useChatStore } from '@/store/chat-store';
 
@@ -32,36 +32,17 @@ export function NewConversationTemplateModal({
   const [templates, setTemplates] = useState<TwilioTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
-  const [customerName, setCustomerName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
   const selectedNumberId = useChatStore(state => state.selectedNumberId);
+  const { setSelectedConversation } = useChatStore();
 
-  // Extract phone number from search query if it looks like one
+  // Sync phone number with search query exactly
   useEffect(() => {
-    if (searchQuery.trim()) {
-      // Check if search query looks like a phone number
-      const phoneRegex = /^[\+]?[0-9][\d\s\-\(\)]{7,15}$/;
-      const cleanedQuery = searchQuery.replace(/\s/g, '');
-      if (phoneRegex.test(cleanedQuery)) {
-        // It's a phone number - normalize it and set as recipient phone (customer phone)
-        const normalizePhone = async () => {
-          const { normalizePhoneNumber } = await import('@/lib/utils');
-          const normalized = normalizePhoneNumber(cleanedQuery);
-          setCustomerPhone(normalized);
-          setCustomerName(''); // Always clear name field - let user enter name separately
-        };
-        normalizePhone();
-      } else {
-        // Not a phone number - don't pre-fill anything, let user enter both fields
-        setCustomerPhone('');
-        setCustomerName('');
-      }
-    } else {
-      // Empty search query - clear both fields
-      setCustomerPhone('');
-      setCustomerName('');
+    // Always sync the exact value from search query
+    if (searchQuery) {
+      setCustomerPhone(searchQuery);
     }
   }, [searchQuery]);
 
@@ -111,7 +92,6 @@ export function NewConversationTemplateModal({
 
       console.log('🔍 Sending template to new conversation:', {
         customerPhone: normalizedPhone,
-        customerName,
         selectedTemplate,
         template,
         contentSid: template.contentSid
@@ -127,12 +107,15 @@ export function NewConversationTemplateModal({
           isTemplate: true,
           contentSid: template.contentSid,
           contentVariables: {
-            '1': customerName || 'Customer' // Use provided name or default
+            '1': 'Customer' // Default customer name
           }
         }),
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Template message sent, API response:', result);
+        
         toast({ 
           title: "Success", 
           description: `Template message sent to ${normalizedPhone}!` 
@@ -140,11 +123,244 @@ export function NewConversationTemplateModal({
         
         // Reset form
         setSelectedTemplate('');
-        setCustomerPhone('');
-        setCustomerName('');
+        // Keep phone number in sync with searchQuery
         
-        if (onMessageSent) {
-          onMessageSent();
+        // Get the conversation SID from the API response if available
+        const conversationSid = result.conversationSid;
+        
+        if (conversationSid) {
+          console.log('✅ Got conversation SID from API response:', conversationSid);
+          
+          // Fetch conversation details to get contact name
+          let contactName = `Contact ${normalizedPhone}`;
+          try {
+            // Fetch full conversation details to get participant info
+            const convDetailResponse = await fetch(`/api/twilio/conversations?conversationId=${conversationSid}&lite=0`);
+            if (convDetailResponse.ok) {
+              const convData = await convDetailResponse.json();
+              if (convData.conversations && convData.conversations.length > 0) {
+                const conv = convData.conversations[0];
+                // Try multiple sources for the name
+                contactName = conv.title || conv.customerName || conv.customer?.name || contactName;
+                console.log('✅ Fetched conversation details:', {
+                  title: conv.title,
+                  customerName: conv.customerName,
+                  customer: conv.customer,
+                  finalName: contactName
+                });
+              }
+            }
+            
+            // If still no name, try to get it from Twilio participants directly
+            if (contactName === `Contact ${normalizedPhone}`) {
+              try {
+                const { getTwilioClient } = await import('@/lib/twilio-service');
+                const twilioClient = await getTwilioClient();
+                const participants = await twilioClient.conversations.v1
+                  .conversations(conversationSid)
+                  .participants.list();
+                
+                const customerParticipant = participants.find(p => 
+                  p.messagingBinding?.address === `whatsapp:${normalizedPhone}` ||
+                  (!p.identity || (!p.identity.startsWith('agent') && !p.identity.startsWith('admin')))
+                );
+                
+                if (customerParticipant) {
+                  // Try to get display_name from attributes
+                  if (customerParticipant.attributes) {
+                    try {
+                      const attrs = JSON.parse(customerParticipant.attributes);
+                      if (attrs.display_name) {
+                        contactName = attrs.display_name;
+                        console.log('✅ Found display_name in participant attributes:', contactName);
+                      }
+                    } catch (e) {
+                      console.log('⚠️ Failed to parse participant attributes:', e);
+                    }
+                  }
+                  
+                  // If still no name, format phone number better
+                  if (contactName === `Contact ${normalizedPhone}`) {
+                    // Remove + and format: +201000183185 -> 01000183185
+                    const formattedPhone = normalizedPhone.replace(/^\+/, '');
+                    contactName = formattedPhone;
+                    console.log('✅ Using formatted phone as name:', contactName);
+                  }
+                }
+              } catch (error) {
+                console.error('Error fetching participants:', error);
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching conversation details:', error);
+          }
+          
+          // Add conversation to store if not already there
+          // Use the formatted phone (without +) as the name for better display
+          const displayName = contactName === `Contact ${normalizedPhone}` 
+            ? normalizedPhone.replace(/^\+/, '') 
+            : contactName;
+          
+          const store = useChatStore.getState();
+          const existingConv = store.conversations.find(c => c.id === conversationSid);
+          if (!existingConv) {
+            // Add to conversations list
+            const newConversation = {
+              id: conversationSid,
+              title: displayName,
+              lastMessagePreview: 'Template message sent',
+              unreadCount: 0,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              customerId: normalizedPhone,
+              agentId: 'unassigned',
+              status: 'open' as const,
+              customerPhone: normalizedPhone
+            };
+            store.setConversations([newConversation, ...store.conversations]);
+            console.log('✅ Added new conversation to store with name:', displayName);
+          } else {
+            // Update existing conversation with new title if needed
+            if (existingConv.title !== displayName && existingConv.title.startsWith('Contact +')) {
+              store.setConversations(store.conversations.map(c => 
+                c.id === conversationSid ? { ...c, title: displayName } : c
+              ));
+              console.log('✅ Updated conversation title to:', displayName);
+            }
+          }
+          
+          // Manually add the template message to the store so it appears immediately
+          const templateMessage = {
+            id: result.messageId || result.messageSid || `msg_${Date.now()}`,
+            text: result.body || 'Template message sent',
+            timestamp: result.timestamp || new Date().toISOString(),
+            sender: 'agent' as const,
+            senderId: 'admin_001',
+            deliveryStatus: 'sent' as const,
+            twilioMessageSid: result.messageSid
+          };
+          
+          const { setMessages, appendMessage } = useChatStore.getState();
+          const currentMessages = useChatStore.getState().messages[conversationSid] || [];
+          
+          // Check if message already exists (from SSE or previous load)
+          const messageExists = currentMessages.some(m => 
+            m.twilioMessageSid === result.messageSid || 
+            m.id === templateMessage.id ||
+            (m.text === templateMessage.text && m.sender === 'agent')
+          );
+          
+          if (!messageExists) {
+            appendMessage(conversationSid, templateMessage);
+            console.log('✅ Manually added template message to store');
+          }
+          
+          // Navigate immediately to the conversation
+          setSelectedConversation(conversationSid);
+          console.log('✅ Navigated to conversation:', conversationSid);
+          
+          // Refresh conversations list to ensure it appears in the list with correct name
+          if (onMessageSent) {
+            onMessageSent();
+          }
+          
+          // The useMessages hook will automatically load messages when conversation is selected
+          // This will ensure we have the latest messages from the database/Twilio
+          setTimeout(async () => {
+            try {
+              // Trigger message sync to ensure the template message appears
+              const syncResponse = await fetch('/api/sync-messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ conversationId: conversationSid })
+              });
+              if (syncResponse.ok) {
+                console.log('✅ Triggered message sync for template message');
+              }
+            } catch (error) {
+              console.error('Error syncing messages:', error);
+            }
+          }, 500);
+        } else {
+          // Fallback: Find conversation by phone number if not in response
+          console.log('⚠️ No conversationSid in API response, searching by phone...');
+          
+          // Refresh conversations list first
+          if (onMessageSent) {
+            onMessageSent();
+          }
+          
+          const findAndNavigateToConversation = async (retryCount = 0): Promise<boolean> => {
+            try {
+              console.log(`🔍 Attempting to find conversation (attempt ${retryCount + 1})...`);
+              
+              // Use the correct API endpoint to find conversation by phone
+              const findResponse = await fetch(`/api/twilio/conversations/find-by-phone?phone=${encodeURIComponent(normalizedPhone)}&limit=1`);
+              if (findResponse.ok) {
+                const findData = await findResponse.json();
+                console.log('🔍 Find conversation response:', findData);
+                
+                if (findData.success && findData.items && findData.items.length > 0) {
+                  const foundConversationSid = findData.items[0].id;
+                  console.log('✅ Found conversation:', foundConversationSid);
+                  
+                  // Add conversation to store if not already there
+                  const store = useChatStore.getState();
+                  const existingConv = store.conversations.find(c => c.id === foundConversationSid);
+                  if (!existingConv) {
+                    const newConversation = {
+                      id: foundConversationSid,
+                      title: `Contact ${normalizedPhone}`,
+                      lastMessagePreview: 'Template message sent',
+                      unreadCount: 0,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      customerId: normalizedPhone,
+                      agentId: 'unassigned',
+                      status: 'open' as const,
+                      customerPhone: normalizedPhone
+                    };
+                    store.setConversations([newConversation, ...store.conversations]);
+                    console.log('✅ Added new conversation to store');
+                  }
+                  
+                  // Navigate immediately to the conversation
+                  setSelectedConversation(foundConversationSid);
+                  console.log('✅ Navigated to conversation:', foundConversationSid);
+                  
+                  return true;
+                } else {
+                  console.log('⚠️ No conversation found yet, will retry...');
+                }
+              }
+            } catch (error) {
+              console.error('Error finding conversation:', error);
+            }
+            return false;
+          };
+          
+          // Try to find and navigate immediately, then retry if needed
+          let found = await findAndNavigateToConversation(0);
+          
+          // If not found immediately, retry with exponential backoff
+          if (!found) {
+            let attempts = 0;
+            const maxAttempts = 8;
+            const retryInterval = setInterval(async () => {
+              attempts++;
+              found = await findAndNavigateToConversation(attempts);
+              if (found || attempts >= maxAttempts) {
+                clearInterval(retryInterval);
+                if (!found) {
+                  console.warn('⚠️ Could not find conversation after', maxAttempts, 'attempts');
+                  // Refresh list one more time
+                  if (onMessageSent) {
+                    onMessageSent();
+                  }
+                }
+              }
+            }, 1500); // Wait 1.5 seconds between retries
+          }
         }
       } else {
         const errorData = await response.json();
@@ -177,47 +393,32 @@ export function NewConversationTemplateModal({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="customerPhone" className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              Recipient Phone Number *
-              <span className="text-xs text-muted-foreground ml-1">(who will receive the message)</span>
-            </Label>
-            <Input
-              id="customerPhone"
-              type="tel"
-              placeholder="+201557000970 or 01557000970"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="font-mono"
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter the customer's phone number. Egyptian numbers will be auto-formatted (01557000970 → +201557000970).
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="customerName" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Customer Name
-              <span className="text-xs text-muted-foreground ml-1">(optional - for your records)</span>
-            </Label>
-            <Input
-              id="customerName"
-              type="text"
-              placeholder="Enter customer's name (optional)"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              This is just a label to help you identify the customer. It won't be sent to them.
-            </p>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="customerPhone" className="flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Recipient Phone Number *
+          </Label>
+          <Input
+            id="customerPhone"
+            type="tel"
+            placeholder="+201557000970 or 01557000970"
+            value={customerPhone}
+            onChange={(e) => {
+              // Allow manual editing but keep it synced
+              setCustomerPhone(e.target.value);
+            }}
+            className="font-mono"
+          />
+          <p className="text-xs text-muted-foreground">
+            Egyptian numbers will be auto-formatted (01557000970 → +201557000970).
+          </p>
         </div>
 
         <div className="space-y-2">
-          <Label>Select Template</Label>
+          <Label className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Select Template
+          </Label>
           <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
             <SelectTrigger>
               <SelectValue placeholder={isLoading ? "Loading templates..." : "Choose a template"} />
@@ -249,6 +450,118 @@ export function NewConversationTemplateModal({
               )}
             </SelectContent>
           </Select>
+          
+          {/* Template Preview Box */}
+          {selectedTemplate && (() => {
+            const selectedTemplateData = templates.find(t => t.sid === selectedTemplate);
+            
+            if (!selectedTemplateData) {
+              return (
+                <div className="mt-3 p-4 bg-muted/30 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground italic">Template data not found</p>
+                </div>
+              );
+            }
+            
+            // Extract template content from various possible locations
+            let previewContent = '';
+            let previewHeader = '';
+            const raw = selectedTemplateData.rawTemplate;
+            
+            // Debug: Log the template structure
+            console.log('🔍 Template structure for preview:', {
+              hasRawTemplate: !!raw,
+              rawTemplateKeys: raw ? Object.keys(raw) : [],
+              types: raw?.types ? Object.keys(raw.types) : [],
+              fullRaw: raw
+            });
+            
+            if (raw) {
+              // Try multiple paths to extract content
+              // Path 1: types.whatsapp.body
+              if (raw.types?.whatsapp?.body) {
+                previewContent = raw.types.whatsapp.body;
+              }
+              // Path 2: types.text.body
+              else if (raw.types?.text?.body) {
+                previewContent = raw.types.text.body;
+              }
+              // Path 3: types.facebook.body
+              else if (raw.types?.facebook?.body) {
+                previewContent = raw.types.facebook.body;
+              }
+              // Path 4: types.sms.body
+              else if (raw.types?.sms?.body) {
+                previewContent = raw.types.sms.body;
+              }
+              // Path 5: Direct body property
+              else if (raw.body) {
+                previewContent = raw.body;
+              }
+              // Path 6: Try to get from any type
+              else if (raw.types) {
+                const typeKeys = Object.keys(raw.types);
+                for (const key of typeKeys) {
+                  if (raw.types[key]?.body) {
+                    previewContent = raw.types[key].body;
+                    break;
+                  }
+                }
+              }
+              
+              // Extract header
+              if (raw.types?.whatsapp?.header) {
+                previewHeader = raw.types.whatsapp.header;
+              } else if (raw.types?.text?.header) {
+                previewHeader = raw.types.text.header;
+              } else if (raw.types?.facebook?.header) {
+                previewHeader = raw.types.facebook.header;
+              } else if (raw.types) {
+                const typeKeys = Object.keys(raw.types);
+                for (const key of typeKeys) {
+                  if (raw.types[key]?.header) {
+                    previewHeader = raw.types[key].header;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Always show preview box, even if empty
+            return (
+              <div className="mt-3 p-4 bg-muted/30 rounded-lg border border-border">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-semibold text-foreground">Template Preview</p>
+                </div>
+                
+                {previewHeader && (
+                  <div className="mb-2 p-2 bg-background rounded border border-border/50">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Header:</p>
+                    <p className="text-sm text-foreground">{previewHeader}</p>
+                  </div>
+                )}
+                
+                {previewContent ? (
+                  <div className="p-2 bg-background rounded border border-border/50">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Body:</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                      {previewContent}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-2 bg-background rounded border border-border/50">
+                    <p className="text-xs text-muted-foreground italic">
+                      Preview content not available. Template: {selectedTemplateData.friendlyName}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Check browser console for template structure details.
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <Button

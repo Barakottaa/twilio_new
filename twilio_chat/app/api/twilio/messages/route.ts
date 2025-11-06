@@ -109,6 +109,72 @@ export async function POST(req: NextRequest) {
 
       console.log('📤 Sending template message from:', fromNumber, 'to:', `whatsapp:${normalizedCustomerPhone}`);
 
+      // Find or create conversation FIRST, before sending the message
+      // This ensures the message is associated with the Conversations service
+      let actualConversationSid = conversationId;
+      try {
+        // Try to find existing conversation by phone number
+        console.log('🔍 Finding or creating conversation for phone:', normalizedCustomerPhone);
+        const conversations = await twilioClient.conversations.v1.conversations.list({ limit: 50 });
+        
+        for (const conv of conversations) {
+          try {
+            const participants = await twilioClient.conversations.v1
+              .conversations(conv.sid)
+              .participants.list();
+            
+            const customerParticipant = participants.find(p => 
+              p.messagingBinding?.address === `whatsapp:${normalizedCustomerPhone}`
+            );
+            
+            if (customerParticipant) {
+              actualConversationSid = conv.sid;
+              console.log('✅ Found existing conversation:', actualConversationSid);
+              break;
+            }
+          } catch (err) {
+            // Continue checking other conversations
+          }
+        }
+        
+        // If not found, create a new conversation
+        if (!actualConversationSid || actualConversationSid.startsWith('new_')) {
+          console.log('🔍 Creating new conversation...');
+          const newConversation = await twilioClient.conversations.v1.conversations.create({
+            friendlyName: `Chat with ${normalizedCustomerPhone}`,
+            attributes: JSON.stringify({ 
+              phone: normalizedCustomerPhone,
+              createdVia: 'template_message'
+            })
+          });
+          
+          // Add customer as participant with display_name attribute
+          await twilioClient.conversations.v1
+            .conversations(newConversation.sid)
+            .participants.create({
+              'messagingBinding.address': `whatsapp:${normalizedCustomerPhone}`,
+              'messagingBinding.proxyAddress': fromNumber,
+              attributes: JSON.stringify({
+                display_name: normalizedCustomerPhone.replace(/^\+/, ''),
+                phone: normalizedCustomerPhone
+              })
+            });
+          
+          // Add admin as participant
+          await twilioClient.conversations.v1
+            .conversations(newConversation.sid)
+            .participants.create({
+              identity: 'admin_001'
+            });
+          
+          actualConversationSid = newConversation.sid;
+          console.log('✅ Created new conversation:', actualConversationSid);
+        }
+      } catch (convError) {
+        console.error('⚠️ Error finding/creating conversation:', convError);
+        // Continue with temporary ID if we can't find/create
+      }
+
       // Only set statusCallback if we have a publicly accessible URL
       // Check multiple possible environment variable names
       const publicUrl = process.env.NEXT_PUBLIC_BASE_URL || 
@@ -138,6 +204,11 @@ export async function POST(req: NextRequest) {
           contentVariables: contentVariables ? JSON.stringify(contentVariables) : undefined,
           from: fromNumber,
           to: `whatsapp:${normalizedCustomerPhone}`,
+          // Associate with conversation service - this is critical!
+          // This ensures the message appears in the Conversations service
+          conversationSid: actualConversationSid && !actualConversationSid.startsWith('new_') 
+            ? actualConversationSid 
+            : undefined
         };
         
         // Only add statusCallback if we have a valid public URL
@@ -150,6 +221,7 @@ export async function POST(req: NextRequest) {
           messageParams.statusCallbackMethod = 'POST';
         }
         
+        console.log('📤 Sending template message with conversationSid:', messageParams.conversationSid);
         message = await twilioClient.messages.create(messageParams);
 
         console.log('✅ Template message sent:', {
@@ -200,7 +272,7 @@ export async function POST(req: NextRequest) {
         messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         await db.createMessage({
           id: messageId,
-          conversation_id: conversationId,
+          conversation_id: actualConversationSid,
           sender_id: 'admin_001', // Default admin user
           sender_type: 'agent',
           content: message.body || 'Template message sent',
@@ -213,21 +285,21 @@ export async function POST(req: NextRequest) {
         console.log('✅ Template message stored in database:', messageId);
         
         // Broadcast the new message via SSE to update UI in real-time
+        // Use the same format as conversations-events webhook for consistency
         try {
           const { broadcastMessage } = await import('@/lib/sse-broadcast');
           await broadcastMessage('newMessage', {
-            conversationId: conversationId,
-            message: {
-              id: messageId,
-              text: message.body || 'Template message sent',
-              timestamp: new Date().toISOString(),
-              sender: 'agent',
-              senderId: 'admin_001',
-              deliveryStatus: 'sent',
-              twilioMessageSid: message.sid
-            }
+            conversationSid: actualConversationSid,
+            messageSid: message.sid,
+            body: message.body || 'Template message sent',
+            author: 'admin_001',
+            dateCreated: new Date().toISOString(),
+            index: '0',
+            numMedia: 0,
+            media: [],
+            phone: normalizedCustomerPhone
           });
-          console.log('✅ Template message broadcasted via SSE:', messageId);
+          console.log('✅ Template message broadcasted via SSE:', message.sid);
         } catch (broadcastError) {
           console.error('⚠️ Failed to broadcast template message:', broadcastError);
           // Don't fail the request if broadcast fails
@@ -241,6 +313,7 @@ export async function POST(req: NextRequest) {
         success: true,
         messageSid: message.sid,
         messageId: messageId, // Include messageId so client can use it
+        conversationSid: actualConversationSid, // Return the actual conversation SID
         status: message.status,
         body: message.body,
         timestamp: new Date().toISOString()

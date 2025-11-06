@@ -360,8 +360,32 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     const { useChatStore } = await import('@/store/chat-store');
     const store = useChatStore.getState();
     
+    // Validate conversationSid exists - try to find it if missing
+    let conversationSid = messageData.conversationSid;
+    
+    if (!conversationSid && messageData.messageSid) {
+      // Try to find conversationSid from the database via API (client-side safe)
+      try {
+        const response = await fetch(`/api/messages/${messageData.messageSid}/conversation`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.conversationSid) {
+            conversationSid = data.conversationSid;
+            console.log('✅ Found conversationSid from API:', conversationSid);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error looking up conversationSid via API:', error);
+      }
+    }
+    
+    if (!conversationSid) {
+      console.error('❌ Cannot process message: conversationSid is missing', messageData);
+      return;
+    }
+    
     // Check for duplicate messages to prevent showing the same message twice
-    const existingMessages = store.messages[messageData.conversationSid] || [];
+    const existingMessages = store.messages[conversationSid] || [];
     
     // Check for duplicates using multiple criteria
     let existingMessageIndex = -1;
@@ -412,7 +436,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           text: newMessage.text
         });
         
-        store.setMessages(messageData.conversationSid, updatedMessages);
+        store.setMessages(conversationSid, updatedMessages);
         console.log('🔄 Message replacement completed');
         return;
       } else {
@@ -426,13 +450,17 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     }
     
     // Ensure conversation exists in store before adding message
-    const conversationExists = store.conversations.find(c => c.id === messageData.conversationSid);
+    const conversationExists = store.conversations.find(c => c.id === conversationSid);
     
     if (!conversationExists) {
       // Create a placeholder conversation for the message
+      const conversationTitle = conversationSid.length > 8 
+        ? `Conversation ${conversationSid.slice(-8)}` 
+        : `Conversation ${conversationSid}`;
+      
       const placeholderConversation = {
-        id: messageData.conversationSid,
-        title: `Conversation ${messageData.conversationSid.slice(-8)}`,
+        id: conversationSid,
+        title: conversationTitle,
         lastMessagePreview: newMessage.text || '[Media]',
         unreadCount: 0,
         createdAt: new Date().toISOString(),
@@ -447,26 +475,26 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     
     // Append message using Twilio ConversationSid as the key
     console.log('🔥 About to append message to store:', {
-      conversationSid: messageData.conversationSid,
+      conversationSid: conversationSid,
       messageText: newMessage.text,
       messageId: newMessage.id,
       sender: newMessage.sender
     });
     
     console.log('🔄 Appending new message to store:', {
-      conversationSid: messageData.conversationSid,
+      conversationSid: conversationSid,
       messageId: newMessage.id,
       twilioSid: messageData.messageSid,
       text: newMessage.text,
       sender: newMessage.sender
     });
     
-    store.appendMessage(messageData.conversationSid, newMessage);
+    store.appendMessage(conversationSid, newMessage);
     
     console.log('🔥 Message appended to store successfully');
     
     // Verify the message was added
-    const updatedMessages = store.messages[messageData.conversationSid] || [];
+    const updatedMessages = store.messages[conversationSid] || [];
     console.log('🔥 Messages in store after append:', updatedMessages.length);
     console.log('🔥 Last message in store:', updatedMessages[updatedMessages.length - 1]);
     
@@ -475,7 +503,7 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       console.log('🔔 Showing notification for incoming customer message');
       
       // Get conversation title for notification
-      const conversation = store.conversations.find(conv => conv.id === messageData.conversationSid);
+      const conversation = store.conversations.find(conv => conv.id === conversationSid);
       const conversationTitle = conversation?.title || `Customer ${messageData.from?.replace('whatsapp:', '') || 'Unknown'}`;
       
       // Show notification

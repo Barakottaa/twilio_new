@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
 
     let syncedCount = 0;
     let skippedCount = 0;
+    let failedCount = 0;
 
     for (const twilioMsg of twilioMessages) {
       try {
@@ -100,32 +101,49 @@ export async function POST(req: NextRequest) {
         );
 
         // Create message in database
-        const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        await db.createMessage({
-          id: messageId,
-          conversation_id: conversationId,
-          sender_id: twilioMsg.author || 'unknown',
-          sender_type: isAgentMessage ? 'agent' : 'contact',
-          content: twilioMsg.body || '',
-          message_type: mediaData.length > 0 ? 'media' : 'text',
-          twilio_message_sid: twilioMsg.sid,
-          media_url: mediaData.length > 0 ? mediaData[0].url : null,
-          media_content_type: mediaData.length > 0 ? mediaData[0].contentType : null,
-          media_filename: mediaData.length > 0 ? mediaData[0].filename : null,
-          media_data: mediaData.length > 0 ? JSON.stringify(mediaData) : null,
-          chat_service_sid: twilioMsg.chatServiceSid,
-          created_at: twilioMsg.dateCreated ? new Date(twilioMsg.dateCreated).toISOString() : new Date().toISOString()
-        });
+        try {
+          const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          await db.createMessage({
+            id: messageId,
+            conversation_id: conversationId,
+            sender_id: twilioMsg.author || 'unknown',
+            sender_type: isAgentMessage ? 'agent' : 'contact',
+            content: twilioMsg.body || '',
+            message_type: mediaData.length > 0 ? 'media' : 'text',
+            twilio_message_sid: twilioMsg.sid,
+            media_url: mediaData.length > 0 ? mediaData[0].url : null,
+            media_content_type: mediaData.length > 0 ? mediaData[0].contentType : null,
+            media_filename: mediaData.length > 0 ? mediaData[0].filename : null,
+            media_data: mediaData.length > 0 ? JSON.stringify(mediaData) : null,
+            chat_service_sid: twilioMsg.chatServiceSid,
+            created_at: twilioMsg.dateCreated ? new Date(twilioMsg.dateCreated).toISOString() : new Date().toISOString()
+          });
+          syncedCount++;
+          console.log(`✅ Synced message: ${twilioMsg.sid}`);
+        } catch (error: any) {
+          // Handle UNIQUE constraint errors gracefully
+          if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message?.includes('UNIQUE constraint')) {
+            console.log(`⚠️ Message ${twilioMsg.sid} already exists, skipping`);
+            skippedCount++;
+          } else {
+            console.error(`❌ Failed to sync message ${twilioMsg.sid}:`, error);
+            failedCount++;
+          }
+        }
 
-        syncedCount++;
-        console.log(`✅ Synced message: ${twilioMsg.sid}`);
-
-      } catch (msgError) {
-        console.error(`❌ Failed to sync message ${twilioMsg.sid}:`, msgError);
+      } catch (msgError: any) {
+        // Handle UNIQUE constraint errors at the outer level too
+        if (msgError.code === 'SQLITE_CONSTRAINT_UNIQUE' || msgError.message?.includes('UNIQUE constraint')) {
+          console.log(`⚠️ Message ${twilioMsg.sid} already exists (outer catch), skipping`);
+          skippedCount++;
+        } else {
+          console.error(`❌ Failed to sync message ${twilioMsg.sid}:`, msgError);
+          failedCount++;
+        }
       }
     }
 
-    console.log(`🎉 Sync completed: ${syncedCount} synced, ${skippedCount} skipped`);
+    console.log(`🎉 Sync completed: ${syncedCount} synced, ${skippedCount} skipped, ${failedCount} failed`);
 
     return NextResponse.json({
       success: true,

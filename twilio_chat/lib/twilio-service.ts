@@ -209,6 +209,11 @@ export async function listConversationsLite(limit = 30, after?: string) {
             customerName = customerParticipant.identity || 'Unknown Customer';
           }
         }
+        
+        // If still no name, use formatted phone number (without + prefix)
+        if (customerName === 'Unknown Customer' && customerPhone) {
+          customerName = customerPhone.replace(/^\+/, '');
+        }
       }
       
       let agentName = 'Unassigned';

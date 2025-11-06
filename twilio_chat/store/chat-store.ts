@@ -103,8 +103,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const existingConv = state.conversations.find(conv => conv.id === newConv.id);
       if (existingConv) {
         // Preserve real-time updates from existing conversation
+        // Also preserve better title if existing one is better (not "Contact +phone")
+        const betterTitle = existingConv.title && 
+          !existingConv.title.startsWith('Contact +') && 
+          existingConv.title !== newConv.title
+          ? existingConv.title 
+          : (newConv.title && !newConv.title.startsWith('Contact +') ? newConv.title : existingConv.title);
+        
         return {
           ...newConv,
+          title: betterTitle || newConv.title,
           lastMessagePreview: existingConv.lastMessagePreview || newConv.lastMessagePreview,
           updatedAt: existingConv.updatedAt || newConv.updatedAt,
           isUnreplied: existingConv.isUnreplied !== undefined ? existingConv.isUnreplied : newConv.isUnreplied,
