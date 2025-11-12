@@ -14,7 +14,7 @@
     "deploy:setup": "node scripts/setup.js",
     "deploy:build": "npm run build",
     "deploy:start": "npm start",
-    "db:init": "node -e \"require('./src/lib/sqlite-database').sqliteDb.ensureInitialized().then(() => console.log('Database initialized'))\"",
+    "db:init": "node -e \"require('./lib/sqlite-database').sqliteDb.ensureInitialized().then(() => console.log('Database initialized'))\"",
     "dev:full": "start-dev.bat",
     "dev:ps1": "powershell -ExecutionPolicy Bypass -File start-dev.ps1"
   },

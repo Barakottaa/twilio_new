@@ -120,6 +120,71 @@ export async function invalidateConversationCache(conversationSid?: string) {
   // Conversation cache invalidated
 }
 
+// Retry helper for network errors
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if it's a network/DNS error that might be retryable
+      const isNetworkError = 
+        error.code === 'ENOTFOUND' ||
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'EAI_AGAIN' ||
+        error.message?.includes('getaddrinfo') ||
+        error.message?.includes('ENOTFOUND');
+      
+      if (!isNetworkError || attempt === maxRetries - 1) {
+        throw error;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.warn(`⚠️ Network error (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms...`, {
+        code: error.code,
+        message: error.message
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error('Unknown error after retries');
+}
+
+// Test Twilio connection
+async function testTwilioConnection(client: ReturnType<typeof twilio>, accountSid: string): Promise<boolean> {
+  try {
+    // Try a lightweight API call to test connectivity
+    await client.api.accounts(accountSid).fetch();
+    return true;
+  } catch (error: any) {
+    // If it's a network error, return false; otherwise it might be auth error
+    const isNetworkError = 
+      error.code === 'ENOTFOUND' ||
+      error.code === 'ECONNREFUSED' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'EAI_AGAIN' ||
+      error.message?.includes('getaddrinfo') ||
+      error.message?.includes('ENOTFOUND');
+    
+    if (isNetworkError) {
+      return false;
+    }
+    // For auth errors, connection is fine but credentials might be wrong
+    return true;
+  }
+}
+
 export async function getTwilioClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -131,7 +196,62 @@ export async function getTwilioClient() {
     throw new Error('Invalid TWILIO_ACCOUNT_SID. It must start with "AC". Please check your .env file.');
   }
 
-  return twilio(accountSid, authToken);
+  // Create Twilio client with optional HTTP agent configuration
+  const clientOptions: any = {};
+  
+  // Support for HTTP proxy if configured
+  if (process.env.HTTP_PROXY || process.env.HTTPS_PROXY) {
+    try {
+      const { HttpsProxyAgent } = require('https-proxy-agent');
+      const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+      if (proxyUrl) {
+        clientOptions.httpClient = new HttpsProxyAgent(proxyUrl);
+        console.log('✅ Using HTTP proxy for Twilio connections');
+      }
+    } catch (e) {
+      console.warn('⚠️ Proxy agent not available, continuing without proxy');
+    }
+  }
+
+  const client = twilio(accountSid, authToken, clientOptions);
+
+  // Test connection with retry (can be disabled with TWILIO_SKIP_CONNECTION_TEST=true)
+  if (process.env.TWILIO_SKIP_CONNECTION_TEST !== 'true') {
+    try {
+      const isConnected = await retryWithBackoff(() => testTwilioConnection(client, accountSid), 2, 500);
+      if (!isConnected) {
+        console.warn(
+          '⚠️ Cannot connect to Twilio servers. Connection test failed.\n' +
+          'The client will still be returned, but API calls may fail.\n' +
+          'Please check:\n' +
+          '1. Your internet connection\n' +
+          '2. DNS resolution (try: nslookup conversations.twilio.com)\n' +
+          '3. Firewall/proxy settings\n' +
+          '4. If behind a proxy, set HTTPS_PROXY environment variable\n' +
+          'To skip this test, set TWILIO_SKIP_CONNECTION_TEST=true'
+        );
+      }
+    } catch (error: any) {
+      if (error.code === 'ENOTFOUND' || error.message?.includes('getaddrinfo')) {
+        console.error(
+          `❌ DNS resolution failed for Twilio servers (${error.hostname || 'conversations.twilio.com'}).\n` +
+          'Possible solutions:\n' +
+          '1. Check your internet connection\n' +
+          '2. Verify DNS settings (try: nslookup conversations.twilio.com)\n' +
+          '3. Check firewall/proxy settings\n' +
+          '4. If behind a corporate proxy, configure HTTPS_PROXY environment variable\n' +
+          '5. Try using a different DNS server (e.g., 8.8.8.8 or 1.1.1.1)\n' +
+          'See TROUBLESHOOTING_DNS.md for more details.'
+        );
+        // Still return the client - let the actual API calls handle the error with retry logic
+      } else {
+        // For other errors, just log a warning
+        console.warn('⚠️ Connection test failed:', error.message);
+      }
+    }
+  }
+
+  return client;
 }
 
 // ---- Helpers for light listing & paged messages ----
@@ -141,7 +261,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
     // Twilio allows up to 1000 conversations per page, but we'll cap at 200 for performance
     const opts: any = { limit: Math.min(limit, 200) };
     if (after) opts.pageToken = after;
-    const page = await client.conversations.v1.conversations.page(opts);
+    const page = await retryWithBackoff(() => client.conversations.v1.conversations.page(opts));
     
     // Fetch participant info for each conversation to get proper names
     const items = await Promise.all(page.instances.map(async (c: any) => {
@@ -286,7 +406,7 @@ export async function listConversationsLite(limit = 30, after?: string) {
       // If still no preview, fallback to Twilio API (network may be slower, so we try database first)
       if (!lastMessagePreview) {
         try {
-          const twilioMsgs = await c.messages().list({ limit: 1, order: 'desc' });
+          const twilioMsgs = await retryWithBackoff(() => c.messages().list({ limit: 1, order: 'desc' }));
           if (twilioMsgs.length) {
             const lastMsg = twilioMsgs[0];
             if (lastMsg.body) {
@@ -502,7 +622,7 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
   const convo = client.conversations.v1.conversations(conversationId);
   const opts: any = { limit: Math.min(limit, 100) };
   if (before) opts.pageToken = before; // simplistic cursor using Twilio pages
-  const page = await convo.messages.page(opts);
+  const page = await retryWithBackoff(() => convo.messages.page(opts));
   // Twilio messages page loaded
   const messages = await Promise.all(page.instances.map(async (msg: any) => {
     // Map media defensively (Conversations API exposes media collection)
@@ -711,13 +831,17 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
     if (conversationId) {
       // Fetch specific conversation
       console.log("Fetching specific conversation:", conversationId);
-      const conversation = await twilioClient.conversations.v1.conversations(conversationId).fetch();
+      const conversation = await retryWithBackoff(() => 
+        twilioClient.conversations.v1.conversations(conversationId).fetch()
+      );
       conversations = [conversation];
     } else {
       // Fetch all conversations
-      conversations = await twilioClient.conversations.v1.conversations.list({ 
-        limit: Math.min(limit, 50) // Cap at 50 to prevent excessive memory usage
-      });
+      conversations = await retryWithBackoff(() => 
+        twilioClient.conversations.v1.conversations.list({ 
+          limit: Math.min(limit, 50) // Cap at 50 to prevent excessive memory usage
+        })
+      );
     }
     console.log("Found conversations:", conversations.length);
     const chats: Chat[] = [];
@@ -733,7 +857,9 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         console.log("📦 Using cached participants for:", convo.sid);
         participants = cachedParticipants.data;
       } else {
-        participants = await twilioClient.conversations.v1.conversations(convo.sid).participants.list();
+        participants = await retryWithBackoff(() => 
+          twilioClient.conversations.v1.conversations(convo.sid).participants.list()
+        );
         participantCache.set(participantCacheKey, { data: participants, timestamp: now });
       }
       
@@ -808,9 +934,11 @@ export async function getTwilioConversations(loggedInAgentId: string, limit: num
         twilioMessages = cachedMessages.data;
       } else {
         // Fetch messages with configurable limit
-        twilioMessages = await twilioClient.conversations.v1.conversations(convo.sid).messages.list({ 
-          limit: messageLimit // Configurable message limit for full chat history
-        });
+        twilioMessages = await retryWithBackoff(() => 
+          twilioClient.conversations.v1.conversations(convo.sid).messages.list({ 
+            limit: messageLimit // Configurable message limit for full chat history
+          })
+        );
         messageCache.set(messageCacheKey, { data: twilioMessages, timestamp: now });
       }
       const messages: Message[] = twilioMessages.map((msg) => {
@@ -1021,8 +1149,12 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         console.log("Twilio client created successfully");
         
         // First, get the conversation to find the customer's WhatsApp number
-        const conversation = await twilioClient.conversations.v1.conversations(conversationSid).fetch();
-        const participants = await twilioClient.conversations.v1.conversations(conversationSid).participants.list();
+        const conversation = await retryWithBackoff(() => 
+          twilioClient.conversations.v1.conversations(conversationSid).fetch()
+        );
+        const participants = await retryWithBackoff(() => 
+          twilioClient.conversations.v1.conversations(conversationSid).participants.list()
+        );
         
         console.log("All participants:", participants.map(p => ({ identity: p.identity, address: p.messagingBinding?.address })));
         
@@ -1045,16 +1177,20 @@ export async function sendTwilioMessage(conversationSid: string, author: string,
         const agentParticipant = participants.find(p => p.identity === author);
         if (!agentParticipant) {
             console.log("Adding agent as participant to conversation");
-            await twilioClient.conversations.v1.conversations(conversationSid).participants.create({
+            await retryWithBackoff(() => 
+              twilioClient.conversations.v1.conversations(conversationSid).participants.create({
                 identity: author
-            });
+              })
+            );
         }
         
         // Use Twilio Conversations API for WhatsApp delivery
-        const conversationMessage = await twilioClient.conversations.v1.conversations(conversationSid).messages.create({
+        const conversationMessage = await retryWithBackoff(() => 
+          twilioClient.conversations.v1.conversations(conversationSid).messages.create({
             author,
             body: text,
-        });
+          })
+        );
         
         console.log("Conversation message sent successfully:", conversationMessage.sid);
         
@@ -1118,7 +1254,9 @@ export async function reassignTwilioConversation(conversationSid: string, newAge
   try {
     console.log('🔄 Reassigning conversation:', { conversationSid, newAgentId });
     const twilioClient = await getTwilioClient();
-    const participants = await twilioClient.conversations.v1.conversations(conversationSid).participants.list();
+    const participants = await retryWithBackoff(() => 
+      twilioClient.conversations.v1.conversations(conversationSid).participants.list()
+    );
     
     console.log('📋 Current participants:', participants.map(p => ({ identity: p.identity, sid: p.sid })));
     
@@ -1135,14 +1273,18 @@ export async function reassignTwilioConversation(conversationSid: string, newAge
     
     if (currentAgent) {
       console.log('🗑️ Removing current agent:', currentAgent.identity);
-      await twilioClient.conversations.v1.conversations(conversationSid).participants(currentAgent.sid).remove();
+      await retryWithBackoff(() => 
+        twilioClient.conversations.v1.conversations(conversationSid).participants(currentAgent.sid).remove()
+      );
     } else {
       console.log('ℹ️ No current agent found to remove');
     }
     
     // Add the new agent
     console.log('➕ Adding new agent:', newAgentId);
-    await twilioClient.conversations.v1.conversations(conversationSid).participants.create({ identity: newAgentId });
+    await retryWithBackoff(() => 
+      twilioClient.conversations.v1.conversations(conversationSid).participants.create({ identity: newAgentId })
+    );
     console.log('✅ Agent assignment completed');
 
   } catch (error) {

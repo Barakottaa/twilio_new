@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { Send, Clock, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useChatStore } from '@/store/chat-store';
@@ -52,6 +52,7 @@ export function TemplateSelector({
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const { toast } = useToast();
   const selectedNumberId = useChatStore(state => state.selectedNumberId);
 
@@ -72,15 +73,29 @@ export function TemplateSelector({
       setIsLoading(true);
       try {
         const response = await fetch('/api/twilio/templates');
-        if (response.ok) {
-          const data = await response.json();
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
           console.log('📋 Template data received:', data);
           setTemplates(data.templates || []);
         } else {
-          console.error('Failed to fetch templates');
+          const errorMessage = data.error || 'Failed to fetch templates';
+          console.error('Failed to fetch templates:', errorMessage);
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+          setTemplates([]);
         }
       } catch (error) {
         console.error('Error fetching templates:', error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "An error occurred while loading templates",
+          variant: "destructive",
+        });
+        setTemplates([]);
       } finally {
         setIsLoading(false);
       }
@@ -89,7 +104,7 @@ export function TemplateSelector({
     if (isOutsideWindow) {
       fetchTemplates();
     }
-  }, [isOutsideWindow]);
+  }, [isOutsideWindow, toast]);
 
   const handleSendTemplate = async () => {
     if (!selectedTemplate || isSending) return;
@@ -159,82 +174,103 @@ export function TemplateSelector({
   }
 
   return (
-    <div className="flex-shrink-0 border-t bg-muted/30 p-2">
-      <Card>
-        <CardHeader className="pb-1.5 pt-2">
-          <CardTitle className="flex items-center gap-2 text-orange-600 text-xs">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            {lastCustomerMessage ? 'Template Message Required' : 'Send Template Message'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5 py-2">
-          <Alert variant={lastCustomerMessage ? "destructive" : "default"} className="p-2 py-1.5 [&>svg]:left-2 [&>svg]:top-2 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg~*]:pl-5">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            <div>
-              <p className="font-medium text-xs leading-tight">
-                {lastCustomerMessage 
-                  ? "Outside 24-hour messaging window. Only approved templates can be sent."
-                  : "This is a new conversation. Send a template message to start the conversation."}
-              </p>
-              {lastCustomerMessage && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                  <Clock className="w-3 h-3" />
-                  Last customer message: {new Date(lastCustomerMessage).toLocaleString()}
-                </p>
-              )}
-            </div>
-          </Alert>
-
-          <div className="space-y-2">
-            <div>
-              <label className="text-xs font-medium">Select Template</label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder={isLoading ? "Loading templates..." : "Choose a template"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.sid} value={template.sid}>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{template.friendlyName}</span>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                            ✓ Business
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {template.language}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                  
-                  {/* Show message if no templates */}
-                  {templates.length === 0 && !isLoading && (
-                    <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                      No WhatsApp business-initiated templates found. 
-                      <br />
-                      <span className="text-xs">Only approved business-initiated templates are shown.</span>
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
+    <div className="flex-shrink-0 border-t bg-muted/30 px-2 py-1">
+      <Card className="border-0 shadow-none">
+        <CardHeader className="pb-1 pt-1.5 px-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-1.5 text-orange-600 text-[10px] font-semibold leading-tight">
+              <AlertTriangle className="h-3 w-3" />
+              {lastCustomerMessage ? 'Template Required' : 'Send Template'}
+            </CardTitle>
             <Button
-              onClick={handleSendTemplate}
-              disabled={!selectedTemplate || isSending || isLoading}
-              className="w-full text-xs h-8"
+              variant="ghost"
+              size="sm"
+              className="h-5 w-5 p-0"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              aria-label={isCollapsed ? "Expand template section" : "Collapse template section"}
             >
-              {isSending ? (
-                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+              {isCollapsed ? (
+                <ChevronUp className="h-3 w-3" />
               ) : (
-                <Send className="h-3 w-3 mr-2" />
+                <ChevronDown className="h-3 w-3" />
               )}
-              Send Template Message
             </Button>
           </div>
-        </CardContent>
+        </CardHeader>
+        {!isCollapsed && (
+          <CardContent className="space-y-1 py-1 px-2">
+            <Alert variant={lastCustomerMessage ? "destructive" : "default"} className="p-1.5 py-1">
+              <div className="flex gap-1.5">
+                <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                <AlertDescription className="text-[10px] flex-1 leading-tight">
+                  <div className="space-y-0.5">
+                    <p className="font-medium leading-tight">
+                      {lastCustomerMessage 
+                        ? "Outside 24-hour window. Only approved templates can be sent."
+                        : "New conversation. Send a template to start."}
+                    </p>
+                    {lastCustomerMessage && (
+                      <p className="text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+                        <span className="text-[9px]">Last: {new Date(lastCustomerMessage).toLocaleString()}</span>
+                      </p>
+                    )}
+                  </div>
+                </AlertDescription>
+              </div>
+            </Alert>
+
+            <div className="space-y-1">
+              <div>
+                <label className="text-[10px] font-medium">Template</label>
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger className="h-7 text-[10px] px-2">
+                    <SelectValue placeholder={isLoading ? "Loading..." : "Choose template"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((template) => (
+                      <SelectItem key={template.sid} value={template.sid}>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-xs">{template.friendlyName}</span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              ✓ Business
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-muted-foreground">
+                            {template.language}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                    
+                    {/* Show message if no templates */}
+                    {templates.length === 0 && !isLoading && (
+                      <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                        No WhatsApp business-initiated templates found. 
+                        <br />
+                        <span className="text-[9px]">Only approved business-initiated templates are shown.</span>
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                onClick={handleSendTemplate}
+                disabled={!selectedTemplate || isSending || isLoading}
+                className="w-full text-[10px] h-7 px-2"
+              >
+                {isSending ? (
+                  <Loader2 className="h-2.5 w-2.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Send className="h-2.5 w-2.5 mr-1.5" />
+                )}
+                Send Template
+              </Button>
+            </div>
+          </CardContent>
+        )}
       </Card>
     </div>
   );
