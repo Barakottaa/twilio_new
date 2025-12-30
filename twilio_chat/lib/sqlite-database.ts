@@ -788,6 +788,21 @@ class SQLiteDatabaseService {
     return this.db.prepare('SELECT * FROM messages WHERE twilio_message_sid = ?').get(twilioMessageSid);
   }
 
+  async getMessagesByConversation(conversationId: string, limit: number = 100): Promise<any[]> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM messages 
+      WHERE conversation_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `);
+    const results = stmt.all(conversationId, limit);
+    // Reverse to show oldest-first (since we queried DESC to get latest)
+    return results.reverse();
+  }
+
   async updateMessageDeliveryStatus(twilioMessageSid: string, deliveryStatus: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered'): Promise<any> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');

@@ -33,9 +33,21 @@ export async function POST(
     );
 
     if (result.success) {
+      // Return a full Message object that matches Android app's expected format
+      const messageResponse = {
+        id: result.messageId,
+        text: message,
+        timestamp: new Date().toISOString(),
+        sender: 'agent' as const,
+        senderId: author,
+        deliveryStatus: 'sent' as const,
+        twilioMessageSid: result.twilioMessageSid,
+      };
+
       return NextResponse.json({
         success: true,
         message: 'Message sent successfully',
+        ...messageResponse, // Spread the message object for backward compatibility
         messageId: result.messageId,
         twilioMessageSid: result.twilioMessageSid
       });
