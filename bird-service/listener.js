@@ -13,6 +13,7 @@ const axios = require('axios');
 // Import services
 const PdfToImageService = require('./pdf-to-image-service');
 const BirdApiClient = require('./bird-api-client');
+const logger = require('../shared_utils/logger')('bird-service');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -28,8 +29,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     service: 'bird-service',
     services: {
@@ -42,11 +43,11 @@ app.get('/health', (req, res) => {
 // Bird webhook endpoint - processes patient requests and converts PDFs to images
 app.post('/api/bird/webhook', async (req, res) => {
   try {
-    console.log('📩 [listener] Received Bird webhook request', req.body);
-    
+    logger.info('📩 [listener] Received Bird webhook request', req.body);
+
     // Extract patient phone number from the request (handle multiple formats)
     let phoneNumber, message;
-    
+
     // Format 1: Direct structure - req.body.sender.contact.identifierValue
     if (req.body.sender?.contact?.identifierValue) {
       phoneNumber = req.body.sender.contact.identifierValue;
@@ -62,21 +63,21 @@ app.post('/api/bird/webhook', async (req, res) => {
       phoneNumber = req.body.payload.sender.contact[0].identifierValue;
       message = req.body.payload.body?.text?.text;
     }
-    
-    console.log('🔍 [listener] Extracted data from request', { phoneNumber, message });
+
+    logger.info('🔍 [listener] Extracted data from request', { phoneNumber, message });
 
     if (!phoneNumber) {
-      console.log('❌ [listener] No phone number found in request');
-      return res.json({ 
-        success: false, 
-        error: 'No phone number found in request' 
+      logger.warn('❌ [listener] No phone number found in request');
+      return res.json({
+        success: false,
+        error: 'No phone number found in request'
       });
     }
 
     // Check if this is a request for images (PDF conversion)
     if (message?.toLowerCase().includes('image')) {
-      console.log('ℹ️ [listener] Patient requested PDF to images conversion', { phoneNumber, message });
-      
+      logger.info('ℹ️ [listener] Patient requested PDF to images conversion', { phoneNumber, message });
+
       // Send immediate response to prevent timeout
       res.json({
         success: true,
@@ -84,13 +85,13 @@ app.post('/api/bird/webhook', async (req, res) => {
         patient: phoneNumber,
         status: 'processing'
       });
-      
+
       // Process PDF in background (don't await)
       setImmediate(async () => {
         try {
-          console.log('🔄 [background] Starting PDF processing...');
+          logger.info('🔄 [background] Starting PDF processing...');
           const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
-          
+
           if (result.success) {
             console.log('✅ [background] PDF converted and images sent successfully');
             console.log(`   Images sent: ${result.imagesSent}`);
@@ -105,16 +106,16 @@ app.post('/api/bird/webhook', async (req, res) => {
     } else {
       // Handle other types of requests - but if we have a phone number, try PDF conversion anyway
       console.log('ℹ️ [listener] Non-PDF request received, but trying PDF conversion anyway');
-      
+
       try {
         // Process PDF from folder for this patient
         const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
-        
+
         if (result.success) {
           console.log('✅ PDF converted and images sent successfully');
           console.log(`   Images sent: ${result.imagesSent}`);
           console.log(`   Patient: ${phoneNumber}`);
-          
+
           res.json({
             success: true,
             message: `PDF converted to ${result.imagesSent} images and sent to ${phoneNumber}`,
@@ -140,10 +141,10 @@ app.post('/api/bird/webhook', async (req, res) => {
         });
       }
     }
-    
+
   } catch (error) {
-    console.error('❌ Bird webhook error:', error.message);
-    res.status(500).json({ 
+    logger.error('❌ Bird webhook error:', error.message);
+    res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: error.message
@@ -155,7 +156,7 @@ app.post('/api/bird/webhook', async (req, res) => {
 // Configuration validation endpoint
 app.get('/api/config', (req, res) => {
   const birdConfig = birdApiClient.validateConfig();
-  
+
   res.json({
     bird: birdConfig,
     timestamp: new Date().toISOString()
@@ -164,7 +165,7 @@ app.get('/api/config', (req, res) => {
 
 // Error handling middleware
 app.use((error, req, res, next) => {
-  console.error('❌ Unhandled error:', error);
+  logger.error('❌ Unhandled error:', error);
   res.status(500).json({ error: 'Internal server error' });
 });
 
@@ -180,29 +181,29 @@ app.listen(port, () => {
   console.log(`🔗 Health check: http://localhost:${port}/health`);
   console.log(`📩 Bird webhook: http://localhost:${port}/api/bird/webhook`);
   console.log(`📁 PDF from folder: http://localhost:${port}/api/process-pdf-folder`);
-  
+
   // Validate configuration
   const birdConfig = birdApiClient.validateConfig();
   const pdfConfig = pdfToImageService.validateConfig();
-  
+
   if (!birdConfig.valid) {
     console.error('❌ Bird configuration invalid:', birdConfig.error);
   } else {
     console.log('✅ Bird configuration valid');
   }
-  
+
   if (!pdfConfig.valid) {
     console.error('❌ PDF service configuration invalid:', pdfConfig.error);
   } else {
     console.log('✅ PDF service configuration valid');
   }
-  
+
   // Schedule cleanup every hour
   setInterval(async () => {
     try {
       await pdfToImageService.cleanupOldFiles(24);
     } catch (error) {
-      console.error('❌ Scheduled cleanup failed:', error.message);
+      logger.error('❌ Scheduled cleanup failed:', error.message);
     }
   }, 60 * 60 * 1000); // 1 hour
 });
@@ -213,13 +214,13 @@ app.listen(port, () => {
 app.post('/api/process-pdf-folder', async (req, res) => {
   try {
     const { phoneNumber } = req.body;
-    
+
     if (!phoneNumber) {
       return res.status(400).json({ error: 'phoneNumber is required' });
     }
-    
+
     console.log('📄 Processing PDF from folder for:', phoneNumber);
-    
+
     const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
     res.json(result);
   } catch (error) {
@@ -231,8 +232,8 @@ app.post('/api/process-pdf-folder', async (req, res) => {
 // Global error handler to prevent crashes
 app.use((error, req, res, next) => {
   console.error('❌ Global error handler:', error.message);
-  res.status(500).json({ 
-    success: false, 
+  res.status(500).json({
+    success: false,
     error: 'Internal server error',
     message: 'An unexpected error occurred'
   });

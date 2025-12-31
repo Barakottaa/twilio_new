@@ -24,6 +24,7 @@ const cors = require('cors');
 // Import services
 const PdfToImageService = require('./pdf-to-image-service');
 const TwilioApiClient = require('./twilio-api-client');
+const logger = require('../shared_utils/logger')('twilio-service');
 
 const app = express();
 const port = process.env.PORT || 3002; // Different port from bird-service
@@ -39,8 +40,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     timestamp: new Date().toISOString(),
     service: 'twilio-service',
     services: {
@@ -54,12 +55,12 @@ app.get('/health', (req, res) => {
 app.get('/images/:filename', (req, res) => {
   const filename = req.params.filename;
   const resultsDir = process.env.PDF_BASE_DIR || "D:\\Results";
-  
+
   // Search for the image in all patient folders
   try {
     const folders = fs.readdirSync(resultsDir);
     let imagePath = null;
-    
+
     for (const folder of folders) {
       const folderPath = path.join(resultsDir, folder);
       if (fs.statSync(folderPath).isDirectory()) {
@@ -73,17 +74,17 @@ app.get('/images/:filename', (req, res) => {
         }
       }
     }
-    
+
     if (!imagePath) {
       return res.status(404).json({ error: 'Image not found' });
     }
-    
+
     // Set headers
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.setHeader('ngrok-skip-browser-warning', 'true');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    
+
     res.sendFile(path.resolve(imagePath));
   } catch (error) {
     console.error('❌ Error serving image:', error.message);
@@ -94,12 +95,12 @@ app.get('/images/:filename', (req, res) => {
 // Twilio webhook endpoint - processes patient requests and converts PDFs to images
 app.post('/api/twilio/webhook', async (req, res) => {
   try {
-    console.log('📩 [listener] Received Twilio webhook request', req.body);
-    
+    logger.info('📩 [listener] Received Twilio webhook request', req.body);
+
     // Extract patient phone number from Twilio webhook format
     // Twilio sends: { From: 'whatsapp:+1234567890', Body: 'message text', ... }
     let phoneNumber, message;
-    
+
     if (req.body.From) {
       // Remove 'whatsapp:' prefix if present
       phoneNumber = req.body.From.replace(/^whatsapp:/i, '');
@@ -109,21 +110,21 @@ app.post('/api/twilio/webhook', async (req, res) => {
       phoneNumber = `+${req.body.FromCountry}${req.body.From}`;
       message = req.body.Body || '';
     }
-    
-    console.log('🔍 [listener] Extracted data from Twilio request', { phoneNumber, message });
+
+    logger.info('🔍 [listener] Extracted data from Twilio request', { phoneNumber, message });
 
     if (!phoneNumber) {
-      console.log('❌ [listener] No phone number found in Twilio request');
-      return res.json({ 
-        success: false, 
-        error: 'No phone number found in request' 
+      logger.warn('❌ [listener] No phone number found in Twilio request');
+      return res.json({
+        success: false,
+        error: 'No phone number found in request'
       });
     }
 
     // Check if this is a request for images (PDF conversion)
     if (message?.toLowerCase().includes('image') || message?.toLowerCase().includes('صورة')) {
-      console.log('ℹ️ [listener] Patient requested PDF to images conversion', { phoneNumber, message });
-      
+      logger.info('ℹ️ [listener] Patient requested PDF to images conversion', { phoneNumber, message });
+
       // Send immediate response to prevent timeout
       res.json({
         success: true,
@@ -131,37 +132,37 @@ app.post('/api/twilio/webhook', async (req, res) => {
         patient: phoneNumber,
         status: 'processing'
       });
-      
+
       // Process PDF in background (don't await)
       setImmediate(async () => {
         try {
-          console.log('🔄 [background] Starting PDF processing...');
+          logger.info('🔄 [background] Starting PDF processing...');
           const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
-          
+
           if (result.success) {
             console.log('✅ [background] PDF converted and images sent successfully');
             console.log(`   Images sent: ${result.imagesSent}`);
             console.log(`   Patient: ${phoneNumber}`);
           } else {
-            console.log('❌ [background] PDF conversion failed:', result.error);
+            logger.error('❌ [background] PDF conversion failed:', result.error);
           }
         } catch (error) {
-          console.log('❌ [background] PDF processing error:', error.message);
+          logger.error('❌ [background] PDF processing error:', error.message);
         }
       });
     } else {
       // Handle other types of requests - but if we have a phone number, try PDF conversion anyway
       console.log('ℹ️ [listener] Non-PDF request received, but trying PDF conversion anyway');
-      
+
       try {
         // Process PDF from folder for this patient
         const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
-        
+
         if (result.success) {
           console.log('✅ PDF converted and images sent successfully');
           console.log(`   Images sent: ${result.imagesSent}`);
           console.log(`   Patient: ${phoneNumber}`);
-          
+
           res.json({
             success: true,
             message: `PDF converted to ${result.imagesSent} images and sent to ${phoneNumber}`,
@@ -187,10 +188,10 @@ app.post('/api/twilio/webhook', async (req, res) => {
         });
       }
     }
-    
+
   } catch (error) {
-    console.error('❌ Twilio webhook error:', error.message);
-    res.status(500).json({ 
+    logger.error('❌ Twilio webhook error:', error.message);
+    res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: error.message
@@ -202,13 +203,13 @@ app.post('/api/twilio/webhook', async (req, res) => {
 app.post('/api/process-pdf-folder', async (req, res) => {
   try {
     const { phoneNumber } = req.body;
-    
+
     if (!phoneNumber) {
       return res.status(400).json({ error: 'phoneNumber is required' });
     }
-    
+
     console.log('📄 Processing PDF from folder for:', phoneNumber);
-    
+
     const result = await pdfToImageService.processPdfFromFolder(phoneNumber);
     res.json(result);
   } catch (error) {
@@ -220,7 +221,7 @@ app.post('/api/process-pdf-folder', async (req, res) => {
 // Configuration validation endpoint
 app.get('/api/config', (req, res) => {
   const twilioConfig = twilioApiClient.validateConfig();
-  
+
   res.json({
     twilio: twilioConfig,
     timestamp: new Date().toISOString()
@@ -246,23 +247,23 @@ app.listen(port, () => {
   console.log(`📩 Twilio webhook: http://localhost:${port}/api/twilio/webhook`);
   console.log(`📁 PDF from folder: http://localhost:${port}/api/process-pdf-folder`);
   console.log(`🖼️ Images served at: http://localhost:${port}/images/:filename`);
-  
+
   // Validate configuration
   const twilioConfig = twilioApiClient.validateConfig();
   const pdfConfig = pdfToImageService.validateConfig();
-  
+
   if (!twilioConfig.valid) {
     console.error('❌ Twilio configuration invalid:', twilioConfig.error);
   } else {
     console.log('✅ Twilio configuration valid');
   }
-  
+
   if (!pdfConfig.valid) {
     console.error('❌ PDF service configuration invalid:', pdfConfig.error);
   } else {
     console.log('✅ PDF service configuration valid');
   }
-  
+
   // Schedule cleanup every hour
   setInterval(async () => {
     try {
@@ -276,8 +277,8 @@ app.listen(port, () => {
 // Global error handler to prevent crashes
 app.use((error, req, res, next) => {
   console.error('❌ Global error handler:', error.message);
-  res.status(500).json({ 
-    success: false, 
+  res.status(500).json({
+    success: false,
     error: 'Internal server error',
     message: 'An unexpected error occurred'
   });
