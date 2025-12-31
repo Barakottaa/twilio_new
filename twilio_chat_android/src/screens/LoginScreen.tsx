@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { theme } from '../theme';
+// @ts-ignore
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export const LoginScreen = ({ navigation }: any) => {

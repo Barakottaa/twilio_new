@@ -97,18 +97,23 @@ app.post('/api/twilio/webhook', async (req, res) => {
   try {
     logger.info('📩 [listener] Received Twilio webhook request', req.body);
 
-    // Extract patient phone number from Twilio webhook format
-    // Twilio sends: { From: 'whatsapp:+1234567890', Body: 'message text', ... }
+    const { TwilioWebhookSchema } = require('../shared_utils/schemas');
+    const validation = TwilioWebhookSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      logger.warn('❌ [listener] Invalid Twilio request:', validation.error);
+      return res.json({ success: false, error: 'Invalid request format' });
+    }
+
+    const { From, Body, MessageSid, FromCountry } = validation.data;
     let phoneNumber, message;
 
-    if (req.body.From) {
-      // Remove 'whatsapp:' prefix if present
-      phoneNumber = req.body.From.replace(/^whatsapp:/i, '');
-      message = req.body.Body || req.body.MessageSid || '';
-    } else if (req.body.FromCountry) {
-      // Alternative format
-      phoneNumber = `+${req.body.FromCountry}${req.body.From}`;
-      message = req.body.Body || '';
+    if (From) {
+      phoneNumber = From.replace(/^whatsapp:/i, '');
+      message = Body || MessageSid || '';
+    } else {
+      phoneNumber = `+${FromCountry}${req.body.From}`; // req.body.From fallback for partial match
+      message = Body || '';
     }
 
     logger.info('🔍 [listener] Extracted data from Twilio request', { phoneNumber, message });
@@ -202,11 +207,14 @@ app.post('/api/twilio/webhook', async (req, res) => {
 // Process PDF from folder endpoint
 app.post('/api/process-pdf-folder', async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { ProcessPdfSchema } = require('../shared_utils/schemas');
+    const validation = ProcessPdfSchema.safeParse(req.body);
 
-    if (!phoneNumber) {
-      return res.status(400).json({ error: 'phoneNumber is required' });
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.issues[0].message });
     }
+
+    const { phoneNumber } = validation.data;
 
     console.log('📄 Processing PDF from folder for:', phoneNumber);
 

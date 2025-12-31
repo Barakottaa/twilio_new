@@ -46,33 +46,21 @@ app.post('/api/bird/webhook', async (req, res) => {
     logger.info('📩 [listener] Received Bird webhook request', req.body);
 
     // Extract patient phone number from the request (handle multiple formats)
-    let phoneNumber, message;
+    // Use shared schema validation
+    const { validateBirdRequest } = require('../shared_utils/schemas');
+    const validation = validateBirdRequest(req.body);
 
-    // Format 1: Direct structure - req.body.sender.contact.identifierValue
-    if (req.body.sender?.contact?.identifierValue) {
-      phoneNumber = req.body.sender.contact.identifierValue;
-      message = req.body.body?.text?.text;
-    }
-    // Format 2: Nested payload structure - req.body.payload.sender.contact.identifierValue
-    else if (req.body.payload?.sender?.contact?.identifierValue) {
-      phoneNumber = req.body.payload.sender.contact.identifierValue;
-      message = req.body.payload.body?.text?.text;
-    }
-    // Format 3: New Bird webhook format - req.body.payload.sender.contact[0].identifierValue
-    else if (req.body.payload?.sender?.contact?.[0]?.identifierValue) {
-      phoneNumber = req.body.payload.sender.contact[0].identifierValue;
-      message = req.body.payload.body?.text?.text;
-    }
-
-    logger.info('🔍 [listener] Extracted data from request', { phoneNumber, message });
-
-    if (!phoneNumber) {
-      logger.warn('❌ [listener] No phone number found in request');
+    if (!validation.success) {
+      logger.warn('❌ [listener] Invalid request format:', validation.error);
       return res.json({
         success: false,
-        error: 'No phone number found in request'
+        error: typeof validation.error === 'string' ? validation.error : 'Invalid request format'
       });
     }
+
+    const { phoneNumber, message } = validation;
+
+    logger.info('🔍 [listener] Extracted data from request', { phoneNumber, message });
 
     // Check if this is a request for images (PDF conversion)
     if (message?.toLowerCase().includes('image')) {
@@ -213,11 +201,14 @@ app.listen(port, () => {
 // Process PDF from folder endpoint
 app.post('/api/process-pdf-folder', async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { ProcessPdfSchema } = require('../shared_utils/schemas');
+    const validation = ProcessPdfSchema.safeParse(req.body);
 
-    if (!phoneNumber) {
-      return res.status(400).json({ error: 'phoneNumber is required' });
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.issues[0].message });
     }
+
+    const { phoneNumber } = validation.data;
 
     console.log('📄 Processing PDF from folder for:', phoneNumber);
 
