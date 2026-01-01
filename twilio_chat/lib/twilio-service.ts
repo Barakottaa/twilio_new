@@ -389,7 +389,9 @@ export async function listConversationsLite(limit = 30, after?: string) {
           if (row.content) {
             lastMessagePreview = row.content.length > 50 ? `${row.content.slice(0, 50)}...` : row.content;
           } else if (row.media_content_type) {
-            lastMessagePreview = '[Media]';
+            // Generate descriptive text for media messages
+            const mediaType = getMediaTypeFromContentType(row.media_content_type);
+            lastMessagePreview = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
           } else {
             lastMessagePreview = '[Message]';
           }
@@ -411,8 +413,16 @@ export async function listConversationsLite(limit = 30, after?: string) {
             const lastMsg = twilioMsgs[0];
             if (lastMsg.body) {
               lastMessagePreview = lastMsg.body.length > 50 ? `${lastMsg.body.slice(0, 50)}...` : lastMsg.body;
-            } else if (lastMsg.media) {
-              lastMessagePreview = '[Media]';
+            } else if (lastMsg.media && lastMsg.media.length > 0) {
+              // Generate descriptive text for media messages
+              const firstMedia = lastMsg.media[0];
+              const mediaType = getMediaTypeFromContentType(firstMedia.contentType || 'application/octet-stream');
+              lastMessagePreview = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+            } else if (lastMsg.attachedMedia && lastMsg.attachedMedia.length > 0) {
+              // Handle attachedMedia format
+              const firstMedia = lastMsg.attachedMedia[0];
+              const mediaType = getMediaTypeFromContentType(firstMedia.contentType || 'application/octet-stream');
+              lastMessagePreview = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
             } else {
               lastMessagePreview = '[Message]';
             }
@@ -557,18 +567,27 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
         let mediaArray = [];
         if (msg.media_data) {
           try {
-            mediaArray = JSON.parse(msg.media_data);
+            const parsedArray = JSON.parse(msg.media_data);
+            
+            // Filter out invalid media items (must have sid, url, and contentType)
+            const validMedia = parsedArray.filter((media: any) => 
+              media && (media.sid || media.url) && media.contentType
+            );
             
             // Reconstruct media URLs ONLY if chatServiceSid is available
             // Old messages without chat_service_sid will keep their original URLs (which will fail)
             // But at least the messages will still show
             if (msg.chat_service_sid && msg.twilio_message_sid) {
-              mediaArray = mediaArray.map((media: any) => ({
+              mediaArray = validMedia.map((media: any) => ({
                 ...media,
-                url: `/api/media/${media.sid}?conversationSid=${conversationId}&chatServiceSid=${msg.chat_service_sid}&messageSid=${msg.twilio_message_sid}`
+                url: media.sid 
+                  ? `/api/media/${media.sid}?conversationSid=${conversationId}&chatServiceSid=${msg.chat_service_sid}&messageSid=${msg.twilio_message_sid}`
+                  : media.url
               }));
+            } else {
+              // If no chat_service_sid, keep valid media items as-is
+              mediaArray = validMedia;
             }
-            // If no chat_service_sid, keep the media array as-is (URLs will be broken but message will show)
           } catch (error) {
             console.error('Error parsing media data:', error);
             // Don't let media parsing errors break the entire message
@@ -578,14 +597,34 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
         
         // Determine text content - use body if available, otherwise use media description
         let messageText = msg.content || '';
-        if (!messageText && msg.message_type === 'media' && mediaArray.length > 0) {
-          // If no text but has media, use a descriptive message
-          const firstMedia = mediaArray[0];
-          const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
-          messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        // Check if this is a media message (by type or by presence of media fields)
+        const hasMediaIndicators = msg.message_type === 'media' || 
+                                   msg.media_url || 
+                                   msg.media_content_type || 
+                                   msg.media_data ||
+                                   mediaArray.length > 0;
+        
+        if (!messageText && hasMediaIndicators) {
+          // If no text but has media indicators, try to generate descriptive text
+          if (mediaArray.length > 0) {
+            // If we have valid media, use descriptive message
+            const firstMedia = mediaArray[0];
+            const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
+            messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+          } else if (msg.media_content_type) {
+            // If we have media content type but no media array, still generate text
+            const mediaType = getMediaTypeFromContentType(msg.media_content_type);
+            messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+          } else if (msg.media_url) {
+            // If we have media URL but no content type, use generic message
+            messageText = '📎 Media message';
+          } else {
+            // Fallback for media messages with no data
+            messageText = '📎 Media message';
+          }
         }
         
-        return {
+        const messageObj = {
           id: msg.id,
           text: messageText,
           timestamp: msg.created_at,
@@ -600,9 +639,24 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
           mediaContentType: msg.media_content_type || undefined,
           mediaFileName: msg.media_filename || undefined,
           mediaCaption: messageText,
-          // New media array format
+          // New media array format - only include if we have valid media items
           media: mediaArray.length > 0 ? mediaArray : undefined
         };
+        
+        // Debug log for media messages
+        if (hasMediaIndicators) {
+          console.log('📦 Database message with media:', {
+            id: messageObj.id,
+            text: messageObj.text,
+            mediaArrayLength: mediaArray.length,
+            mediaArray: mediaArray,
+            mediaUrl: messageObj.mediaUrl,
+            mediaContentType: messageObj.mediaContentType,
+            hasMediaInObject: !!messageObj.media
+          });
+        }
+        
+        return messageObj;
       });
       
       // Reverse the array to show oldest-first (since we queried DESC to get latest)
@@ -620,6 +674,16 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
   console.log('🔄 Fetching messages from Twilio API...');
   const client = await getTwilioClient();
   const convo = client.conversations.v1.conversations(conversationId);
+  
+  // Get conversation details to extract chatServiceSid
+  let chatServiceSid: string | undefined;
+  try {
+    const convoData = await retryWithBackoff(() => convo.fetch());
+    chatServiceSid = convoData.chatServiceSid;
+  } catch (err) {
+    console.log('⚠️ Could not fetch conversation details for chatServiceSid:', err);
+  }
+  
   const opts: any = { limit: Math.min(limit, 100) };
   if (before) opts.pageToken = before; // simplistic cursor using Twilio pages
   const page = await retryWithBackoff(() => convo.messages.page(opts));
@@ -628,24 +692,97 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
     // Map media defensively (Conversations API exposes media collection)
     let mediaArr: any[] = [];
     try {
-      if (msg.attachedMedia && msg.attachedMedia.length) {
-        mediaArr = msg.attachedMedia.map((m: any) => ({
-          url: m.links?.contentDirect || m.mediaUrl || m.url,
-          contentType: m.contentType || m.type,
-          filename: m.filename
-        }));
+      // Debug: Log raw message structure to see what Twilio returns
+      if (!msg.body && (msg.attachedMedia || msg.media || msg.index)) {
+        console.log('🔍 Raw Twilio message:', JSON.stringify({
+          sid: msg.sid,
+          body: msg.body,
+          hasAttachedMedia: !!msg.attachedMedia,
+          attachedMediaLength: msg.attachedMedia?.length || 0,
+          attachedMedia: msg.attachedMedia,
+          hasMedia: !!msg.media,
+          media: msg.media,
+          index: msg.index
+        }, null, 2));
       }
-    } catch {}
+      
+      // Try to fetch media if attachedMedia is not directly available
+      // Twilio Conversations API might require fetching media separately
+      if (msg.attachedMedia && msg.attachedMedia.length) {
+        console.log('📦 Found attachedMedia in message:', msg.sid, 'count:', msg.attachedMedia.length);
+        const mappedMedia = msg.attachedMedia.map((m: any) => {
+          // Try to use our proxy endpoint if we have media SID and chatServiceSid
+          let mediaUrl = m.links?.contentDirect || m.mediaUrl || m.url;
+          if (m.sid && chatServiceSid && msg.sid) {
+            // Use our proxy endpoint for authenticated access
+            mediaUrl = `/api/media/${m.sid}?conversationSid=${conversationId}&chatServiceSid=${chatServiceSid}&messageSid=${msg.sid}`;
+          }
+          
+          return {
+            sid: m.sid,
+            url: mediaUrl,
+            contentType: m.contentType || m.type,
+            filename: m.filename
+          };
+        });
+        // Filter out invalid media items (must have url and contentType)
+        mediaArr = mappedMedia.filter((media: any) => 
+          media && media.url && media.contentType
+        );
+        console.log('✅ Processed attachedMedia:', mediaArr.length, 'valid items');
+      }
+      
+      // If no attachedMedia found, try fetching media separately
+      // This is needed because Twilio's list() might not include attachedMedia
+      if (mediaArr.length === 0 && msg.sid) {
+        try {
+          const messageInstance = convo.messages(msg.sid);
+          const mediaList = await retryWithBackoff(() => messageInstance.media().list());
+          if (mediaList && mediaList.length > 0) {
+            console.log('📦 Found media via media().list() for message:', msg.sid, 'count:', mediaList.length);
+            mediaArr = mediaList.map((m: any) => {
+              const mediaUrl = m.sid && chatServiceSid && msg.sid
+                ? `/api/media/${m.sid}?conversationSid=${conversationId}&chatServiceSid=${chatServiceSid}&messageSid=${msg.sid}`
+                : m.url || m.links?.contentDirect;
+              
+              return {
+                sid: m.sid,
+                url: mediaUrl,
+                contentType: m.contentType || m.type,
+                filename: m.filename
+              };
+            }).filter((media: any) => media && media.url && media.contentType);
+            console.log('✅ Processed media().list():', mediaArr.length, 'valid items');
+          }
+        } catch (mediaErr) {
+          // Silently fail - not all messages have media
+          // Only log if we expected media (no body text)
+          if (!msg.body) {
+            console.log('⚠️ Could not fetch media for message:', msg.sid, mediaErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.log('⚠️ Error processing media for message:', msg.sid, err);
+    }
     // determine sender
     const senderId = msg.author ?? 'unknown';
     const sender = (senderId.startsWith('agent:') || senderId === 'admin_001') ? 'agent' : 'customer';
     // Determine text content - use body if available, otherwise use media description
     let messageText = msg.body ?? '';
-    if (!messageText && mediaArr.length > 0) {
+    // Check if this is a media message (by presence of media or attachedMedia)
+    const hasMediaIndicators = mediaArr.length > 0 || (msg.attachedMedia && msg.attachedMedia.length > 0);
+    
+    if (!messageText && hasMediaIndicators) {
       // If no text but has media, use a descriptive message
-      const firstMedia = mediaArr[0];
-      const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
-      messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+      if (mediaArr.length > 0) {
+        const firstMedia = mediaArr[0];
+        const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
+        messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+      } else {
+        // Fallback if media array is empty but attachedMedia exists
+        messageText = '📎 Media message';
+      }
     }
     
     const mappedMessage = {
@@ -666,6 +803,21 @@ export async function listMessages(conversationId: string, limit = 25, before?: 
       // New media array format
       media: mediaArr.length ? mediaArr : undefined
     };
+    
+    // Debug log for media messages from Twilio API
+    if (hasMediaIndicators || mediaArr.length > 0) {
+      console.log('📦 Twilio API message with media:', {
+        id: mappedMessage.id,
+        text: mappedMessage.text,
+        mediaArrLength: mediaArr.length,
+        mediaArr: mediaArr,
+        attachedMedia: msg.attachedMedia,
+        mediaUrl: mappedMessage.mediaUrl,
+        mediaContentType: mappedMessage.mediaContentType,
+        hasMediaInObject: !!mappedMessage.media
+      });
+    }
+    
     // Mapped message
     return mappedMessage;
   }));

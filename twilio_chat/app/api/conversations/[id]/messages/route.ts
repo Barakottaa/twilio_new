@@ -21,12 +21,16 @@ export async function GET(
       let mediaArray: any[] = [];
       if (message.media_data) {
         try {
-          mediaArray = JSON.parse(message.media_data);
+          const parsedArray = JSON.parse(message.media_data);
+          // Filter out invalid media items (must have url and contentType)
+          mediaArray = parsedArray.filter((media: any) => 
+            media && (media.url || media.sid) && media.contentType
+          );
         } catch (e) {
           console.error('Error parsing media_data:', e);
         }
       }
-
+      
       // Determine media type from content type
       const getMediaType = (contentType: string | null) => {
         if (!contentType) return undefined;
@@ -36,6 +40,42 @@ export async function GET(
         if (contentType.startsWith('application/') || contentType.startsWith('text/')) return 'document';
         return undefined;
       };
+      
+      // Generate fallback text for media messages without text
+      let messageText = message.content || '';
+      // Check if this is a media message (by type or by presence of media fields)
+      const hasMediaIndicators = message.message_type === 'media' || 
+                                 message.media_url || 
+                                 message.media_content_type || 
+                                 message.media_data ||
+                                 mediaArray.length > 0;
+      
+      if (!messageText && hasMediaIndicators) {
+        if (mediaArray.length > 0) {
+          const firstMedia = mediaArray[0];
+          const mediaType = getMediaType(firstMedia.contentType);
+          if (mediaType) {
+            const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+            const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+            messageText = `📎 ${emoji} ${name}`;
+          } else {
+            messageText = '📎 Media message';
+          }
+        } else if (message.media_content_type) {
+          const mediaType = getMediaType(message.media_content_type);
+          if (mediaType) {
+            const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+            const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+            messageText = `📎 ${emoji} ${name}`;
+          } else {
+            messageText = '📎 Media message';
+          }
+        } else if (message.media_url) {
+          messageText = '📎 Media message';
+        } else {
+          messageText = '📎 Media message';
+        }
+      }
 
       // Ensure timestamp is in ISO format
       let timestamp = message.created_at;
@@ -58,7 +98,7 @@ export async function GET(
 
       return {
         id: message.id,
-        text: message.content || '',
+        text: messageText,
         timestamp: timestamp,
         sender: message.sender_type === 'agent' ? 'agent' : 'customer',
         senderId: message.sender_id,
@@ -68,7 +108,7 @@ export async function GET(
         mediaUrl: message.media_url,
         mediaContentType: message.media_content_type,
         mediaFileName: message.media_filename,
-        mediaCaption: message.content || '',
+        mediaCaption: messageText,
         media: mediaArray.length > 0 ? mediaArray : undefined,
       };
     });

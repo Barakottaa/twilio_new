@@ -7,7 +7,13 @@ export async function GET(
   console.log('🎯 MEDIA ROUTE HIT! URL:', req.url);
   try {
     const { mediaSid } = await params;
-    const chatServiceSid = req.nextUrl.searchParams.get('chatServiceSid');
+    let chatServiceSid = req.nextUrl.searchParams.get('chatServiceSid');
+
+    // Handle case where chatServiceSid might be the string "undefined" or "null" or missing
+    if (!chatServiceSid || chatServiceSid === 'undefined' || chatServiceSid === 'null') {
+      console.log('⚠️ Invalid chatServiceSid in URL, falling back to env var');
+      chatServiceSid = process.env.TWILIO_CHAT_SERVICE_SID || null;
+    }
 
     console.log('🔍 Fetching media:', { mediaSid, chatServiceSid });
 
@@ -21,9 +27,9 @@ export async function GET(
     const mcsBase = 'https://mcs.us1.twilio.com/v1';
     const candidates = chatServiceSid
       ? [
-          `${mcsBase}/Services/${chatServiceSid}/Media/${mediaSid}`,
-          `${mcsBase}/Media/${mediaSid}` // fallback to default service
-        ]
+        `${mcsBase}/Services/${chatServiceSid}/Media/${mediaSid}`,
+        `${mcsBase}/Media/${mediaSid}` // fallback to default service
+      ]
       : [`${mcsBase}/Media/${mediaSid}`];
 
     let temporaryUrl: string | undefined;
@@ -39,11 +45,11 @@ export async function GET(
         if (metadataResponse.ok) {
           const metadata = await metadataResponse.json();
           console.log('✅ Got media metadata:', metadata);
-          
+
           // Extract temporary download URL from metadata
           temporaryUrl = metadata.links?.content_direct_temporary || metadata.links?.content_direct;
           contentType = metadata.content_type || contentType;
-          
+
           if (temporaryUrl) {
             console.log('✅ Found temporary URL:', temporaryUrl);
             break;

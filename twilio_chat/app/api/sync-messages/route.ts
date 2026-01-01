@@ -84,13 +84,16 @@ export async function POST(req: NextRequest) {
         let mediaData = [];
         if (twilioMsg.media) {
           for (const media of twilioMsg.media) {
-            mediaData.push({
-              sid: media.sid,
-              url: `/api/media/${media.sid}?conversationSid=${conversationId}&chatServiceSid=${twilioMsg.chatServiceSid}&messageSid=${twilioMsg.sid}`,
-              contentType: media.contentType,
-              filename: media.filename || 'file',
-              size: media.size
-            });
+            // Only include media items with required fields
+            if (media && media.sid && media.contentType) {
+              mediaData.push({
+                sid: media.sid,
+                url: `/api/media/${media.sid}?conversationSid=${conversationId}&chatServiceSid=${twilioMsg.chatServiceSid}&messageSid=${twilioMsg.sid}`,
+                contentType: media.contentType,
+                filename: media.filename || 'file',
+                size: media.size
+              });
+            }
           }
         }
 
@@ -100,6 +103,22 @@ export async function POST(req: NextRequest) {
           twilioMsg.author === 'admin_001'
         );
 
+        // Generate fallback text for media messages without text
+        let messageContent = twilioMsg.body || '';
+        if (!messageContent && mediaData.length > 0) {
+          const firstMedia = mediaData[0];
+          const getMediaType = (contentType: string) => {
+            if (contentType?.startsWith('image/')) return 'image';
+            if (contentType?.startsWith('video/')) return 'video';
+            if (contentType?.startsWith('audio/')) return 'audio';
+            return 'document';
+          };
+          const mediaType = getMediaType(firstMedia.contentType);
+          const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+          const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+          messageContent = `📎 ${emoji} ${name}`;
+        }
+
         // Create message in database
         try {
           const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -108,7 +127,7 @@ export async function POST(req: NextRequest) {
             conversation_id: conversationId,
             sender_id: twilioMsg.author || 'unknown',
             sender_type: isAgentMessage ? 'agent' : 'contact',
-            content: twilioMsg.body || '',
+            content: messageContent,
             message_type: mediaData.length > 0 ? 'media' : 'text',
             twilio_message_sid: twilioMsg.sid,
             media_url: mediaData.length > 0 ? mediaData[0].url : null,

@@ -112,9 +112,44 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
         )}
       >
         {/* Display media using the enhanced MediaMessage component */}
-        {message.media?.map((mediaItem, index) => {
-          console.log('🖼️ Rendering media item:', { url: mediaItem.url, contentType: mediaItem.contentType, sid: mediaItem.sid });
-          
+        {(() => {
+          // Debug: Log ALL messages to see what we're getting
+          // Focus on messages that should have media (text contains 📎)
+          if (message.text?.includes('📎')) {
+            console.log('🔍 MessageBubble - MEDIA MESSAGE DETECTED:', {
+              id: message.id,
+              text: message.text,
+              hasMediaArray: !!message.media,
+              mediaArrayLength: message.media?.length || 0,
+              mediaArray: message.media,
+              hasLegacyFields: !!(message.mediaUrl || message.mediaContentType),
+              mediaUrl: message.mediaUrl,
+              mediaContentType: message.mediaContentType,
+              mediaType: message.mediaType,
+              mediaFileName: message.mediaFileName,
+              fullMessage: message
+            });
+          }
+
+          // Pre-filter valid media items to ensure consistent rendering and empty state checks
+          let validMedia = message.media?.filter((mediaItem) => 
+            mediaItem && mediaItem.url && mediaItem.contentType
+          ) || [];
+
+          // Fallback to legacy media fields if media array is empty but legacy fields exist
+          if (validMedia.length === 0 && message.mediaUrl && message.mediaContentType) {
+            console.log('🔄 Using legacy media fields:', {
+              url: message.mediaUrl,
+              contentType: message.mediaContentType,
+              filename: message.mediaFileName
+            });
+            validMedia = [{
+              url: message.mediaUrl,
+              contentType: message.mediaContentType,
+              filename: message.mediaFileName
+            }];
+          }
+
           // Determine media type from content type
           const getMediaType = (contentType: string) => {
             if (contentType?.startsWith('image/')) return 'image';
@@ -122,31 +157,51 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
             if (contentType?.startsWith('audio/')) return 'audio';
             return 'document';
           };
-          
+
+          console.log('✅ Valid media items to render:', validMedia.length);
+
           return (
-            <div key={index} className="mt-2">
-              <MediaMessage
-                mediaType={getMediaType(mediaItem.contentType || '')}
-                mediaUrl={mediaItem.url}
-                mediaContentType={mediaItem.contentType || ''}
-                fileName={mediaItem.filename}
-                caption={message.text || undefined}
-                timestamp={message.timestamp}
-                sender={message.sender}
-              />
-            </div>
+            <>
+              {validMedia.map((mediaItem, index) => {
+                console.log('🖼️ Rendering media item:', { 
+                  url: mediaItem.url, 
+                  contentType: mediaItem.contentType,
+                  filename: mediaItem.filename,
+                  index 
+                });
+                
+                return (
+                  <div key={index} className="mt-2">
+                    <MediaMessage
+                      mediaType={getMediaType(mediaItem.contentType || '')}
+                      mediaUrl={mediaItem.url}
+                      mediaContentType={mediaItem.contentType || ''}
+                      fileName={mediaItem.filename}
+                      caption={message.text || undefined}
+                      timestamp={message.timestamp}
+                      sender={message.sender}
+                    />
+                  </div>
+                );
+              })}
+              
+              {/* Display text content */}
+              {message.text && (
+                <p className="text-sm break-words">{message.text}</p>
+              )}
+              
+              {/* Show media placeholder if no text and no media displayed */}
+              {/* Only show "Empty message" if there are truly no media indicators at all */}
+              {!message.text && 
+               validMedia.length === 0 && 
+               !message.mediaUrl && 
+               !message.mediaContentType && 
+               !message.mediaType && (
+                <p className="text-sm text-gray-500 italic">Empty message</p>
+              )}
+            </>
           );
-        })}
-        
-        {/* Display text content */}
-        {message.text && (
-          <p className="text-sm break-words">{message.text}</p>
-        )}
-        
-        {/* Show media placeholder if no text and no media displayed */}
-        {!message.text && !message.media?.length && (
-          <p className="text-sm text-gray-500 italic">Empty message</p>
-        )}
+        })()}
         
         
         {/* Timestamp and status row */}

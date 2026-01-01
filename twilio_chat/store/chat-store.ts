@@ -249,9 +249,43 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           messageText: message.text
         });
         
+        // Generate proper preview text for media messages
+        let previewText = message.text;
+        if (!previewText && (message.media?.length || message.mediaUrl || message.mediaContentType)) {
+          // Generate descriptive text for media messages
+          if (message.media && message.media.length > 0) {
+            const firstMedia = message.media[0];
+            const getMediaType = (contentType: string) => {
+              if (!contentType) return 'document';
+              if (contentType.startsWith('image/')) return 'image';
+              if (contentType.startsWith('video/')) return 'video';
+              if (contentType.startsWith('audio/')) return 'audio';
+              return 'document';
+            };
+            const mediaType = getMediaType(firstMedia.contentType || '');
+            const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+            const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+            previewText = `📎 ${emoji} ${name}`;
+          } else if (message.mediaContentType) {
+            const getMediaType = (contentType: string) => {
+              if (!contentType) return 'document';
+              if (contentType.startsWith('image/')) return 'image';
+              if (contentType.startsWith('video/')) return 'video';
+              if (contentType.startsWith('audio/')) return 'audio';
+              return 'document';
+            };
+            const mediaType = getMediaType(message.mediaContentType);
+            const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+            const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+            previewText = `📎 ${emoji} ${name}`;
+          } else {
+            previewText = '📎 Media message';
+          }
+        }
+        
         return { 
           ...conv, 
-          lastMessagePreview: message.text || '[Media]', 
+          lastMessagePreview: previewText || '[Message]', 
           updatedAt: message.timestamp,
           // Only auto-reopen closed conversations when INCOMING messages are received
           status: (wasClosed && isIncomingMessage) ? 'open' : conv.status,
@@ -306,11 +340,47 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const lastMessage = uniqueNewMessages[uniqueNewMessages.length - 1];
     const isIncomingMessage = lastMessage.sender === 'customer';
     
+    // Helper function to generate preview text for media messages
+    const getPreviewText = (message: any) => {
+      if (message.text) return message.text;
+      if (message.media?.length || message.mediaUrl || message.mediaContentType) {
+        if (message.media && message.media.length > 0) {
+          const firstMedia = message.media[0];
+          const getMediaType = (contentType: string) => {
+            if (!contentType) return 'document';
+            if (contentType.startsWith('image/')) return 'image';
+            if (contentType.startsWith('video/')) return 'video';
+            if (contentType.startsWith('audio/')) return 'audio';
+            return 'document';
+          };
+          const mediaType = getMediaType(firstMedia.contentType || '');
+          const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+          const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+          return `📎 ${emoji} ${name}`;
+        } else if (message.mediaContentType) {
+          const getMediaType = (contentType: string) => {
+            if (!contentType) return 'document';
+            if (contentType.startsWith('image/')) return 'image';
+            if (contentType.startsWith('video/')) return 'video';
+            if (contentType.startsWith('audio/')) return 'audio';
+            return 'document';
+          };
+          const mediaType = getMediaType(message.mediaContentType);
+          const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+          const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+          return `📎 ${emoji} ${name}`;
+        } else {
+          return '📎 Media message';
+        }
+      }
+      return '[Message]';
+    };
+    
     const updatedConversations = state.conversations.map(conv => 
       conv.id === conversationId && lastMessage
         ? { 
             ...conv, 
-            lastMessagePreview: lastMessage.text || '[Media]', 
+            lastMessagePreview: getPreviewText(lastMessage), 
             updatedAt: lastMessage.timestamp,
             // Only auto-reopen closed conversations when INCOMING messages are received
             status: (conv.status === 'closed' && isIncomingMessage) ? 'open' : conv.status
@@ -403,9 +473,45 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   }),
   
   updateLastMessage: (conversationId, message) => set((state) => {
+    // Helper function to generate preview text for media messages
+    const getPreviewText = (msg: any) => {
+      if (msg.text) return msg.text;
+      if (msg.media?.length || msg.mediaUrl || msg.mediaContentType) {
+        if (msg.media && msg.media.length > 0) {
+          const firstMedia = msg.media[0];
+          const getMediaType = (contentType: string) => {
+            if (!contentType) return 'document';
+            if (contentType.startsWith('image/')) return 'image';
+            if (contentType.startsWith('video/')) return 'video';
+            if (contentType.startsWith('audio/')) return 'audio';
+            return 'document';
+          };
+          const mediaType = getMediaType(firstMedia.contentType || '');
+          const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+          const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+          return `📎 ${emoji} ${name}`;
+        } else if (msg.mediaContentType) {
+          const getMediaType = (contentType: string) => {
+            if (!contentType) return 'document';
+            if (contentType.startsWith('image/')) return 'image';
+            if (contentType.startsWith('video/')) return 'video';
+            if (contentType.startsWith('audio/')) return 'audio';
+            return 'document';
+          };
+          const mediaType = getMediaType(msg.mediaContentType);
+          const emoji = mediaType === 'image' ? '🖼️' : mediaType === 'video' ? '🎥' : mediaType === 'audio' ? '🎵' : '📄';
+          const name = mediaType.charAt(0).toUpperCase() + mediaType.slice(1);
+          return `📎 ${emoji} ${name}`;
+        } else {
+          return '📎 Media message';
+        }
+      }
+      return '[Message]';
+    };
+    
     const updatedConversations = state.conversations.map(conv => 
       conv.id === conversationId 
-        ? { ...conv, lastMessagePreview: message.text || '[Media]', updatedAt: message.timestamp }
+        ? { ...conv, lastMessagePreview: getPreviewText(message), updatedAt: message.timestamp }
         : conv
     );
     

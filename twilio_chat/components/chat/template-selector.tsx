@@ -74,7 +74,7 @@ export function TemplateSelector({
       try {
         const response = await fetch('/api/twilio/templates');
         const data = await response.json();
-        
+
         if (response.ok && data.success) {
           console.log('📋 Template data received:', data);
           setTemplates(data.templates || []);
@@ -113,7 +113,7 @@ export function TemplateSelector({
     try {
       // Look for template in available templates
       const template = templates.find(t => t.sid === selectedTemplate);
-      
+
       if (!template) {
         toast({
           title: "Error",
@@ -141,9 +141,9 @@ export function TemplateSelector({
       if (response.ok) {
         const responseData = await response.json();
         console.log('✅ Template message response:', responseData);
-        toast({ 
-          title: "Success", 
-          description: `Template message sent! Status: ${responseData.status || 'sent'}` 
+        toast({
+          title: "Success",
+          description: `Template message sent! Status: ${responseData.status || 'sent'}`
         });
         setSelectedTemplate('');
         if (onMessageSent) {
@@ -154,10 +154,10 @@ export function TemplateSelector({
         console.error('❌ Template message error:', errorData);
         const errorMessage = errorData.error || "Failed to send template message.";
         const errorCode = errorData.errorCode ? ` (Error: ${errorData.errorCode})` : '';
-        toast({ 
-          title: "Error", 
+        toast({
+          title: "Error",
           description: `${errorMessage}${errorCode}`,
-          variant: "destructive" 
+          variant: "destructive"
         });
       }
     } catch (error) {
@@ -176,101 +176,16 @@ export function TemplateSelector({
   return (
     <div className="flex-shrink-0 border-t bg-muted/30 px-2 py-1">
       <Card className="border-0 shadow-none">
-        <CardHeader className="pb-1 pt-1.5 px-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-1.5 text-orange-600 text-[10px] font-semibold leading-tight">
-              <AlertTriangle className="h-3 w-3" />
-              {lastCustomerMessage ? 'Template Required' : 'Send Template'}
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 w-5 p-0"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              aria-label={isCollapsed ? "Expand template section" : "Collapse template section"}
-            >
-              {isCollapsed ? (
-                <ChevronUp className="h-3 w-3" />
-              ) : (
-                <ChevronDown className="h-3 w-3" />
-              )}
-            </Button>
-          </div>
-        </CardHeader>
-        {!isCollapsed && (
-          <CardContent className="space-y-1 py-1 px-2">
-            <Alert variant={lastCustomerMessage ? "destructive" : "default"} className="p-1.5 py-1">
-              <div className="flex gap-1.5">
-                <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                <AlertDescription className="text-[10px] flex-1 leading-tight">
-                  <div className="space-y-0.5">
-                    <p className="font-medium leading-tight">
-                      {lastCustomerMessage 
-                        ? "Outside 24-hour window. Only approved templates can be sent."
-                        : "New conversation. Send a template to start."}
-                    </p>
-                    {lastCustomerMessage && (
-                      <p className="text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock className="w-2.5 h-2.5 flex-shrink-0" />
-                        <span className="text-[9px]">Last: {new Date(lastCustomerMessage).toLocaleString()}</span>
-                      </p>
-                    )}
-                  </div>
-                </AlertDescription>
-              </div>
-            </Alert>
-
-            <div className="space-y-1">
-              <div>
-                <label className="text-[10px] font-medium">Template</label>
-                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                  <SelectTrigger className="h-7 text-[10px] px-2">
-                    <SelectValue placeholder={isLoading ? "Loading..." : "Choose template"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((template) => (
-                      <SelectItem key={template.sid} value={template.sid}>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-xs">{template.friendlyName}</span>
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              ✓ Business
-                            </span>
-                          </div>
-                          <span className="text-[9px] text-muted-foreground">
-                            {template.language}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                    
-                    {/* Show message if no templates */}
-                    {templates.length === 0 && !isLoading && (
-                      <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                        No WhatsApp business-initiated templates found. 
-                        <br />
-                        <span className="text-[9px]">Only approved business-initiated templates are shown.</span>
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button
-                onClick={handleSendTemplate}
-                disabled={!selectedTemplate || isSending || isLoading}
-                className="w-full text-[10px] h-7 px-2"
-              >
-                {isSending ? (
-                  <Loader2 className="h-2.5 w-2.5 mr-1.5 animate-spin" />
-                ) : (
-                  <Send className="h-2.5 w-2.5 mr-1.5" />
-                )}
-                Send Template
-              </Button>
+        <CardContent className="space-y-1 py-1 px-2 pt-2">
+          <Alert variant="default" className="p-1.5 py-1 bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-900/50 dark:text-yellow-200">
+            <div className="flex gap-1.5 items-center justify-center">
+              <Clock className="h-3 w-3 flex-shrink-0" />
+              <AlertDescription className="text-sm font-medium leading-tight">
+                Wait for customer to send a message
+              </AlertDescription>
             </div>
-          </CardContent>
-        )}
+          </Alert>
+        </CardContent>
       </Card>
     </div>
   );

@@ -321,14 +321,40 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
     const mediaMessages = messageData.mediaMessages || [];
     const mediaArray = messageData.media || [];
     
+    // Filter out invalid media items (must have url and contentType)
+    const validMediaArray = mediaArray.filter((media: any) => 
+      media && media.url && media.contentType
+    );
+    const validMediaMessages = mediaMessages.filter((msg: any) => 
+      msg && msg.url && msg.contentType
+    );
+    
+    // Combine valid media from both sources
+    const allValidMedia = validMediaArray.length > 0 
+      ? validMediaArray 
+      : validMediaMessages.map(msg => ({
+          url: msg.url,
+          contentType: msg.contentType,
+          filename: msg.fileName,
+          sid: msg.sid
+        }));
+    
     // Determine text content - use body if available, otherwise use media caption
     let messageText = messageData.body || '';
+    // Check if this is a media message (by presence of media indicators)
     if (!messageText && hasMedia) {
-      // If no text but has media, use a descriptive message
-      const firstMedia = mediaMessages[0] || mediaArray[0];
-      if (firstMedia) {
-        const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
-        messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+      if (allValidMedia.length > 0) {
+        // If no text but has valid media, use a descriptive message
+        const firstMedia = allValidMedia[0];
+        if (firstMedia && firstMedia.contentType) {
+          const mediaType = getMediaTypeFromContentType(firstMedia.contentType);
+          messageText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        } else {
+          messageText = '📎 Media message';
+        }
+      } else {
+        // If hasMedia is true but allValidMedia is empty (invalid media), still show generic message
+        messageText = '📎 Media message';
       }
     }
     
@@ -343,17 +369,13 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       deliveryStatus: isAgentMessage ? 'sent' : undefined,
       twilioMessageSid: messageData.messageSid,
       // Legacy media fields for backward compatibility
-      mediaType: mediaMessages[0] ? getMediaTypeFromContentType(mediaMessages[0].contentType) : undefined,
-      mediaUrl: mediaMessages[0]?.url,
-      mediaContentType: mediaMessages[0]?.contentType,
-      mediaFileName: mediaMessages[0]?.fileName,
-      mediaCaption: mediaMessages[0]?.caption,
-      // New media array format
-      media: mediaArray.length > 0 ? mediaArray : mediaMessages.map(msg => ({
-        url: msg.url,
-        contentType: msg.contentType,
-        filename: msg.fileName
-      })),
+      mediaType: allValidMedia[0] ? getMediaTypeFromContentType(allValidMedia[0].contentType) : undefined,
+      mediaUrl: allValidMedia[0]?.url,
+      mediaContentType: allValidMedia[0]?.contentType,
+      mediaFileName: allValidMedia[0]?.filename || allValidMedia[0]?.fileName,
+      mediaCaption: allValidMedia[0]?.caption,
+      // New media array format - only include if we have valid media items
+      media: allValidMedia.length > 0 ? allValidMedia : undefined,
     };
 
     // Import store and get conversationSid
@@ -474,10 +496,25 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
           : `Conversation ${conversationSid}`;
       }
       
+      // Generate proper preview text for media messages
+      let previewText = newMessage.text;
+      if (!previewText && (newMessage.media?.length || newMessage.mediaUrl || newMessage.mediaContentType)) {
+        if (newMessage.media && newMessage.media.length > 0) {
+          const firstMedia = newMessage.media[0];
+          const mediaType = getMediaTypeFromContentType(firstMedia.contentType || '');
+          previewText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        } else if (newMessage.mediaContentType) {
+          const mediaType = getMediaTypeFromContentType(newMessage.mediaContentType);
+          previewText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        } else {
+          previewText = '📎 Media message';
+        }
+      }
+      
       const placeholderConversation = {
         id: conversationSid,
         title: conversationTitle,
-        lastMessagePreview: newMessage.text || '[Media]',
+        lastMessagePreview: previewText || '[Message]',
         unreadCount: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -499,11 +536,26 @@ export function useRealtimeMessages({ loggedInAgentId }: UseRealtimeMessagesProp
       const conversation = store.conversations.find(conv => conv.id === conversationSid);
       const conversationTitle = conversation?.title || `Customer ${messageData.from?.replace('whatsapp:', '') || 'Unknown'}`;
       
+      // Generate proper notification text for media messages
+      let notificationText = newMessage.text;
+      if (!notificationText && (newMessage.media?.length || newMessage.mediaUrl || newMessage.mediaContentType)) {
+        if (newMessage.media && newMessage.media.length > 0) {
+          const firstMedia = newMessage.media[0];
+          const mediaType = getMediaTypeFromContentType(firstMedia.contentType || '');
+          notificationText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        } else if (newMessage.mediaContentType) {
+          const mediaType = getMediaTypeFromContentType(newMessage.mediaContentType);
+          notificationText = `📎 ${getMediaTypeEmoji(mediaType)} ${getMediaTypeName(mediaType)}`;
+        } else {
+          notificationText = '📎 Media message';
+        }
+      }
+      
       // Show notification
       import('@/lib/notification-service').then(({ notificationService }) => {
         notificationService.showNewMessageNotification(
           conversationTitle,
-          newMessage.text || '[Media]'
+          notificationText || '[Message]'
         ).catch(error => {
           console.error('Error showing message notification:', error);
         });
