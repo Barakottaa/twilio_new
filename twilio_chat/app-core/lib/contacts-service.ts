@@ -49,9 +49,9 @@ export async function createContact(data: {
     const db = await getDatabase();
     const contact = await db.createContact({
       name: data.name,
-      phoneNumber: data.phoneNumber,
+      phone_number: data.phoneNumber,
       notes: data.notes,
-      tags: data.tags,
+      tags: data.tags ? JSON.stringify(data.tags) : undefined,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=10b981&color=ffffff&size=150`
     });
 
@@ -78,9 +78,9 @@ export async function updateContact(id: string, data: {
     const db = await getDatabase();
     const contact = await db.updateContact(id, {
       name: data.name,
-      phoneNumber: data.phoneNumber,
+      phone_number: data.phoneNumber,
       notes: data.notes,
-      tags: data.tags,
+      tags: data.tags ? JSON.stringify(data.tags) : undefined,
       avatar: data.name ? `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=10b981&color=ffffff&size=150` : undefined
     });
 
@@ -145,7 +145,7 @@ export async function autoCreateOrUpdateContact(data: {
       // Update existing contact with new information
       const updatedContact = await db.updateContact(existingContact.id, {
         name: data.name || data.profileName || existingContact.name,
-        lastSeen: new Date().toISOString(),
+        last_seen: new Date().toISOString(),
         avatar: data.name || data.profileName ?
           `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.profileName || '')}&background=10b981&color=ffffff&size=150` :
           existingContact.avatar
@@ -167,10 +167,10 @@ export async function autoCreateOrUpdateContact(data: {
       const contactName = data.name || data.profileName || `WhatsApp ${data.phoneNumber}`;
       const newContact = await db.createContact({
         name: contactName,
-        phoneNumber: data.phoneNumber,
+        phone_number: data.phoneNumber,
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(contactName)}&background=10b981&color=ffffff&size=150`,
-        lastSeen: new Date().toISOString(),
-        tags: ['auto-created', 'whatsapp']
+        last_seen: new Date().toISOString(),
+        tags: JSON.stringify(['auto-created', 'whatsapp'])
       });
 
       console.log('✅ Created new contact:', { phoneNumber: data.phoneNumber, name: contactName });

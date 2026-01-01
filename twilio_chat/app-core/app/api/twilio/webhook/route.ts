@@ -17,20 +17,18 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const params = Object.fromEntries(formData.entries());
-    
+
     // Log all incoming webhook data
     logTwilioWebhook('Messaging-Service', params);
-    
-    const {
-      From: from,
-      To: to,
-      Body: body,
-      MessageSid: messageSid,
-      ProfileName: profileName, // THIS IS THE KEY FIELD WE NEED!
-      SmsStatus: smsStatus,
-      MessageType: messageType,
-      NumMedia: numMedia,
-    } = params;
+
+    const from = params.From as string;
+    const to = params.To as string;
+    const body = params.Body as string;
+    const messageSid = params.MessageSid as string;
+    const profileName = params.ProfileName as string; // THIS IS THE KEY FIELD WE NEED!
+    const smsStatus = params.SmsStatus as string;
+    const messageType = params.MessageType as string;
+    const numMedia = params.NumMedia as string;
 
     console.log('📩 Messaging Service webhook received:', {
       from,
@@ -43,7 +41,7 @@ export async function POST(req: NextRequest) {
       numMedia,
       timestamp: new Date().toISOString()
     });
-    
+
     logInfo('📩 Processing Messaging Service webhook', {
       from,
       to,
@@ -57,20 +55,20 @@ export async function POST(req: NextRequest) {
     // Extract phone number from From field
     if (!from) {
       logWarn('⚠️ No From field in Messaging Service webhook', params);
-      return NextResponse.json({ 
-        success: false, 
-        error: 'From field is required' 
+      return NextResponse.json({
+        success: false,
+        error: 'From field is required'
       }, { status: 400 });
     }
 
     // Extract phone number (remove whatsapp: prefix)
     const phoneMatch = from.match(/whatsapp:\s*(\+?\d+)/);
     const rawPhone = phoneMatch ? phoneMatch[1] : from.replace(/^whatsapp:/, '');
-    
+
     // Normalize phone number
     const { normalizePhoneNumber } = await import('@/lib/utils');
     const normalizedPhone = normalizePhoneNumber(rawPhone);
-    
+
     console.log('📱 Extracted phone:', normalizedPhone);
     console.log('👤 ProfileName from webhook:', profileName || '(NOT PROVIDED)');
 
@@ -81,34 +79,26 @@ export async function POST(req: NextRequest) {
         phone: normalizedPhone,
         messageSid
       });
-      
-      // Store contact with ProfileName
+
+      // Store contact in database via contacts service
       try {
-        const { addContact } = await import('@/lib/contact-mapping');
-        const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(profileName)}&background=random`;
-        addContact(normalizedPhone, profileName, avatar);
-        
-        console.log('✅ Contact stored with ProfileName:', profileName);
-        logInfo('✅ Contact stored with ProfileName', {
+        console.log('✅ ProfileName found in Messaging Service webhook:', profileName);
+
+        const { autoCreateOrUpdateContact } = await import('@/lib/contacts-service');
+        await autoCreateOrUpdateContact({
+          name: profileName,
+          phoneNumber: normalizedPhone,
+          profileName: profileName
+        });
+
+        console.log('✅ Contact created/updated in database:', profileName);
+        logInfo('✅ Contact created/updated in database', {
           phone: normalizedPhone,
           name: profileName
         });
-        
-        // Also store in database via contacts service
-        try {
-          const { createOrUpdateContact } = await import('@/lib/contacts-service');
-          await createOrUpdateContact({
-            name: profileName,
-            phoneNumber: normalizedPhone
-          });
-          console.log('✅ Contact created/updated in database:', profileName);
-        } catch (dbError) {
-          console.error('⚠️ Error storing contact in database:', dbError);
-          // Don't fail the webhook if DB storage fails
-        }
-      } catch (contactError) {
-        console.error('❌ Error storing contact:', contactError);
-        logError('❌ Error storing contact', contactError);
+      } catch (dbError) {
+        console.error('⚠️ Error storing contact in database:', dbError);
+        // Don't fail the webhook if DB storage fails
       }
     } else {
       logWarn('⚠️ ProfileName is MISSING in Messaging Service webhook', {
@@ -122,22 +112,22 @@ export async function POST(req: NextRequest) {
     try {
       const { getTwilioClient } = await import('@/lib/twilio-service');
       const twilioClient = await getTwilioClient();
-      
+
       // List conversations and find one with this phone number
       const conversations = await twilioClient.conversations.v1.conversations.list({ limit: 50 });
-      
+
       let conversationSid: string | null = null;
       for (const conv of conversations) {
         try {
           const participants = await twilioClient.conversations.v1
             .conversations(conv.sid)
             .participants.list();
-          
-          const customerParticipant = participants.find(p => 
-            p.messagingBinding?.address === from || 
+
+          const customerParticipant = participants.find(p =>
+            p.messagingBinding?.address === from ||
             p.messagingBinding?.address === `whatsapp:${normalizedPhone}`
           );
-          
+
           if (customerParticipant) {
             conversationSid = conv.sid;
             console.log('✅ Found conversation:', conversationSid);
@@ -147,7 +137,7 @@ export async function POST(req: NextRequest) {
           // Continue checking other conversations
         }
       }
-      
+
       if (conversationSid) {
         // Update conversation title with ProfileName if we have it
         if (profileName && profileName.trim() !== '') {
@@ -156,11 +146,11 @@ export async function POST(req: NextRequest) {
             const participants = await twilioClient.conversations.v1
               .conversations(conversationSid)
               .participants.list();
-            
-            const customerParticipant = participants.find(p => 
+
+            const customerParticipant = participants.find(p =>
               p.messagingBinding?.address === from
             );
-            
+
             if (customerParticipant) {
               // Update participant attributes with ProfileName
               await twilioClient.conversations.v1
@@ -172,7 +162,7 @@ export async function POST(req: NextRequest) {
                     phone: normalizedPhone
                   })
                 });
-              
+
               console.log('✅ Updated participant display_name:', profileName);
               logInfo('✅ Updated participant display_name', {
                 conversationSid,
@@ -196,9 +186,9 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('❌ Error processing Messaging Service webhook:', error);
     logError('❌ Error processing Messaging Service webhook', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

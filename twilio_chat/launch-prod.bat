@@ -6,8 +6,10 @@ echo    Twilio Chat: PRODUCTION MODE
 echo ==========================================
 echo.
 
-echo [0/3] Cleaning up port 3000...
-powershell -Command "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"
+echo [0/3] Cleaning up existing processes...
+taskkill /f /im ngrok.exe /t 2>nul
+taskkill /f /im node.exe /t 2>nul
+powershell -Command "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }" 2>nul
 
 echo [1/3] Starting Production Server...
 start "Twilio Prod Server" cmd /k "npm run start"

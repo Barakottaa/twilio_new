@@ -86,7 +86,7 @@ class SQLiteDatabaseService {
       `CREATE TABLE IF NOT EXISTS contacts (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        phone_number TEXT,
+        phone_number TEXT UNIQUE,
         email TEXT,
         avatar TEXT,
         last_seen DATETIME,
@@ -149,7 +149,7 @@ class SQLiteDatabaseService {
       // Check if column exists first
       const pinnedCheck = this.db.prepare(`PRAGMA table_info(conversations)`).all();
       const hasPinnedColumn = pinnedCheck.some((col: any) => col.name === 'is_pinned');
-      
+
       if (!hasPinnedColumn) {
         this.db.exec(`ALTER TABLE conversations ADD COLUMN is_pinned INTEGER DEFAULT 0`);
         console.log('✅ Added is_pinned column to conversations table');
@@ -165,7 +165,7 @@ class SQLiteDatabaseService {
       // Check if column exists first
       const newCheck = this.db.prepare(`PRAGMA table_info(conversations)`).all();
       const hasNewColumn = newCheck.some((col: any) => col.name === 'is_new');
-      
+
       if (!hasNewColumn) {
         this.db.exec(`ALTER TABLE conversations ADD COLUMN is_new INTEGER DEFAULT 1`);
         console.log('✅ Added is_new column to conversations table');
@@ -216,12 +216,18 @@ class SQLiteDatabaseService {
   }
 
   // Contact operations
-  async createContact(data: Omit<ContactRecord, 'id' | 'created_at' | 'updated_at'>): Promise<ContactRecord> {
+  async createContact(data: {
+    name: string;
+    phone_number?: string;
+    email?: string;
+    avatar?: string;
+    last_seen?: string;
+    notes?: string;
+    tags?: string;
+    is_active?: number;
+  }): Promise<Contact> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
-
-    // Using better-sqlite3 synchronous API
-    // Using better-sqlite3 synchronous API
 
     const id = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
@@ -229,23 +235,26 @@ class SQLiteDatabaseService {
     this.db.prepare(`
       INSERT INTO contacts (id, name, phone_number, email, avatar, last_seen, notes, tags, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(phone_number) DO UPDATE SET
+        name = excluded.name,
+        updated_at = excluded.updated_at,
+        is_active = 1
     `).run(
       id,
       data.name,
-      data.phoneNumber || null,
+      data.phone_number || null,
       data.email || null,
       data.avatar || null,
-      data.lastSeen || null,
+      data.last_seen || null,
       data.notes || null,
       data.tags || null,
-      data.isActive !== false ? 1 : 0,
+      data.is_active !== 0 ? 1 : 0,
       now,
       now
     );
 
     const result = this.db.prepare('SELECT * FROM contacts WHERE id = ?').get(id);
-    
-    // Map snake_case database fields to camelCase interface fields
+
     return {
       id: result.id,
       name: result.name,
@@ -258,19 +267,17 @@ class SQLiteDatabaseService {
       isActive: result.is_active === 1,
       createdAt: result.created_at,
       updatedAt: result.updated_at
-    } as ContactRecord;
+    };
   }
 
-  async getContact(id: string): Promise<ContactRecord | null> {
+  async getContact(id: string): Promise<Contact | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    // Using better-sqlite3 synchronous API
     const result = this.db.prepare('SELECT * FROM contacts WHERE id = ? AND is_active = 1').get(id);
-    
+
     if (!result) return null;
-    
-    // Map snake_case database fields to camelCase interface fields
+
     return {
       id: result.id,
       name: result.name,
@@ -283,17 +290,15 @@ class SQLiteDatabaseService {
       isActive: result.is_active === 1,
       createdAt: result.created_at,
       updatedAt: result.updated_at
-    } as ContactRecord;
+    };
   }
 
-  async getAllContacts(): Promise<ContactRecord[]> {
+  async getAllContacts(): Promise<Contact[]> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    // Using better-sqlite3 synchronous API
     const result = this.db.prepare('SELECT * FROM contacts WHERE is_active = 1 ORDER BY created_at DESC').all();
-    
-    // Map snake_case database fields to camelCase interface fields
+
     return result.map((row: any) => ({
       id: row.id,
       name: row.name,
@@ -306,15 +311,12 @@ class SQLiteDatabaseService {
       isActive: row.is_active === 1,
       createdAt: row.created_at,
       updatedAt: row.updated_at
-    })) as ContactRecord[];
+    }));
   }
 
-  async updateContact(id: string, data: Partial<Omit<ContactRecord, 'id' | 'created_at'>>): Promise<ContactRecord | null> {
+  async updateContact(id: string, data: Partial<Omit<ContactRecord, 'id' | 'created_at'>>): Promise<Contact | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
-
-    // Using better-sqlite3 synchronous API
-    // Using better-sqlite3 synchronous API
 
     const updateFields = [];
     const values = [];
@@ -323,9 +325,9 @@ class SQLiteDatabaseService {
       updateFields.push('name = ?');
       values.push(data.name);
     }
-    if (data.phoneNumber !== undefined) {
+    if (data.phone_number !== undefined) {
       updateFields.push('phone_number = ?');
-      values.push(data.phoneNumber);
+      values.push(data.phone_number);
     }
     if (data.email !== undefined) {
       updateFields.push('email = ?');
@@ -335,9 +337,9 @@ class SQLiteDatabaseService {
       updateFields.push('avatar = ?');
       values.push(data.avatar);
     }
-    if (data.lastSeen !== undefined) {
+    if (data.last_seen !== undefined) {
       updateFields.push('last_seen = ?');
-      values.push(data.lastSeen);
+      values.push(data.last_seen);
     }
     if (data.notes !== undefined) {
       updateFields.push('notes = ?');
@@ -347,9 +349,9 @@ class SQLiteDatabaseService {
       updateFields.push('tags = ?');
       values.push(data.tags);
     }
-    if (data.isActive !== undefined) {
+    if (data.is_active !== undefined) {
       updateFields.push('is_active = ?');
-      values.push(data.isActive ? 1 : 0);
+      values.push(data.is_active);
     }
 
     if (updateFields.length === 0) {
@@ -380,22 +382,50 @@ class SQLiteDatabaseService {
     return result.changes > 0;
   }
 
-  async findContactByPhone(phoneNumber: string): Promise<ContactRecord | null> {
+  async findContactByPhone(phoneNumber: string): Promise<Contact | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    // Using better-sqlite3 synchronous API
     const result = this.db.prepare('SELECT * FROM contacts WHERE phone_number = ? AND is_active = 1').get(phoneNumber);
-    return result as ContactRecord || null;
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      name: result.name,
+      phoneNumber: result.phone_number,
+      email: result.email,
+      avatar: result.avatar,
+      lastSeen: result.last_seen,
+      notes: result.notes,
+      tags: result.tags && result.tags !== '[object Object]' ? JSON.parse(result.tags) : [],
+      isActive: result.is_active === 1,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    };
   }
 
-  async findContactByEmail(email: string): Promise<ContactRecord | null> {
+  async findContactByEmail(email: string): Promise<Contact | null> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
 
-    // Using better-sqlite3 synchronous API
     const result = this.db.prepare('SELECT * FROM contacts WHERE email = ? AND is_active = 1').get(email);
-    return result as ContactRecord || null;
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      name: result.name,
+      phoneNumber: result.phone_number,
+      email: result.email,
+      avatar: result.avatar,
+      lastSeen: result.last_seen,
+      notes: result.notes,
+      tags: result.tags && result.tags !== '[object Object]' ? JSON.parse(result.tags) : [],
+      isActive: result.is_active === 1,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    };
   }
 
   // Agent operations
@@ -520,7 +550,7 @@ class SQLiteDatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {
-      this.db!.run('UPDATE agents SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id], function(err) {
+      this.db!.run('UPDATE agents SET is_active = 0, updated_at = ? WHERE id = ?', [new Date().toISOString(), id], function (err) {
         if (err) {
           reject(err);
         } else {
@@ -554,7 +584,7 @@ class SQLiteDatabaseService {
   // Initialize with sample data (optional)
   async initializeSampleData(): Promise<void> {
     await this.ensureInitialized();
-    
+
     // Check if we already have data
     const existingAgents = await this.getAllAgents();
     if (existingAgents.length > 0) {
@@ -695,7 +725,7 @@ class SQLiteDatabaseService {
   async hasAgentReplies(conversationId: string): Promise<boolean> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
-    
+
     const stmt = this.db.prepare(`
       SELECT COUNT(*) as count 
       FROM messages 
@@ -740,7 +770,7 @@ class SQLiteDatabaseService {
       const existing = this.db.prepare(`
         SELECT id FROM messages WHERE twilio_message_sid = ?
       `).get(data.twilio_message_sid);
-      
+
       if (existing) {
         console.log(`⚠️ Message with twilio_message_sid ${data.twilio_message_sid} already exists, skipping insert`);
         return existing;
@@ -806,14 +836,14 @@ class SQLiteDatabaseService {
   async updateMessageDeliveryStatus(twilioMessageSid: string, deliveryStatus: 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'undelivered'): Promise<any> {
     await this.ensureInitialized();
     if (!this.db) throw new Error('Database not initialized');
-    
+
     const stmt = this.db.prepare('UPDATE messages SET delivery_status = ? WHERE twilio_message_sid = ?');
     const result = stmt.run(deliveryStatus, twilioMessageSid);
-    
+
     if (result.changes === 0) {
       throw new Error(`No message found with Twilio SID: ${twilioMessageSid}`);
     }
-    
+
     return await this.getMessageByTwilioSid(twilioMessageSid);
   }
 
@@ -831,7 +861,7 @@ class SQLiteDatabaseService {
       INSERT INTO comments (id, conversation_id, agent_id, content, created_at, updated_at)
       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `);
-    
+
     const result = stmt.run(data.id, data.conversation_id, data.agent_id, data.content);
     return result;
   }
