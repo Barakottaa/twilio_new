@@ -8,9 +8,6 @@ interface MediaMessageProps {
   mediaUrl: string;
   mediaContentType: string;
   fileName?: string;
-  caption?: string;
-  timestamp: string;
-  sender: 'agent' | 'customer';
 }
 
 // Custom Audio Player Component
@@ -63,7 +60,7 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
     const newTime = percentage * duration;
-    
+
     audio.currentTime = newTime;
     setCurrentTime(newTime);
   };
@@ -90,7 +87,7 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
         <source src={mediaUrl} type={mediaContentType} />
         Your browser does not support the audio element.
       </audio>
-      
+
       <div className="bg-gray-50 rounded-lg p-4 border">
         <div className="flex items-center space-x-3 mb-3">
           <div className="flex-shrink-0">
@@ -107,9 +104,9 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
             </p>
           </div>
           <div className="flex-shrink-0">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 const link = document.createElement('a');
                 link.href = mediaUrl;
@@ -130,11 +127,11 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
         {/* Custom Controls */}
         <div className="space-y-2">
           {/* Progress Bar */}
-          <div 
+          <div
             className="w-full h-2 bg-gray-200 rounded-full cursor-pointer hover:h-3 transition-all"
             onClick={handleSeek}
           >
-            <div 
+            <div
               className="h-full bg-blue-500 rounded-full transition-all"
               style={{ width: `${progressPercentage}%` }}
             />
@@ -145,7 +142,7 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
             <span className="text-xs text-gray-500">
               {formatTime(currentTime)}
             </span>
-            
+
             <div className="flex items-center space-x-2">
               <Button
                 variant="ghost"
@@ -155,7 +152,7 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
               >
                 <SkipBack className="h-4 w-4" />
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -164,7 +161,7 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
               >
                 {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -174,7 +171,7 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
                 <SkipForward className="h-4 w-4" />
               </Button>
             </div>
-            
+
             <span className="text-xs text-gray-500">
               {isLoading ? 'Loading...' : formatTime(duration)}
             </span>
@@ -185,17 +182,13 @@ function CustomAudioPlayer({ mediaUrl, mediaContentType, fileName }: { mediaUrl:
   );
 }
 
-export function MediaMessage({ 
-  mediaType, 
-  mediaUrl, 
-  mediaContentType, 
-  fileName, 
-  caption, 
-  timestamp, 
-  sender 
+export function MediaMessage({
+  mediaType,
+  mediaUrl,
+  mediaContentType,
+  fileName
 }: MediaMessageProps) {
-  const isAgent = sender === 'agent';
-  
+
   const handleDownload = () => {
     // Create a temporary link to download the media
     const link = document.createElement('a');
@@ -206,14 +199,14 @@ export function MediaMessage({
     link.click();
     document.body.removeChild(link);
   };
-  
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '';
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
-  
+
   const getMediaIcon = () => {
     switch (mediaType) {
       case 'image': return <Image className="h-5 w-5" />;
@@ -223,15 +216,15 @@ export function MediaMessage({
       default: return <File className="h-5 w-5" />;
     }
   };
-  
+
   const renderMediaContent = () => {
     switch (mediaType) {
       case 'image':
         return (
           <div className="relative">
-            <img 
-              src={mediaUrl} 
-              alt={caption || 'Image'} 
+            <img
+              src={mediaUrl}
+              alt={'Image'}
               className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => window.open(mediaUrl, '_blank')}
               onError={(e) => {
@@ -248,49 +241,40 @@ export function MediaMessage({
                 `;
               }}
             />
-            {caption && (
-              <p className="text-sm text-gray-600 mt-2">{caption}</p>
-            )}
           </div>
         );
-        
+
       case 'video':
         return (
           <div className="relative">
-            <video 
-              controls 
+            <video
+              controls
               className="max-w-full h-auto rounded-lg"
               preload="metadata"
             >
               <source src={mediaUrl} type={mediaContentType} />
               Your browser does not support the video tag.
             </video>
-            {caption && (
-              <p className="text-sm text-gray-600 mt-2">{caption}</p>
-            )}
           </div>
         );
-        
+
       case 'audio':
         return (
           <div>
-            <CustomAudioPlayer 
+            <CustomAudioPlayer
               mediaUrl={mediaUrl}
               mediaContentType={mediaContentType}
               fileName={fileName}
             />
-            {caption && (
-              <p className="text-sm text-gray-600 mt-2">{caption}</p>
-            )}
           </div>
         );
-        
+
       case 'document':
         const isPDF = mediaContentType === 'application/pdf' || fileName?.toLowerCase().endsWith('.pdf');
         const displayName = fileName || (isPDF ? 'PDF Document' : 'Document');
-        
+
         return (
-          <Card className="p-4">
+          <div className="p-2 bg-muted/20 rounded-lg border border-border/50">
             <div className="flex items-center space-x-3">
               {getMediaIcon()}
               <div className="flex-1 min-w-0">
@@ -300,77 +284,57 @@ export function MediaMessage({
                 <p className="text-xs text-gray-500">
                   {mediaContentType}
                 </p>
-                {caption && caption !== `Document: ${fileName}` && (
-                  <p className="text-sm text-gray-600 mt-1">{caption}</p>
-                )}
-                {!caption && !fileName && (
-                  <p className="text-sm text-gray-600 mt-1">Document received</p>
-                )}
               </div>
-              <div className="flex space-x-2">
+              <div className="flex space-x-1">
                 {isPDF && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => window.open(mediaUrl, '_blank')}
-                    className="flex items-center space-x-1"
+                    className="h-8 w-8 p-0"
                   >
                     <File className="h-4 w-4" />
-                    <span>View</span>
                   </Button>
                 )}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleDownload}
-                  className="flex items-center space-x-1"
+                  className="h-8 w-8 p-0"
                 >
                   <Download className="h-4 w-4" />
-                  <span>Download</span>
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
         );
-        
+
       default:
         return (
-          <Card className="p-4">
+          <div className="p-2 bg-muted/20 rounded-lg border border-border/50">
             <div className="flex items-center space-x-3">
               {getMediaIcon()}
               <div className="flex-1">
                 <p className="text-sm font-medium">Unknown media type</p>
                 <p className="text-xs text-gray-500">{mediaContentType}</p>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleDownload}
+                className="h-8 w-8 p-0"
               >
                 <Download className="h-4 w-4" />
               </Button>
             </div>
-          </Card>
+          </div>
         );
     }
   };
-  
+
   return (
-    <div className={`flex items-end gap-2 ${isAgent ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`rounded-lg px-3 py-2 max-w-md relative animate-in fade-in zoom-in-95 ${
-          isAgent 
-            ? "bg-primary text-primary-foreground" 
-            : "bg-card shadow-sm"
-        }`}
-      >
-        {renderMediaContent()}
-        <span className={`text-xs text-right block mt-1 ${
-          isAgent ? "opacity-60" : "text-gray-500"
-        }`}>
-          {new Date(timestamp).toLocaleTimeString()}
-        </span>
-      </div>
+    <div className="w-full">
+      {renderMediaContent()}
     </div>
   );
 }

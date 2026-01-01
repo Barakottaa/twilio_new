@@ -27,13 +27,13 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
       if (agentName && agentName.length >= 2) {
         return agentName.substring(0, 2).toUpperCase();
       }
-      
+
       // Try to get agent name from the store as fallback
       try {
         const { useChatStore } = require('@/store/chat-store');
         const store = useChatStore.getState();
         const me = store.me;
-        
+
         // If this message is from the current logged-in agent, use their name
         if (me && message.senderId === me.id) {
           if (me.name && me.name.length >= 2) {
@@ -43,7 +43,7 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
       } catch (error) {
         // Fallback if store is not available
       }
-      
+
       // Try to extract agent name from senderId (e.g., "admin_001" -> "AD")
       if (message.senderId) {
         if (message.senderId === 'admin_001') {
@@ -63,7 +63,7 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
       }
       return 'AG'; // Default agent fallback
     }
-    
+
     // For customer messages, use contact name
     if (contactName) {
       // Extract initials from contact name (e.g., "Abdelrahman Baraka" -> "AB")
@@ -74,7 +74,7 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
         return words[0].substring(0, 2).toUpperCase();
       }
     }
-    
+
     // Fallback: try to extract from senderId
     if (message.senderId) {
       // If senderId is like "whatsapp:+1234567890", we can't get initials from it
@@ -85,7 +85,7 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
       // If it's something like "WH", use the first two characters
       return message.senderId.substring(0, 2).toUpperCase();
     }
-    
+
     return 'C'; // Default fallback
   };
 
@@ -98,11 +98,11 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
     <div className={cn("flex items-end gap-2", isAgent ? "justify-end" : "justify-start")}>
       {!isAgent && showAvatar && (
         <Avatar className="h-8 w-8">
-            <AvatarImage src={avatarUrl} alt="Avatar" />
-            <AvatarFallback>{getInitials()}</AvatarFallback>
+          <AvatarImage src={avatarUrl} alt="Avatar" />
+          <AvatarFallback>{getInitials()}</AvatarFallback>
         </Avatar>
       )}
-       {!isAgent && !showAvatar && (
+      {!isAgent && !showAvatar && (
         <div className="w-8" />
       )}
       <div
@@ -111,38 +111,14 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
           isAgent ? "bg-primary text-primary-foreground" : "bg-card shadow-sm",
         )}
       >
-        {/* Display media using the enhanced MediaMessage component */}
         {(() => {
-          // Debug: Log ALL messages to see what we're getting
-          // Focus on messages that should have media (text contains 📎)
-          if (message.text?.includes('📎')) {
-            console.log('🔍 MessageBubble - MEDIA MESSAGE DETECTED:', {
-              id: message.id,
-              text: message.text,
-              hasMediaArray: !!message.media,
-              mediaArrayLength: message.media?.length || 0,
-              mediaArray: message.media,
-              hasLegacyFields: !!(message.mediaUrl || message.mediaContentType),
-              mediaUrl: message.mediaUrl,
-              mediaContentType: message.mediaContentType,
-              mediaType: message.mediaType,
-              mediaFileName: message.mediaFileName,
-              fullMessage: message
-            });
-          }
-
           // Pre-filter valid media items to ensure consistent rendering and empty state checks
-          let validMedia = message.media?.filter((mediaItem) => 
+          let validMedia = message.media?.filter((mediaItem) =>
             mediaItem && mediaItem.url && mediaItem.contentType
           ) || [];
 
           // Fallback to legacy media fields if media array is empty but legacy fields exist
           if (validMedia.length === 0 && message.mediaUrl && message.mediaContentType) {
-            console.log('🔄 Using legacy media fields:', {
-              url: message.mediaUrl,
-              contentType: message.mediaContentType,
-              filename: message.mediaFileName
-            });
             validMedia = [{
               url: message.mediaUrl,
               contentType: message.mediaContentType,
@@ -158,64 +134,60 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
             return 'document';
           };
 
-          console.log('✅ Valid media items to render:', validMedia.length);
-
           return (
-            <>
-              {validMedia.map((mediaItem, index) => {
-                console.log('🖼️ Rendering media item:', { 
-                  url: mediaItem.url, 
-                  contentType: mediaItem.contentType,
-                  filename: mediaItem.filename,
-                  index 
-                });
-                
-                return (
-                  <div key={index} className="mt-2">
-                    <MediaMessage
-                      mediaType={getMediaType(mediaItem.contentType || '')}
-                      mediaUrl={mediaItem.url}
-                      mediaContentType={mediaItem.contentType || ''}
-                      fileName={mediaItem.filename}
-                      caption={message.text || undefined}
-                      timestamp={message.timestamp}
-                      sender={message.sender}
-                    />
-                  </div>
-                );
-              })}
-              
-              {/* Display text content */}
-              {message.text && (
-                <p className="text-sm break-words">{message.text}</p>
-              )}
-              
+            <div className="flex flex-col gap-2">
+              {validMedia.map((mediaItem, index) => (
+                <div key={index}>
+                  <MediaMessage
+                    mediaType={getMediaType(mediaItem.contentType || '')}
+                    mediaUrl={mediaItem.url}
+                    mediaContentType={mediaItem.contentType || ''}
+                    fileName={mediaItem.filename}
+                  />
+                </div>
+              ))}
+
+              {/* Display text content - hide redundant media labels like "Image" or "Document" */}
+              {message.text && (() => {
+                const text = message.text.trim();
+                const isRedundant = validMedia.length > 0 &&
+                  (text === "Image" ||
+                    text === "Document" ||
+                    text === "Video" ||
+                    text === "Audio" ||
+                    text === "📎 🖼️ Image" ||
+                    text === "📎 📄 Document" ||
+                    text === "📎 🎥 Video" ||
+                    text === "📎 🎵 Audio");
+
+                if (isRedundant) return null;
+                return <p className="text-sm break-words">{message.text}</p>;
+              })()}
+
               {/* Show media placeholder if no text and no media displayed */}
-              {/* Only show "Empty message" if there are truly no media indicators at all */}
-              {!message.text && 
-               validMedia.length === 0 && 
-               !message.mediaUrl && 
-               !message.mediaContentType && 
-               !message.mediaType && (
-                <p className="text-sm text-gray-500 italic">Empty message</p>
-              )}
-            </>
+              {!message.text &&
+                validMedia.length === 0 &&
+                !message.mediaUrl &&
+                !message.mediaContentType &&
+                !message.mediaType && (
+                  <p className="text-sm text-gray-500 italic">Empty message</p>
+                )}
+            </div>
           );
         })()}
-        
-        
+
+
         {/* Timestamp and status row */}
-        <div className={`flex items-center justify-end gap-1 mt-1 ${
-          isAgent ? "opacity-60" : "text-gray-500"
-        }`}>
+        <div className={`flex items-center justify-end gap-1 mt-1 ${isAgent ? "opacity-60" : "text-gray-500"
+          }`}>
           <span className="text-xs">
             {formattedTimestamp}
           </span>
           {/* Show delivery status for agent messages */}
           {isAgent && message.deliveryStatus && (
             <div className="ml-2 bg-black/20 rounded-full p-1">
-              <MessageStatus 
-                status={message.deliveryStatus} 
+              <MessageStatus
+                status={message.deliveryStatus}
                 className=""
               />
             </div>
@@ -227,8 +199,8 @@ export function MessageBubble({ message, avatarUrl, showAvatar, contactName, age
       )}
       {isAgent && showAvatar && (
         <Avatar className="h-8 w-8">
-            <AvatarImage src={avatarUrl} alt="Avatar" />
-            <AvatarFallback>A</AvatarFallback>
+          <AvatarImage src={avatarUrl} alt="Avatar" />
+          <AvatarFallback>A</AvatarFallback>
         </Avatar>
       )}
     </div>
