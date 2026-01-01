@@ -137,20 +137,20 @@ export async function autoCreateOrUpdateContact(data: {
 }): Promise<Customer | null> {
   try {
     const db = await getDatabase();
-    
+
     // Check if contact already exists by phone number
     const existingContact = await db.findContactByPhone(data.phoneNumber);
-    
+
     if (existingContact) {
       // Update existing contact with new information
       const updatedContact = await db.updateContact(existingContact.id, {
         name: data.name || data.profileName || existingContact.name,
         lastSeen: new Date().toISOString(),
-        avatar: data.name || data.profileName ? 
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.profileName || '')}&background=10b981&color=ffffff&size=150` : 
+        avatar: data.name || data.profileName ?
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.profileName || '')}&background=10b981&color=ffffff&size=150` :
           existingContact.avatar
       });
-      
+
       if (updatedContact) {
         console.log('✅ Updated existing contact:', { phoneNumber: data.phoneNumber, name: updatedContact.name });
         return {
@@ -172,7 +172,7 @@ export async function autoCreateOrUpdateContact(data: {
         lastSeen: new Date().toISOString(),
         tags: ['auto-created', 'whatsapp']
       });
-      
+
       console.log('✅ Created new contact:', { phoneNumber: data.phoneNumber, name: contactName });
       return {
         id: newContact.id,
@@ -183,10 +183,26 @@ export async function autoCreateOrUpdateContact(data: {
         lastSeen: newContact.lastSeen
       };
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error auto-creating/updating contact:', error);
     return null;
   }
+}
+
+/**
+ * Gets a display name for a phone number (checks contacts first, then formats)
+ */
+export async function getDisplayName(phoneNumber: string): Promise<string> {
+  if (!phoneNumber) return 'Unknown';
+
+  const contact = await findContactByPhone(phoneNumber);
+  if (contact) {
+    return contact.name;
+  }
+
+  // Fallback to formatted phone number
+  const { formatPhoneNumber } = await import('./utils');
+  return formatPhoneNumber(phoneNumber);
 }

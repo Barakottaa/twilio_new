@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 // Lazy load heavy components
-const ChatView = lazy(() => import('./chat-view').then(module => ({ default: module.ChatView })));
 
 interface OptimizedChatLayoutProps {
   loggedInAgent: Agent;
@@ -32,18 +31,18 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     loadAssignmentsFromDatabase,
     setAssignment
   } = useChatStore();
-  
+
   const { toast } = useToast();
-  
+
   // Handle assigning conversation to current user
   const [isAssigning, setIsAssigning] = useState(false);
   const [lastCustomerMessage, setLastCustomerMessage] = useState<string | undefined>();
   const [isCheckingWindow, setIsCheckingWindow] = useState(true); // Track if we're still checking 24h window
   const [showTemplateDialog, setShowTemplateDialog] = useState(false); // Template dialog state
-  
+
   // Get selected phone number from store
   const selectedNumberId = useChatStore(state => state.selectedNumberId);
-  
+
   // Use the messages hook for both fetching and real-time updates
   const {
     messages,
@@ -74,28 +73,28 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
     console.log('🔍 Getting assignment for conversation:', selectedConversationId, 'assignment:', assignment, 'all assignments:', state.assignments);
     return assignment;
   });
-  
+
   // Get conversation status to determine if assignment should be considered
   const conversationStatus = useChatStore(state => {
     const status = selectedConversationId ? state.statuses[selectedConversationId] : 'open';
     console.log('🔍 Getting status for conversation:', selectedConversationId, 'status:', status);
     return status;
   });
-  
+
   // Check if the conversation is assigned to the current user
   const isAssignedToCurrentUser = assignedAgent?.id === loggedInAgent.id;
   const isUnassigned = !assignedAgent;
   const isAssignedToOtherAgent = assignedAgent && assignedAgent.id !== loggedInAgent.id;
-  
+
   // Message input should be disabled if not assigned to current user (regardless of conversation status)
   const messageInputDisabled = !isAssignedToCurrentUser;
-  
-  const messageInputDisabledReason = isUnassigned 
+
+  const messageInputDisabledReason = isUnassigned
     ? "This conversation is not assigned to any agent."
-    : isAssignedToOtherAgent 
-    ? `This conversation is assigned to ${assignedAgent?.name}. Only the assigned agent can send messages.`
-    : "You cannot send messages to this conversation.";
-  
+    : isAssignedToOtherAgent
+      ? `This conversation is assigned to ${assignedAgent?.name}. Only the assigned agent can send messages.`
+      : "You cannot send messages to this conversation.";
+
   // Show assign button for unassigned or assigned-to-other conversations (regardless of conversation status)
   const showAssignButton = isUnassigned || isAssignedToOtherAgent;
 
@@ -129,21 +128,21 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
 
     // Messages have loaded, now check for customer messages
     setIsCheckingWindow(false);
-    
+
     if (messages.length > 0) {
       console.log('🔍 Finding last customer message from messages:', messages.length);
-      
+
       // Filter customer messages and sort by timestamp (most recent first)
       const customerMessages = messages
         .filter((msg: any) => {
-          const isCustomer = (msg.sender === 'contact') || 
-                           (msg.sender === 'customer') || 
-                           (msg.senderType === 'customer') ||
-                           (msg.author && !msg.author.startsWith('agent') && !msg.author.startsWith('admin'));
+          const isCustomer = (msg.sender === 'contact') ||
+            (msg.sender === 'customer') ||
+            (msg.senderType === 'customer') ||
+            (msg.author && !msg.author.startsWith('agent') && !msg.author.startsWith('admin'));
           return isCustomer;
         })
         .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      
+
       console.log('👤 Customer messages found:', customerMessages.length);
       if (customerMessages.length > 0) {
         const lastCustomerMsg = customerMessages[0]; // Most recent customer message
@@ -166,7 +165,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
 
   const handleAssignToMe = async () => {
     if (!selectedConversationId || isAssigning) return;
-    
+
     setIsAssigning(true);
     try {
       const response = await fetch(`/api/conversations/${selectedConversationId}/assign`, {
@@ -180,7 +179,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       if (response.ok) {
         // Refresh assignments from database to ensure consistency
         await loadAssignmentsFromDatabase();
-        
+
         toast({
           title: "Conversation Assigned",
           description: "This conversation has been assigned to you.",
@@ -235,7 +234,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
 
   const handleToggleStatus = useCallback(async (conversationId: string, newStatus: 'open' | 'closed' | 'pending') => {
     console.log('🔍 handleToggleStatus called:', { conversationId, newStatus });
-    
+
     try {
       console.log('🔍 Calling status API:', `/api/conversations/${conversationId}/status`);
       const response = await fetch(`/api/conversations/${conversationId}/status`, {
@@ -247,7 +246,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       });
 
       console.log('🔍 Status API response status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('🔍 Status API error:', errorText);
@@ -347,11 +346,11 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
   // Real-time messages are already initialized above - removing duplicate call
 
   const handleSendMessage = async (text: string) => {
-    
+
     if (!selectedConversationId || !text.trim()) {
       return;
     }
-    
+
     if (messageInputDisabled) {
       toast({
         title: "Cannot send message",
@@ -360,7 +359,7 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       });
       return;
     }
-    
+
     // Add the message to the store immediately for instant UI update with "sending" status
     const { appendMessage, setConversations } = useChatStore.getState();
     const tempMessageId = `temp-${Date.now()}`;
@@ -373,15 +372,15 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
       conversationId: selectedConversationId,
       deliveryStatus: 'sending' as const
     };
-    
+
     console.log('📤 Adding temporary message to store:', {
       tempId: tempMessageId,
       text: text.trim(),
       conversationId: selectedConversationId
     });
-    
+
     appendMessage(selectedConversationId, newMessage);
-    
+
     try {
       // Call the send message API
       const response = await fetch(`/api/twilio/conversations/${selectedConversationId}/message`, {
@@ -395,23 +394,23 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
           fromNumberId: selectedNumberId // Pass selected number ID for sending
         })
       });
-      
+
       // Message API response status
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Message API error:', errorText);
-        
+
         // Update message status to failed
         const { updateMessageStatus } = useChatStore.getState();
         updateMessageStatus(selectedConversationId, tempMessageId, 'failed');
-        
+
         throw new Error(`Failed to send message: ${response.status} ${errorText}`);
       }
-      
+
       const result = await response.json();
       // Message sent successfully
-      
+
       // Update the message with the real ID and "sent" status
       const { updateMessageAfterSend, setStatus } = useChatStore.getState();
       console.log('📤 Updating message after successful send:', {
@@ -420,13 +419,13 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         twilioSid: result.twilioMessageSid,
         conversationId: selectedConversationId
       });
-      
+
       updateMessageAfterSend(selectedConversationId, tempMessageId, {
         id: result.messageId || tempMessageId,
         twilioMessageSid: result.twilioMessageSid,
         deliveryStatus: 'sent' as const
       });
-      
+
       // Set a timeout to update delivery status to "delivered" if no webhook is received
       setTimeout(() => {
         const { updateMessageStatus } = useChatStore.getState();
@@ -437,13 +436,13 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
           updateMessageStatus(selectedConversationId, message.id, 'delivered');
         }
       }, 3000); // Wait 3 seconds before auto-updating to delivered
-      
+
       // Update conversation status to "open" if it was closed (agent is now participating)
       const currentStatus = useChatStore.getState().statuses[selectedConversationId];
       if (currentStatus === 'closed') {
         console.log('🔍 Agent sent message to closed conversation, reopening...');
         setStatus(selectedConversationId, 'open');
-        
+
         // Also update in database
         try {
           await fetch(`/api/conversations/${selectedConversationId}/status`, {
@@ -457,12 +456,12 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
           console.error('Failed to update conversation status in database:', error);
         }
       }
-      
+
       // Ensure the conversation is assigned to the current agent when they send a message
       const currentAssignment = useChatStore.getState().assignments[selectedConversationId];
       if (!currentAssignment || currentAssignment.id !== loggedInAgent.id) {
         console.log('🔍 Agent sent message, ensuring assignment to current agent...');
-        
+
         // Update in database
         try {
           await fetch(`/api/conversations/${selectedConversationId}/assign`, {
@@ -472,34 +471,34 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
             },
             body: JSON.stringify({ agentId: loggedInAgent.id }),
           });
-          
+
           // Refresh assignments from database to ensure consistency
           await loadAssignmentsFromDatabase();
         } catch (error) {
           console.error('Failed to update conversation assignment in database:', error);
         }
       }
-      
+
       // Update the conversation list with the new last message
       const currentConversations = useChatStore.getState().conversations;
       const updatedConversations = currentConversations.map(conv => {
         if (conv.id === selectedConversationId) {
-          return { 
-            ...conv, 
-            lastMessagePreview: text.trim(), 
-            updatedAt: new Date().toISOString(), 
-            status: ('open' as 'open' | 'closed' | 'pending') 
+          return {
+            ...conv,
+            lastMessagePreview: text.trim(),
+            updatedAt: new Date().toISOString(),
+            status: ('open' as 'open' | 'closed' | 'pending')
           };
         }
         return conv;
       });
       setConversations(updatedConversations);
-      
+
       toast({
         title: "Message sent",
         description: "Your message has been sent successfully.",
       });
-      
+
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -573,16 +572,16 @@ export function OptimizedChatLayout({ loggedInAgent }: OptimizedChatLayoutProps)
         {selectedConversationId ? (
           <>
             {/* Chat Header */}
-                   <OptimizedChatHeader
-                     conversationId={selectedConversationId || undefined}
-                     conversation={selectedConversation ?? undefined}
-                     onRefresh={refreshMessages}
-                     onAssignAgent={handleAssignAgent}
-                     onToggleStatus={handleToggleStatus}
-                     onChangePriority={handleChangePriority}
-                     onDeleteConversation={handleDeleteConversation}
-                     loggedInAgent={loggedInAgent}
-                   />
+            <OptimizedChatHeader
+              conversationId={selectedConversationId || undefined}
+              conversation={selectedConversation ?? undefined}
+              onRefresh={refreshMessages}
+              onAssignAgent={handleAssignAgent}
+              onToggleStatus={handleToggleStatus}
+              onChangePriority={handleChangePriority}
+              onDeleteConversation={handleDeleteConversation}
+              loggedInAgent={loggedInAgent}
+            />
 
 
             {/* Messages Area - Takes remaining space */}
